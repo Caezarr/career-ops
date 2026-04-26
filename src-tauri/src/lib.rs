@@ -1,6 +1,7 @@
 mod audio;
 mod llm;
 mod pdf;
+mod session;
 mod state;
 mod stt;
 
@@ -79,6 +80,38 @@ async fn list_audio_devices() -> Result<Vec<String>, String> {
     tokio::task::spawn_blocking(audio::list_input_devices)
         .await
         .map_err(|e| format!("task join error: {e}"))
+}
+
+/// Start a continuous session: listen indefinitely, auto-fire bullets when the
+/// recruiter pauses after speaking. Replaces the manual hotkey for live interviews.
+#[tauri::command]
+async fn start_session(
+    app: tauri::AppHandle,
+    state: State<'_, Arc<Mutex<AppState>>>,
+    config: CaptureConfig,
+) -> Result<(), String> {
+    let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+    {
+        let mut s = state.lock().await;
+        // If a session is already running, stop it first.
+        if let Some(existing) = s.stop_signal.take() {
+            let _ = existing.send(());
+        }
+        s.stop_signal = Some(stop_tx);
+    }
+
+    session::run_session(app, config, stop_rx)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn stop_session(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), String> {
+    let mut s = state.lock().await;
+    if let Some(stop) = s.stop_signal.take() {
+        let _ = stop.send(());
+    }
+    Ok(())
 }
 
 async fn run_pipeline(
@@ -209,7 +242,9 @@ pub fn run() {
             start_capture,
             stop_capture,
             parse_cv_pdf,
-            list_audio_devices
+            list_audio_devices,
+            start_session,
+            stop_session
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

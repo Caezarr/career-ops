@@ -7,7 +7,13 @@ import {
   unregister,
 } from "@tauri-apps/plugin-global-shortcut";
 
-type Status = "idle" | "recording" | "thinking" | "ready" | "error";
+type Status =
+  | "idle"
+  | "recording"
+  | "thinking"
+  | "ready"
+  | "error"
+  | "listening";
 
 interface Bullet {
   text: string;
@@ -134,7 +140,7 @@ export default function App() {
 
     register(shortcut, async () => {
       if (!mounted) return;
-      await triggerCapture();
+      await toggleSession();
     }).catch((e) => {
       console.warn("Hotkey register failed:", e);
     });
@@ -173,13 +179,50 @@ export default function App() {
     }
   }, [config]);
 
-  const stopCapture = useCallback(async () => {
+  const sessionActive =
+    status === "listening" || status === "recording" || status === "thinking";
+
+  const startSession = useCallback(async () => {
+    if (!config.anthropic_key) {
+      setError("Configure your Anthropic API key first");
+      return;
+    }
+    setError(null);
+    setBullets([]);
+    setTranscript("");
     try {
-      await invoke("stop_capture");
+      await invoke("start_session", {
+        config: {
+          anthropicKey: config.anthropic_key,
+          openaiKey: config.openai_key,
+          cv: config.cv,
+          jd: config.jd,
+          persona: config.persona,
+          durationSecs: 6,
+          audioDevice: config.audio_device,
+          loopbackDevice: config.loopback_device,
+        },
+      });
+      setStatus("listening");
+    } catch (e) {
+      setError(String(e));
+      setStatus("error");
+    }
+  }, [config]);
+
+  const stopSession = useCallback(async () => {
+    try {
+      await invoke("stop_session");
+      setStatus("idle");
     } catch (e) {
       console.warn(e);
     }
   }, []);
+
+  const toggleSession = useCallback(async () => {
+    if (sessionActive) await stopSession();
+    else await startSession();
+  }, [sessionActive, startSession, stopSession]);
 
   return (
     <div className="app">
@@ -219,7 +262,7 @@ export default function App() {
         <span className="title">
           Interview Copilot
           <span style={{ marginLeft: 8, opacity: 0.45 }}>
-            <span className="kbd">⌘⇧Space</span> to capture
+            <span className="kbd">⌘⇧Space</span> to {sessionActive ? "stop" : "start"}
           </span>
         </span>
         <StatusPill status={status} time={recordingTime} />
@@ -253,34 +296,39 @@ export default function App() {
             </div>
           ) : (
             <div className="empty-state">
-              {status === "recording"
-                ? "Listening…"
-                : status === "thinking"
-                  ? "Generating bullets…"
-                  : status === "error"
-                    ? "Error — check config"
-                    : "Press ⌘⇧Space, ask a question, release after question."}
+              {status === "listening"
+                ? "Listening for the recruiter's question…"
+                : status === "recording"
+                  ? "Capturing…"
+                  : status === "thinking"
+                    ? "Generating bullets…"
+                    : status === "error"
+                      ? "Error — check config"
+                      : "Click Start session — bullets appear automatically after each question."}
             </div>
           )}
 
           {error && <div className="error">{error}</div>}
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            {!sessionActive ? (
+              <button className="btn btn-primary" onClick={startSession}>
+                Start session
+              </button>
+            ) : (
+              <button className="btn btn-stop" onClick={stopSession}>
+                Stop session
+              </button>
+            )}
             <button
-              className="btn"
+              className="btn btn-ghost"
               onClick={triggerCapture}
-              disabled={status === "recording" || status === "thinking"}
+              disabled={sessionActive}
+              title="One-shot 6s capture"
             >
-              Capture
+              Single shot
             </button>
-            <button
-              className="btn"
-              onClick={stopCapture}
-              disabled={status !== "recording"}
-            >
-              Stop
-            </button>
-            <button className="btn" onClick={() => setShowConfig(true)}>
+            <button className="btn btn-ghost" onClick={() => setShowConfig(true)}>
               Config
             </button>
           </div>
@@ -292,24 +340,28 @@ export default function App() {
 
 function StatusPill({ status, time }: { status: Status; time: number }) {
   const label =
-    status === "recording"
-      ? `REC ${time.toFixed(1)}s`
-      : status === "thinking"
-        ? "THINKING"
-        : status === "ready"
-          ? "READY"
-          : status === "error"
-            ? "ERROR"
-            : "IDLE";
+    status === "listening"
+      ? "LISTENING"
+      : status === "recording"
+        ? `REC ${time.toFixed(1)}s`
+        : status === "thinking"
+          ? "THINKING"
+          : status === "ready"
+            ? "READY"
+            : status === "error"
+              ? "ERROR"
+              : "IDLE";
 
   const cls =
-    status === "recording"
+    status === "listening"
       ? "recording"
-      : status === "thinking"
-        ? "thinking"
-        : status === "ready"
-          ? "ready"
-          : "";
+      : status === "recording"
+        ? "recording"
+        : status === "thinking"
+          ? "thinking"
+          : status === "ready"
+            ? "ready"
+            : "";
 
   return (
     <span className={`status-pill ${cls}`}>
