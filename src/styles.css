@@ -28,7 +28,8 @@ body,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 16px 20px;
+  /* Top padding clears macOS traffic-light buttons (titleBarStyle: Overlay + hiddenTitle) */
+  padding: 36px 20px 16px 20px;
   height: 100%;
   background: rgba(20, 20, 22, 0.85);
   backdrop-filter: blur(20px);

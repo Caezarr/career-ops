@@ -5,8 +5,11 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
+    "core:window:allow-start-dragging",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-content-protected",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
     "core:event:default",
     "core:webview:default",
     "global-shortcut:default",
