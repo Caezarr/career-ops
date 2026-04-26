@@ -30,6 +30,8 @@ async-trait = "0.1"
 once_cell = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+pdf-extract = "0.7"
+base64 = "0.22"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

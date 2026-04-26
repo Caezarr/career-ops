@@ -1,5 +1,6 @@
 mod audio;
 mod llm;
+mod pdf;
 mod state;
 mod stt;
 
@@ -53,6 +54,16 @@ async fn stop_capture(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), Stri
         let _ = stop.send(());
     }
     Ok(())
+}
+
+/// Decode a base64-encoded PDF and extract its text content.
+/// Used by the Config panel to load a CV PDF.
+#[tauri::command]
+async fn parse_cv_pdf(b64: String) -> Result<String, String> {
+    tokio::task::spawn_blocking(move || pdf::extract_text_from_base64(&b64))
+        .await
+        .map_err(|e| format!("task join error: {e}"))?
+        .map_err(|e| e.to_string())
 }
 
 async fn run_pipeline(
@@ -128,7 +139,11 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![start_capture, stop_capture])
+        .invoke_handler(tauri::generate_handler![
+            start_capture,
+            stop_capture,
+            parse_cv_pdf
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

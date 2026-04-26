@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   register,
   unregister,
@@ -30,6 +31,35 @@ const DEFAULT_CONFIG: Config = {
   persona: "finance",
 };
 
+// Reliable drag handler for Tauri 2 — works regardless of titleBarStyle / decorations.
+async function startDrag(e: React.MouseEvent) {
+  if (e.buttons !== 1) return; // primary button only
+  // Don't drag from interactive children (buttons/inputs)
+  const tag = (e.target as HTMLElement).tagName;
+  if (["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"].includes(tag)) return;
+  try {
+    await getCurrentWindow().startDragging();
+  } catch (err) {
+    console.warn("startDragging failed:", err);
+  }
+}
+
+async function closeWindow() {
+  try {
+    await getCurrentWindow().close();
+  } catch (err) {
+    console.warn("close failed:", err);
+  }
+}
+
+async function minimizeWindow() {
+  try {
+    await getCurrentWindow().minimize();
+  } catch (err) {
+    console.warn("minimize failed:", err);
+  }
+}
+
 export default function App() {
   const [status, setStatus] = useState<Status>("idle");
   const [transcript, setTranscript] = useState<string>("");
@@ -41,7 +71,6 @@ export default function App() {
 
   const recordingTimerRef = useRef<number | null>(null);
 
-  // Load config from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem("ic-config");
     if (saved) {
@@ -55,16 +84,11 @@ export default function App() {
     }
   }, []);
 
-  // Persist config
-  const saveConfig = useCallback(
-    (next: Config) => {
-      setConfig(next);
-      localStorage.setItem("ic-config", JSON.stringify(next));
-    },
-    [],
-  );
+  const saveConfig = useCallback((next: Config) => {
+    setConfig(next);
+    localStorage.setItem("ic-config", JSON.stringify(next));
+  }, []);
 
-  // Listen to backend events
   useEffect(() => {
     const unlistenStatus = listen<Status>("status", (e) => {
       setStatus(e.payload);
@@ -100,7 +124,6 @@ export default function App() {
     };
   }, []);
 
-  // Register global hotkey Cmd+Shift+Space
   useEffect(() => {
     const shortcut = "CmdOrCtrl+Shift+Space";
     let mounted = true;
@@ -154,11 +177,24 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="header" data-tauri-drag-region>
-        <span data-tauri-drag-region>
-          <span className="drag-handle" data-tauri-drag-region>⋮⋮</span>
+      <div className="header" onMouseDown={startDrag}>
+        <div className="window-controls">
+          <button
+            className="wc wc-close"
+            onClick={closeWindow}
+            title="Close (Cmd+W)"
+            aria-label="Close"
+          />
+          <button
+            className="wc wc-min"
+            onClick={minimizeWindow}
+            title="Minimize"
+            aria-label="Minimize"
+          />
+        </div>
+        <span className="title">
           Interview Copilot
-          <span style={{ marginLeft: 8, opacity: 0.45 }} data-tauri-drag-region>
+          <span style={{ marginLeft: 8, opacity: 0.45 }}>
             <span className="kbd">⌘⇧Space</span> to capture
           </span>
         </span>
@@ -269,6 +305,37 @@ function ConfigPanel({
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState(config);
+  const [pdfStatus, setPdfStatus] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handlePdfUpload = useCallback(
+    async (file: File) => {
+      setPdfError(null);
+      setPdfStatus(`Reading ${file.name}…`);
+      try {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        // Encode in chunks to avoid stack overflow on large PDFs
+        let binary = "";
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          binary += String.fromCharCode(
+            ...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)),
+          );
+        }
+        const b64 = btoa(binary);
+        setPdfStatus("Parsing PDF…");
+        const text = await invoke<string>("parse_cv_pdf", { b64 });
+        setDraft((d) => ({ ...d, cv: text }));
+        setPdfStatus(`Loaded ${file.name} (${text.length} chars)`);
+      } catch (e) {
+        setPdfStatus(null);
+        setPdfError(typeof e === "string" ? e : String(e));
+      }
+    },
+    [],
+  );
 
   return (
     <div className="config">
@@ -319,12 +386,30 @@ function ConfigPanel({
         </select>
       </label>
       <label>
-        CV (paste raw text or summary)
+        CV — upload PDF or paste text
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) handlePdfUpload(f);
+          }}
+          style={{ marginBottom: 6 }}
+        />
+        {pdfStatus && (
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>
+            {pdfStatus}
+          </span>
+        )}
+        {pdfError && (
+          <span style={{ fontSize: 11, color: "#ff8b8b" }}>{pdfError}</span>
+        )}
         <textarea
-          placeholder="Paste your CV…"
+          placeholder="Paste your CV here, or upload a PDF above…"
           value={draft.cv}
           onChange={(e) => setDraft({ ...draft, cv: e.target.value })}
-          rows={5}
+          rows={6}
         />
       </label>
       <label>
