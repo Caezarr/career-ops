@@ -98,7 +98,7 @@
 - [ ] **LIVE-07g**: Heartbeat per-stage exposé dans le panneau diagnostic dev : capture → STT → diarization → context → LLM → render. Une stage muette > 5s = warning visuel.
 - [ ] **LIVE-07h**: STT shadow mode en dev : les deux providers reçoivent le même audio en parallèle, outputs comparés et loggés pour valider que AssemblyAI marche vraiment avant qu'on en ait besoin.
 
-### Memory / Persistence v1 (Phase 6/7)
+### Memory / Persistence v1 (Phase 6)
 
 - [ ] **MEM-01**: Le transcript complet (utterances JSONL avec speaker, ts, content) est sauvegardé localement dans le snapshot après chaque session.
 - [ ] **MEM-01a**: Format de stockage : `~/Library/Application Support/com.caezarr.interview-copilot/snapshots/<jd_id>/transcript.jsonl` + métadonnées en SQLite.
@@ -184,33 +184,88 @@ Explicitly excluded. Documented to prevent scope creep.
 
 ## Traceability
 
-Empty initially. Filled by Roadmapper agent during ROADMAP.md creation.
+Filled by Roadmapper agent during ROADMAP.md creation (2026-04-26). Verified 100% v1 coverage — every atomic v1 REQ-ID maps to exactly one phase. PRIV-01..06 are cross-cutting (concurrent across all phases) — they have a phase listed below indicating the EARLIEST phase that touches them, but they continue across the v1 lifecycle.
 
-| Requirement | Phase | Status |
-|---|---|---|
-| FOUND-01..06 | Phase 0 | Pending |
-| LIVE-01..01d | Phase 1 | Pending |
-| LIVE-02..02e | Phase 2 | Pending |
-| LIVE-03..03d | Phase 2 | Pending |
-| PREP-01..01a | Phase 3 | Pending |
-| PREP-02 | Phase 3 | Pending |
-| PREP-04 | Phase 3 | Pending |
-| CTX-01..02 | Phase 3 | Pending |
-| LIVE-04..04g | Phase 4 | Pending |
-| DOMAIN-02..02a | Phase 4 | Pending |
-| LIVE-05..05f | Phase 5 | Pending |
-| LIVE-06..06b | Phase 5 | Pending |
-| COACH-02..02a | Phase 5 | Pending |
-| LIVE-07..07h | Phase 6 | Pending |
-| MEM-01..01d | Phase 6 | Pending |
-| PRIV-01..06 | Cross-cutting (all phases) | Pending |
+| Requirement | Phase | First touched | Status |
+|---|---|---|---|
+| FOUND-01 | Phase 0 | Phase 0 | Pending |
+| FOUND-02 | Phase 0 | Phase 0 | Pending |
+| FOUND-03 (stealth spike) | Phase 0 | Phase 0 | Pending |
+| FOUND-04 | Phase 0 | Phase 0 | Pending |
+| FOUND-05 | Phase 0 | Phase 0 | Pending |
+| FOUND-06 | Phase 0 | Phase 0 | Pending |
+| LIVE-01 | Phase 1 | Phase 1 | Pending |
+| LIVE-01a | Phase 1 | Phase 1 | Pending |
+| LIVE-01b | Phase 1 | Phase 1 | Pending |
+| LIVE-01c | Phase 1 | Phase 1 | Pending |
+| LIVE-01d | Phase 1 | Phase 1 | Pending |
+| LIVE-02 | Phase 2 | Phase 2 | Pending |
+| LIVE-02a | Phase 2 | Phase 2 | Pending |
+| LIVE-02b | Phase 2 | Phase 2 | Pending |
+| LIVE-02c | Phase 2 | Phase 2 | Pending |
+| LIVE-02d | Phase 2 | Phase 2 | Pending |
+| LIVE-02e | Phase 2 | Phase 2 | Pending |
+| LIVE-03 | Phase 2 | Phase 2 | Pending |
+| LIVE-03a | Phase 2 | Phase 2 | Pending |
+| LIVE-03b | Phase 2 | Phase 2 | Pending |
+| LIVE-03c | Phase 2 | Phase 2 | Pending |
+| LIVE-03d | Phase 2 | Phase 2 | Pending |
+| PREP-01 | Phase 3 | Phase 3 | Pending |
+| PREP-01a | Phase 3 | Phase 3 | Pending |
+| PREP-02 | Phase 3 | Phase 3 | Pending |
+| PREP-04 | Phase 3 | Phase 3 | Pending |
+| CTX-01 | Phase 3 | Phase 3 | Pending |
+| CTX-02 | Phase 3 | Phase 3 | Pending |
+| LIVE-04 | Phase 4 | Phase 4 | Pending |
+| LIVE-04a | Phase 4 | Phase 4 | Pending |
+| LIVE-04b | Phase 4 | Phase 4 | Pending |
+| LIVE-04c | Phase 4 | Phase 4 | Pending |
+| LIVE-04d | Phase 4 | Phase 4 | Pending |
+| LIVE-04e | Phase 4 | Phase 4 | Pending |
+| LIVE-04f | Phase 4 | Phase 4 | Pending |
+| LIVE-04g | Phase 4 | Phase 4 | Pending |
+| DOMAIN-02 | Phase 4 | Phase 4 | Pending |
+| DOMAIN-02a | Phase 4 | Phase 4 | Pending |
+| LIVE-05 | Phase 5 | Phase 5 | Pending |
+| LIVE-05a | Phase 5 | Phase 5 | Pending |
+| LIVE-05b | Phase 5 | Phase 5 | Pending |
+| LIVE-05c | Phase 5 | Phase 5 | Pending |
+| LIVE-05d | Phase 5 | Phase 5 | Pending |
+| LIVE-05e | Phase 5 | Phase 5 | Pending |
+| LIVE-05f | Phase 5 | Phase 5 | Pending |
+| LIVE-06 | Phase 5 | Phase 5 | Pending |
+| LIVE-06a | Phase 5 | Phase 5 | Pending |
+| LIVE-06b | Phase 5 | Phase 5 | Pending |
+| COACH-02 | Phase 5 | Phase 5 | Pending |
+| COACH-02a | Phase 5 | Phase 5 | Pending |
+| LIVE-07 | Phase 6 | Phase 6 | Pending |
+| LIVE-07a | Phase 6 | Phase 6 | Pending |
+| LIVE-07b | Phase 6 | Phase 6 | Pending |
+| LIVE-07c | Phase 6 | Phase 6 | Pending |
+| LIVE-07d | Phase 6 | Phase 6 | Pending |
+| LIVE-07e | Phase 6 | Phase 6 | Pending |
+| LIVE-07f | Phase 6 | Phase 6 | Pending |
+| LIVE-07g | Phase 6 | Phase 6 | Pending |
+| LIVE-07h | Phase 6 | Phase 6 | Pending |
+| MEM-01 | Phase 6 | Phase 6 | Pending |
+| MEM-01a | Phase 6 | Phase 6 | Pending |
+| MEM-01b | Phase 6 | Phase 6 | Pending |
+| MEM-01c | Phase 6 | Phase 6 | Pending |
+| MEM-01d | Phase 6 | Phase 6 | Pending |
+| PRIV-01 | Cross-cutting | Phase 0 (`cloud::Client` scaffold) | Pending |
+| PRIV-02 | Cross-cutting | Phase 6 (release-build hardening) | Pending |
+| PRIV-03 | Cross-cutting | Phase 6 (gate before failover ships) | Pending |
+| PRIV-04 | Cross-cutting | Phase 0 (data path under `~/Library/Application Support`) | Pending |
+| PRIV-05 | Cross-cutting | Phase 0 (Keychain wired to settings) | Pending |
+| PRIV-06 | Cross-cutting | Phase 6 (`LEGAL.md` posture documented) | Pending |
 
 **Coverage:**
-- v1 requirements: ~80 atomic checkboxes across 14 categories
-- Mapped to phases: all (Phase 0-6, plus PRIV cross-cutting)
+- v1 atomic REQ-IDs: 70 across 14 categories
+- Mapped to a phase: 70 (Phase 0-6) + 6 cross-cutting (PRIV-01..06)
 - Unmapped: 0 ✓
+- v2 REQ-IDs: tracked separately, not in v1 roadmap
 
 ---
 
 *Requirements defined: 2026-04-26*
-*Last updated: 2026-04-26 after initial definition*
+*Last updated: 2026-04-26 after roadmap creation (traceability filled)*
