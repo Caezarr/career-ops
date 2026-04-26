@@ -182,15 +182,33 @@ export default function App() {
           <button
             className="wc wc-close"
             onClick={closeWindow}
-            title="Close (Cmd+W)"
+            title="Close"
             aria-label="Close"
-          />
+          >
+            <svg viewBox="0 0 10 10" fill="none">
+              <path
+                d="M2 2 L8 8 M8 2 L2 8"
+                stroke="rgba(0,0,0,0.6)"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
           <button
             className="wc wc-min"
             onClick={minimizeWindow}
             title="Minimize"
             aria-label="Minimize"
-          />
+          >
+            <svg viewBox="0 0 10 10" fill="none">
+              <path
+                d="M2 5 L8 5"
+                stroke="rgba(0,0,0,0.6)"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
         </div>
         <span className="title">
           Interview Copilot
