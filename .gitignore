@@ -34,3 +34,7 @@ src-tauri/gen/schemas/
 .env.*.local
 
 # Generated icons placeholder (we'll add real ones later)
+
+# TS build info
+tsconfig.tsbuildinfo
+*.tsbuildinfo
