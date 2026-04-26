@@ -22,9 +22,13 @@ pub struct CaptureConfig {
     pub persona: String,
     #[serde(default = "default_duration")]
     pub duration_secs: u32,
-    /// Empty = system default. Set to e.g. "BlackHole 2ch" to capture system audio loopback.
+    /// User's mic. Empty = system default input.
     #[serde(default)]
     pub audio_device: String,
+    /// Loopback (recruiter audio). Empty = don't capture loopback.
+    /// Typically "BlackHole 2ch" on Mac after BlackHole + Multi-Output Device setup.
+    #[serde(default)]
+    pub loopback_device: String,
 }
 
 fn default_duration() -> u32 {
@@ -88,39 +92,81 @@ async fn run_pipeline(
         s.stop_signal = Some(stop_tx);
     }
 
-    // Stage 1: capture mic to wav buffer
+    // Stage 1: dual capture (mic = user, loopback = recruiter)
     app.emit("status", "recording")?;
     info!(
-        "starting capture for {}s on device '{}'",
+        "dual capture for {}s — mic='{}', loopback='{}'",
         config.duration_secs,
-        if config.audio_device.is_empty() { "(default)" } else { &config.audio_device }
+        if config.audio_device.is_empty() { "(default)" } else { &config.audio_device },
+        if config.loopback_device.is_empty() { "(off)" } else { &config.loopback_device },
     );
-    let wav_bytes = audio::record_mic_wav(
+    let captures = audio::record_dual_wav(
         config.duration_secs,
         config.audio_device.clone(),
+        config.loopback_device.clone(),
         stop_rx,
     )
     .await?;
-    info!("captured {} bytes of wav audio", wav_bytes.len());
+    info!("captured {} channels", captures.len());
 
-    // Stage 2: transcribe via OpenAI Whisper API (free-ish; no Deepgram key required for MVP)
-    // Falls back to no-transcript if STT fails.
+    // Stage 2: transcribe each channel in parallel via Whisper
     app.emit("status", "thinking")?;
-    let transcript = match stt::transcribe(&wav_bytes, &config.openai_key).await {
-        Ok(t) => {
-            app.emit("transcript", &t)?;
-            t
+    let mut transcribe_futs = Vec::new();
+    for cap in &captures {
+        let key = config.openai_key.clone();
+        let wav = cap.wav.clone();
+        let label = cap.channel.label();
+        transcribe_futs.push(async move {
+            let res = stt::transcribe(&wav, &key).await;
+            (label, res)
+        });
+    }
+    let results = futures_util::future::join_all(transcribe_futs).await;
+
+    // Stage 2b: build a labeled transcript ("recruiter: ..." / "user: ...")
+    // The recruiter channel is what the LLM actually answers, but we keep both for context.
+    let mut labeled = String::new();
+    let mut recruiter_text = String::new();
+    let mut user_text = String::new();
+    for (label, res) in results {
+        match res {
+            Ok(t) => {
+                let trimmed = t.trim();
+                if trimmed.is_empty() {
+                    continue;
+                }
+                labeled.push_str(label);
+                labeled.push_str(": ");
+                labeled.push_str(trimmed);
+                labeled.push('\n');
+                if label == "recruiter" {
+                    recruiter_text = trimmed.to_string();
+                } else {
+                    user_text = trimmed.to_string();
+                }
+            }
+            Err(e) => {
+                tracing::warn!("[{}] transcription failed: {e:?}", label);
+            }
         }
-        Err(e) => {
-            tracing::warn!("transcription failed: {e:?}");
-            let placeholder = "[transcription unavailable — generating generic bullets]".to_string();
-            app.emit("transcript", &placeholder)?;
-            placeholder
-        }
+    }
+    if labeled.is_empty() {
+        labeled = "[no transcription — generating generic bullets]".to_string();
+    }
+    app.emit("transcript", &labeled)?;
+
+    // The "question" passed to the LLM: prefer recruiter audio when present,
+    // otherwise fall back to whatever we got from the mic.
+    let question = if !recruiter_text.is_empty() {
+        recruiter_text
+    } else if !user_text.is_empty() {
+        user_text
+    } else {
+        labeled.clone()
     };
 
     // Stage 3: generate bullets via Claude
-    let bullets = llm::generate_bullets(&config, &transcript).await?;
+    let bullets = llm::generate_bullets(&config, &question).await?;
     app.emit("bullets", &bullets)?;
     app.emit("status", "ready")?;
 

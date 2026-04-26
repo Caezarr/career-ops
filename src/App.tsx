@@ -21,7 +21,8 @@ interface Config {
   cv: string;
   jd: string;
   persona: "finance" | "tech-ai" | "consulting";
-  audio_device: string;
+  audio_device: string;     // mic (your voice)
+  loopback_device: string;  // system audio loopback (recruiter)
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG: Config = {
   jd: "",
   persona: "finance",
   audio_device: "",
+  loopback_device: "",
 };
 
 // Reliable drag handler for Tauri 2 — works regardless of titleBarStyle / decorations.
@@ -162,6 +164,7 @@ export default function App() {
           persona: config.persona,
           durationSecs: 6,
           audioDevice: config.audio_device,
+          loopbackDevice: config.loopback_device,
         },
       });
     } catch (e) {
@@ -335,10 +338,10 @@ function ConfigPanel({
     invoke<string[]>("list_audio_devices")
       .then((list) => {
         setDevices(list);
-        // Auto-pick BlackHole if present and no device chosen yet
-        if (!draft.audio_device) {
+        // Auto-pick BlackHole as loopback (recruiter audio) if present and not already set.
+        if (!draft.loopback_device) {
           const bh = list.find((d) => /blackhole/i.test(d));
-          if (bh) setDraft((d) => ({ ...d, audio_device: bh }));
+          if (bh) setDraft((d) => ({ ...d, loopback_device: bh }));
         }
       })
       .catch((e) => console.warn("list_audio_devices failed:", e));
@@ -346,6 +349,14 @@ function ConfigPanel({
   }, []);
 
   const hasBlackHole = devices.some((d) => /blackhole/i.test(d));
+  const selectStyle = {
+    background: "rgba(0,0,0,0.3)",
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: 6,
+    padding: "6px 8px",
+    fontSize: 12,
+  } as const;
 
   const handlePdfUpload = useCallback(
     async (file: File) => {
@@ -400,32 +411,44 @@ function ConfigPanel({
         />
       </label>
       <label>
-        Audio source
+        Mic — your voice
         <select
           value={draft.audio_device}
           onChange={(e) =>
             setDraft({ ...draft, audio_device: e.target.value })
           }
-          style={{
-            background: "rgba(0,0,0,0.3)",
-            color: "white",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 6,
-            padding: "6px 8px",
-            fontSize: 12,
-          }}
+          style={selectStyle}
         >
-          <option value="">Default mic</option>
+          <option value="">Default mic (system)</option>
+          {devices
+            .filter((d) => !/blackhole/i.test(d))
+            .map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+        </select>
+      </label>
+      <label>
+        Loopback — recruiter audio (optional)
+        <select
+          value={draft.loopback_device}
+          onChange={(e) =>
+            setDraft({ ...draft, loopback_device: e.target.value })
+          }
+          style={selectStyle}
+        >
+          <option value="">Off — only my mic</option>
           {devices.map((d) => (
             <option key={d} value={d}>
               {d}
-              {/blackhole/i.test(d) ? "  ← recommended for interviews" : ""}
+              {/blackhole/i.test(d) ? "  ← recommended" : ""}
             </option>
           ))}
         </select>
         {!hasBlackHole && (
           <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
-            For interviews, install{" "}
+            To capture the recruiter, install{" "}
             <a
               href="#"
               onClick={(e) => {
@@ -438,10 +461,11 @@ function ConfigPanel({
               style={{ color: "#95b8ff" }}
             >
               BlackHole
-            </a>{" "}
-            and route Zoom/Teams/Meet output to a Multi-Output Device that
-            includes BlackHole. Then pick "BlackHole 2ch" here to capture the
-            recruiter's voice.
+            </a>
+            , route Zoom/Teams output to a Multi-Output Device that includes
+            BlackHole, then pick "BlackHole 2ch" here. Mic + loopback get
+            captured in parallel and labelled (you / recruiter) before going
+            to Claude.
           </span>
         )}
       </label>

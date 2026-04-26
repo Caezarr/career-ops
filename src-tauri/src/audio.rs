@@ -21,8 +21,96 @@ pub fn list_input_devices() -> Vec<String> {
     }
 }
 
-/// Records from the named device (or default if empty) for `duration_secs`,
-/// returns a WAV-encoded buffer (16 kHz mono).
+/// Channel-of-origin label for the dual capture pipeline.
+/// `Mic` = your voice. `Loopback` = the recruiter's voice (via BlackHole / system audio).
+#[derive(Debug, Clone, Copy)]
+pub enum Channel {
+    Mic,
+    Loopback,
+}
+
+impl Channel {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Channel::Mic => "user",
+            Channel::Loopback => "recruiter",
+        }
+    }
+}
+
+/// Output of a single capture: WAV bytes + which channel produced them.
+#[derive(Debug)]
+pub struct ChannelCapture {
+    pub channel: Channel,
+    pub wav: Vec<u8>,
+}
+
+/// Records two devices in parallel for `duration_secs`, returns both WAV buffers
+/// labelled by channel of origin. If `loopback_device` is empty, only the mic is recorded.
+///
+/// Each capture runs on its own OS thread (cpal Stream is !Send on macOS). Both
+/// share a single AtomicBool stop flag bridged from the async oneshot.
+pub async fn record_dual_wav(
+    duration_secs: u32,
+    mic_device: String,
+    loopback_device: String,
+    stop_rx: oneshot::Receiver<()>,
+) -> Result<Vec<ChannelCapture>> {
+    let stop_flag = Arc::new(AtomicBool::new(false));
+
+    let stop_flag_for_signal = stop_flag.clone();
+    tokio::spawn(async move {
+        let _ = stop_rx.await;
+        stop_flag_for_signal.store(true, Ordering::SeqCst);
+    });
+
+    // Spawn mic capture
+    let mic_flag = stop_flag.clone();
+    let mic_handle = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
+        record_blocking(duration_secs, &mic_device, mic_flag)
+    });
+
+    // Spawn loopback capture (only if a device is selected)
+    let loopback_handle = if !loopback_device.is_empty() {
+        let lb_flag = stop_flag.clone();
+        Some(tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
+            record_blocking(duration_secs, &loopback_device, lb_flag)
+        }))
+    } else {
+        None
+    };
+
+    let mut out = Vec::with_capacity(2);
+
+    let mic_wav = mic_handle
+        .await
+        .map_err(|e| anyhow!("mic task panicked: {e}"))??;
+    out.push(ChannelCapture {
+        channel: Channel::Mic,
+        wav: mic_wav,
+    });
+
+    if let Some(h) = loopback_handle {
+        match h.await {
+            Ok(Ok(wav)) => out.push(ChannelCapture {
+                channel: Channel::Loopback,
+                wav,
+            }),
+            Ok(Err(e)) => {
+                tracing::warn!("loopback capture failed: {e:?}");
+                // Don't fail the whole pipeline — the mic capture still gives us something.
+            }
+            Err(e) => {
+                tracing::warn!("loopback task panicked: {e}");
+            }
+        }
+    }
+
+    Ok(out)
+}
+
+/// Backwards-compatible single-device capture (kept for non-dual code paths).
+#[allow(dead_code)]
 pub async fn record_mic_wav(
     duration_secs: u32,
     device_name: String,
@@ -37,13 +125,11 @@ pub async fn record_mic_wav(
     });
 
     let stop_flag_blocking = stop_flag.clone();
-    let wav = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
+    tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
         record_blocking(duration_secs, &device_name, stop_flag_blocking)
     })
     .await
-    .map_err(|e| anyhow!("audio task panicked: {e}"))??;
-
-    Ok(wav)
+    .map_err(|e| anyhow!("audio task panicked: {e}"))?
 }
 
 fn record_blocking(
@@ -62,8 +148,8 @@ fn record_blocking(
             .ok_or_else(|| anyhow!("input device not found: {device_name}"))?
     };
 
-    let device_name = device.name().unwrap_or_else(|_| "(unknown)".into());
-    info!("using input device: {}", device_name);
+    let resolved_name = device.name().unwrap_or_else(|_| "(unknown)".into());
+    info!("opening input device: {}", resolved_name);
 
     let supported = device
         .default_input_config()
@@ -73,11 +159,10 @@ fn record_blocking(
     let channels = supported.channels();
     let input_rate = supported.sample_rate().0;
     info!(
-        "input config: {} Hz, {} channels, {:?}",
-        input_rate, channels, sample_format
+        "[{}] config: {} Hz, {} channels, {:?}",
+        resolved_name, input_rate, channels, sample_format
     );
 
-    // Buffer of mono f32 at the input rate; resampled at the end.
     let buffer: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::with_capacity(
         (input_rate as usize) * (duration_secs as usize),
     )));
@@ -156,19 +241,17 @@ fn record_blocking(
     };
 
     stream.play().context("failed to start audio stream")?;
-    info!("recording started, target {}s", duration_secs);
+    info!("[{}] recording started, target {}s", resolved_name, duration_secs);
 
-    // Poll until duration elapsed or stop flag set.
     let start = Instant::now();
     let target = Duration::from_secs(duration_secs as u64);
     while start.elapsed() < target {
         if stop_flag.load(Ordering::SeqCst) {
-            info!("recording stopped early by user");
+            info!("[{}] recording stopped early", resolved_name);
             break;
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    info!("recording loop exited at {:?}", start.elapsed());
 
     drop(stream);
 
@@ -178,7 +261,8 @@ fn record_blocking(
     };
     let resampled = resample_to_16k(&raw, input_rate);
     info!(
-        "recorded {} mono samples @ {}Hz, downsampled to {} @ 16kHz",
+        "[{}] {} samples @ {}Hz → {} @ 16kHz",
+        resolved_name,
         raw.len(),
         input_rate,
         resampled.len()
