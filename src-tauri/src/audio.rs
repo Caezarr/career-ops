@@ -9,18 +9,27 @@ use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 use tracing::info;
 
-/// Records from the default input device for `duration_secs`, returns a WAV-encoded buffer (16 kHz mono).
-/// `stop_rx` can short-circuit early.
-///
-/// Implementation: cpal's `Stream` is `!Send` on macOS, so we run the entire capture
-/// on a dedicated OS thread via `tokio::task::spawn_blocking` and signal it via an `AtomicBool`.
+/// List all available audio input device names on this host.
+pub fn list_input_devices() -> Vec<String> {
+    let host = cpal::default_host();
+    match host.input_devices() {
+        Ok(iter) => iter.filter_map(|d| d.name().ok()).collect(),
+        Err(e) => {
+            tracing::warn!("could not list input devices: {e}");
+            Vec::new()
+        }
+    }
+}
+
+/// Records from the named device (or default if empty) for `duration_secs`,
+/// returns a WAV-encoded buffer (16 kHz mono).
 pub async fn record_mic_wav(
     duration_secs: u32,
+    device_name: String,
     stop_rx: oneshot::Receiver<()>,
 ) -> Result<Vec<u8>> {
     let stop_flag = Arc::new(AtomicBool::new(false));
 
-    // Bridge: when the async stop_rx fires, flip the atomic for the blocking thread.
     let stop_flag_for_signal = stop_flag.clone();
     tokio::spawn(async move {
         let _ = stop_rx.await;
@@ -29,7 +38,7 @@ pub async fn record_mic_wav(
 
     let stop_flag_blocking = stop_flag.clone();
     let wav = tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-        record_blocking(duration_secs, stop_flag_blocking)
+        record_blocking(duration_secs, &device_name, stop_flag_blocking)
     })
     .await
     .map_err(|e| anyhow!("audio task panicked: {e}"))??;
@@ -37,11 +46,21 @@ pub async fn record_mic_wav(
     Ok(wav)
 }
 
-fn record_blocking(duration_secs: u32, stop_flag: Arc<AtomicBool>) -> Result<Vec<u8>> {
+fn record_blocking(
+    duration_secs: u32,
+    device_name: &str,
+    stop_flag: Arc<AtomicBool>,
+) -> Result<Vec<u8>> {
     let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .ok_or_else(|| anyhow!("no default input device"))?;
+
+    let device = if device_name.is_empty() {
+        host.default_input_device()
+            .ok_or_else(|| anyhow!("no default input device"))?
+    } else {
+        host.input_devices()?
+            .find(|d| d.name().map(|n| n == device_name).unwrap_or(false))
+            .ok_or_else(|| anyhow!("input device not found: {device_name}"))?
+    };
 
     let device_name = device.name().unwrap_or_else(|_| "(unknown)".into());
     info!("using input device: {}", device_name);

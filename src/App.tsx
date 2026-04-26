@@ -21,6 +21,7 @@ interface Config {
   cv: string;
   jd: string;
   persona: "finance" | "tech-ai" | "consulting";
+  audio_device: string;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -29,6 +30,7 @@ const DEFAULT_CONFIG: Config = {
   cv: "",
   jd: "",
   persona: "finance",
+  audio_device: "",
 };
 
 // Reliable drag handler for Tauri 2 — works regardless of titleBarStyle / decorations.
@@ -159,6 +161,7 @@ export default function App() {
           jd: config.jd,
           persona: config.persona,
           durationSecs: 6,
+          audioDevice: config.audio_device,
         },
       });
     } catch (e) {
@@ -325,7 +328,24 @@ function ConfigPanel({
   const [draft, setDraft] = useState(config);
   const [pdfStatus, setPdfStatus] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [devices, setDevices] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    invoke<string[]>("list_audio_devices")
+      .then((list) => {
+        setDevices(list);
+        // Auto-pick BlackHole if present and no device chosen yet
+        if (!draft.audio_device) {
+          const bh = list.find((d) => /blackhole/i.test(d));
+          if (bh) setDraft((d) => ({ ...d, audio_device: bh }));
+        }
+      })
+      .catch((e) => console.warn("list_audio_devices failed:", e));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const hasBlackHole = devices.some((d) => /blackhole/i.test(d));
 
   const handlePdfUpload = useCallback(
     async (file: File) => {
@@ -378,6 +398,52 @@ function ConfigPanel({
             setDraft({ ...draft, openai_key: e.target.value })
           }
         />
+      </label>
+      <label>
+        Audio source
+        <select
+          value={draft.audio_device}
+          onChange={(e) =>
+            setDraft({ ...draft, audio_device: e.target.value })
+          }
+          style={{
+            background: "rgba(0,0,0,0.3)",
+            color: "white",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 6,
+            padding: "6px 8px",
+            fontSize: 12,
+          }}
+        >
+          <option value="">Default mic</option>
+          {devices.map((d) => (
+            <option key={d} value={d}>
+              {d}
+              {/blackhole/i.test(d) ? "  ← recommended for interviews" : ""}
+            </option>
+          ))}
+        </select>
+        {!hasBlackHole && (
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
+            For interviews, install{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                window.open(
+                  "https://github.com/ExistentialAudio/BlackHole",
+                  "_blank",
+                );
+              }}
+              style={{ color: "#95b8ff" }}
+            >
+              BlackHole
+            </a>{" "}
+            and route Zoom/Teams/Meet output to a Multi-Output Device that
+            includes BlackHole. Then pick "BlackHole 2ch" here to capture the
+            recruiter's voice.
+          </span>
+        )}
       </label>
       <label>
         Persona

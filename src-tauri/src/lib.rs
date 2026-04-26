@@ -22,6 +22,9 @@ pub struct CaptureConfig {
     pub persona: String,
     #[serde(default = "default_duration")]
     pub duration_secs: u32,
+    /// Empty = system default. Set to e.g. "BlackHole 2ch" to capture system audio loopback.
+    #[serde(default)]
+    pub audio_device: String,
 }
 
 fn default_duration() -> u32 {
@@ -66,6 +69,14 @@ async fn parse_cv_pdf(b64: String) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
+/// List the names of all available audio input devices.
+#[tauri::command]
+async fn list_audio_devices() -> Result<Vec<String>, String> {
+    tokio::task::spawn_blocking(audio::list_input_devices)
+        .await
+        .map_err(|e| format!("task join error: {e}"))
+}
+
 async fn run_pipeline(
     app: tauri::AppHandle,
     state: Arc<Mutex<AppState>>,
@@ -79,8 +90,17 @@ async fn run_pipeline(
 
     // Stage 1: capture mic to wav buffer
     app.emit("status", "recording")?;
-    info!("starting mic capture for {}s", config.duration_secs);
-    let wav_bytes = audio::record_mic_wav(config.duration_secs, stop_rx).await?;
+    info!(
+        "starting capture for {}s on device '{}'",
+        config.duration_secs,
+        if config.audio_device.is_empty() { "(default)" } else { &config.audio_device }
+    );
+    let wav_bytes = audio::record_mic_wav(
+        config.duration_secs,
+        config.audio_device.clone(),
+        stop_rx,
+    )
+    .await?;
     info!("captured {} bytes of wav audio", wav_bytes.len());
 
     // Stage 2: transcribe via OpenAI Whisper API (free-ish; no Deepgram key required for MVP)
@@ -142,7 +162,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             start_capture,
             stop_capture,
-            parse_cv_pdf
+            parse_cv_pdf,
+            list_audio_devices
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
