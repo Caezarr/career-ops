@@ -154,10 +154,11 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="header">
-        <span>
+      <div className="header" data-tauri-drag-region>
+        <span data-tauri-drag-region>
+          <span className="drag-handle" data-tauri-drag-region>⋮⋮</span>
           Interview Copilot
-          <span style={{ marginLeft: 8, opacity: 0.45 }}>
+          <span style={{ marginLeft: 8, opacity: 0.45 }} data-tauri-drag-region>
             <span className="kbd">⌘⇧Space</span> to capture
           </span>
         </span>
