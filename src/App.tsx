@@ -31,12 +31,13 @@ const DEFAULT_CONFIG: Config = {
 };
 
 // ── Window height constants (px) ─────────────────────────────────────────────
-const H_HEADER   = 48;
-const H_Q_CARD   = 66;
-const H_DOT_ANIM = 54;
-const H_ERROR    = 48;
+const H_HEADER   = 52;
+const H_IDLE     = 88;   // idle CTA area
+const H_Q_CARD   = 64;
+const H_DOT_ANIM = 56;
+const H_ERROR    = 46;
 const H_PAD      = 18;
-const H_CONFIG   = 590;
+const H_CONFIG   = 600;
 const H_MIN      = H_HEADER + H_DOT_ANIM + H_PAD;
 
 async function startDrag(e: React.MouseEvent) {
@@ -139,14 +140,18 @@ export default function App() {
     let h: number;
     if (showConfig) {
       h = H_CONFIG;
+    } else if (!sessionActive && !hasContent) {
+      // Idle state: header + CTA
+      h = H_HEADER + H_IDLE;
     } else if (!expanded) {
+      // Collapsed active session
       h = H_HEADER;
     } else {
       h = H_HEADER;
       if (transcript || ["thinking", "recording"].includes(status)) h += H_Q_CARD;
       if (answer) {
         const lines = Math.max(3, Math.ceil(answer.length / 58));
-        h += Math.min(lines * 20 + 32, 240);
+        h += Math.min(lines * 22 + 36, 260);
       } else if (["thinking", "recording", "listening"].includes(status)) {
         h += H_DOT_ANIM;
       }
@@ -155,7 +160,7 @@ export default function App() {
       h = Math.max(H_MIN, Math.min(620, h));
     }
     getCurrentWindow().setSize(new LogicalSize(460, h)).catch(() => {});
-  }, [showConfig, expanded, answer, !!transcript, status, !!error]);
+  }, [showConfig, expanded, sessionActive, hasContent, answer, transcript, status, error]);
 
   // ── Actions ─────────────────────────────────────────────────────────────────
   const invokeCfg = useCallback(
@@ -226,7 +231,7 @@ export default function App() {
       {/* ── Header ── */}
       <div className="header" onMouseDown={startDrag}>
 
-        {/* Left: traffic lights */}
+        {/* Left: traffic lights (+ back button when in config) */}
         <div className="wc-group">
           <button className="wc wc-close" onClick={() => getCurrentWindow().close()}
             title="Close" aria-label="Close">
@@ -244,7 +249,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* Center: mode tabs or "Settings" title */}
+        {/* Center: mode tabs or Settings label */}
         <div className="header-center">
           {showConfig ? (
             <span className="header-center-title">Settings</span>
@@ -268,30 +273,34 @@ export default function App() {
           )}
         </div>
 
-        {/* Right: status + actions */}
+        {/* Right: status badge + action buttons */}
         <div className="header-right">
-          <StatusBadge status={status} time={recordingTime} />
-
           {!showConfig && (
             <>
+              <StatusBadge status={status} time={recordingTime} />
+
               <div className="header-divider" />
+
               <button className="icon-btn icon-btn-pitch" onClick={generatePitch}
                 disabled={sessionActive || status === "thinking"}
                 title="Generate 3-min pitch now (Pyramid · STAR · MECE)">
                 🎯
               </button>
+
               {!sessionActive
                 ? <button className="icon-btn icon-btn-start" onClick={startSession}
                     title="Start session  ⌘⇧Space">▶</button>
                 : <button className="icon-btn icon-btn-stop" onClick={stopSession}
                     title="Stop session  ⌘⇧Space">■</button>
               }
-              {hasContent && (
+
+              {hasContent && sessionActive && (
                 <button className="icon-btn" onClick={() => setCollapsed((c) => !c)}
                   title={collapsed ? "Expand" : "Collapse"}>
                   {collapsed ? "▾" : "▴"}
                 </button>
               )}
+
               <button className="icon-btn" onClick={() => { setShowConfig(true); setCollapsed(false); }}
                 title="Settings">⚙</button>
             </>
@@ -310,18 +319,31 @@ export default function App() {
           onClose={() => setShowConfig(false)} />
       )}
 
-      {/* ── Main content ── */}
-      {!showConfig && expanded && (
+      {/* ── Idle state (no session, no content) ── */}
+      {!showConfig && !sessionActive && !hasContent && (
+        <div className="idle-state">
+          <div className="idle-row">
+            <button className="start-btn" onClick={startSession}>
+              <span className="start-icon">▶</span>
+              Start Session
+            </button>
+            <span className="idle-shortcut">⌘⇧Space</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Main content (session active or has content) ── */}
+      {!showConfig && (sessionActive || hasContent) && expanded && (
         <div className="content">
 
           {/* Transcript / question card */}
           {(transcript || ["thinking", "recording"].includes(status)) && (
             <div className="q-card">
               <span className="q-label">
-                {sessionActive ? "🎙 Live" : "Recruiter"}
+                {status === "listening" ? "🎙 Live" : "Recruiter"}
               </span>
               {transcript ? (
-                <span className={`q-text live`}>{transcript}</span>
+                <span className="q-text live">{transcript}</span>
               ) : (
                 <span className="q-text">
                   {status === "thinking" ? "Transcribing…" : "Capturing…"}
@@ -395,35 +417,22 @@ function AnswerText({ text }: { text: string }) {
 
 // ── StatusBadge ───────────────────────────────────────────────────────────────
 function StatusBadge({ status, time }: { status: Status; time: number }) {
-  const dotClass =
-    status === "listening" || status === "ready" ? "dot-green"
-    : status === "thinking" ? "dot-blue"
-    : status === "recording" ? "dot-red"
-    : status === "error" ? "dot-red"
-    : "";
+  const map: Record<Status, { dot: string; label: string; text: string }> = {
+    idle:      { dot: "",          label: "",            text: "" },
+    listening: { dot: "dot-cyan",  label: "label-cyan",  text: "LISTENING" },
+    recording: { dot: "dot-red",   label: "label-red",   text: `REC ${time.toFixed(1)}s` },
+    thinking:  { dot: "dot-blue",  label: "label-blue",  text: "THINKING" },
+    ready:     { dot: "dot-green", label: "label-green", text: "READY" },
+    error:     { dot: "dot-red",   label: "label-red",   text: "ERROR" },
+  };
 
-  const labelClass =
-    status === "listening" || status === "ready" ? "label-green"
-    : status === "thinking" ? "label-blue"
-    : status === "recording" || status === "error" ? "label-red"
-    : "";
-
-  const label =
-    status === "listening" ? "Listening"
-    : status === "recording" ? `Rec ${time.toFixed(1)}s`
-    : status === "thinking"  ? "Thinking"
-    : status === "ready"     ? "Ready"
-    : status === "error"     ? "Error"
-    : null;
+  const { dot, label, text } = map[status];
+  if (!text) return null;
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-      <span className={`status-dot${dotClass ? ` ${dotClass}` : ""}`} />
-      {label && (
-        <span className={`status-label${labelClass ? ` ${labelClass}` : ""}`}>
-          {label}
-        </span>
-      )}
+    <div className="status-badge">
+      <span className={`status-dot ${dot}`} />
+      <span className={`status-label ${label}`}>{text}</span>
     </div>
   );
 }
@@ -475,7 +484,6 @@ function ConfigPanel({
     try {
       const list = await invoke<string[]>("list_anthropic_models", { key: draft.anthropic_key });
       setModels(list);
-      // Auto-select first haiku-like model, else first available
       const haiku = list.find((m) => /haiku/i.test(m));
       setDraft((d) => ({ ...d, model: haiku ?? list[0] ?? d.model }));
     } catch (e) { setModelError(String(e)); }
@@ -604,7 +612,7 @@ function ConfigPanel({
 
       {/* Footer */}
       <div className="config-footer">
-        <button className="btn btn-primary" disabled={!draft.anthropic_key}
+        <button className="btn-save" disabled={!draft.anthropic_key}
           onClick={() => { onSave(draft); onClose(); }}>
           Save &amp; continue
         </button>
