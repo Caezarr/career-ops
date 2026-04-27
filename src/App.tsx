@@ -31,14 +31,14 @@ const DEFAULT_CONFIG: Config = {
 };
 
 // ── Window height constants (px) ─────────────────────────────────────────────
-const H_HEADER   = 52;
-const H_IDLE     = 88;   // idle CTA area
-const H_Q_CARD   = 64;
-const H_DOT_ANIM = 56;
-const H_ERROR    = 46;
-const H_PAD      = 18;
-const H_CONFIG   = 600;
-const H_MIN      = H_HEADER + H_DOT_ANIM + H_PAD;
+const H_HEADER    = 52;
+const H_HOME      = 172; // home view (mode card + start btn + optional pitch btn)
+const H_Q_CARD    = 64;
+const H_DOT_ANIM  = 56;
+const H_ERROR     = 46;
+const H_PAD       = 18;
+const H_CONFIG    = 600;
+const H_MIN       = H_HEADER + H_DOT_ANIM + H_PAD;
 
 async function startDrag(e: React.MouseEvent) {
   if (e.buttons !== 1) return;
@@ -53,7 +53,7 @@ export default function App() {
   const [answer, setAnswer]             = useState("");
   const [copiedAnswer, setCopiedAnswer] = useState(false);
   const [error, setError]               = useState<string | null>(null);
-  const [showConfig, setShowConfig]     = useState(true);
+  const [showConfig, setShowConfig]     = useState(false);
   const [config, setConfig]             = useState<Config>(DEFAULT_CONFIG);
   const [recordingTime, setRecordingTime] = useState(0);
   const [collapsed, setCollapsed]       = useState(false);
@@ -67,7 +67,6 @@ export default function App() {
       try {
         const p = JSON.parse(saved);
         setConfig({ ...DEFAULT_CONFIG, ...p });
-        if (p.anthropic_key) setShowConfig(false);
       } catch {}
     }
   }, []);
@@ -141,8 +140,8 @@ export default function App() {
     if (showConfig) {
       h = H_CONFIG;
     } else if (!sessionActive && !hasContent) {
-      // Idle state: header + CTA
-      h = H_HEADER + H_IDLE;
+      // Home view
+      h = H_HEADER + H_HOME;
     } else if (!expanded) {
       // Collapsed active session
       h = H_HEADER;
@@ -319,16 +318,64 @@ export default function App() {
           onClose={() => setShowConfig(false)} />
       )}
 
-      {/* ── Idle state (no session, no content) ── */}
+      {/* ── Home view (no session, no content, not in config) ── */}
       {!showConfig && !sessionActive && !hasContent && (
-        <div className="idle-state">
-          <div className="idle-row">
-            <button className="start-btn" onClick={startSession}>
-              <span className="start-icon">▶</span>
-              Start Session
-            </button>
-            <span className="idle-shortcut">⌘⇧Space</span>
+        <div className="home-view">
+
+          {/* Setup banner — no Anthropic key yet */}
+          {!config.anthropic_key ? (
+            <div className="setup-banner">
+              <span className="setup-icon">⚡</span>
+              <div className="setup-body">
+                <span className="setup-title">API key required</span>
+                <span className="setup-text">
+                  Add your Anthropic key to start live coaching.
+                </span>
+                <button className="setup-cta" onClick={() => setShowConfig(true)}>
+                  Open Settings →
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Mode info card */
+            <div className="home-mode-card">
+              <span className="home-mode-emoji">
+                {appMode === "qa" ? "💬" : "🎯"}
+              </span>
+              <div className="home-mode-info">
+                <span className="home-mode-name">
+                  {appMode === "qa" ? "Q&A Mode" : "Pitch Mode"}
+                </span>
+                <span className="home-mode-desc">
+                  {appMode === "qa"
+                    ? "Listens to recruiter questions · answers in real-time"
+                    : "Pyramid · STAR · MECE · structured self-presentation"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Primary action */}
+          <div className="home-actions">
+            <div className="home-start-row">
+              <button
+                className="start-btn"
+                onClick={startSession}
+                disabled={!config.anthropic_key}
+              >
+                <span>▶</span> Start Session
+              </button>
+              <span className="idle-shortcut">⌘⇧Space</span>
+            </div>
+
+            {/* Quick pitch (pitch mode only, when key is set) */}
+            {appMode === "pitch" && config.anthropic_key && (
+              <button className="home-pitch-btn" onClick={generatePitch}>
+                🎯 Generate pitch without audio
+              </button>
+            )}
           </div>
+
         </div>
       )}
 
