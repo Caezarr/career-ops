@@ -203,7 +203,7 @@ html, body, #root { height: 100%; overflow: hidden; }
   border: none;
   cursor: pointer;
   color: var(--t3);
-  font-size: 12px;
+  font-size: 13px;
   width: 28px; height: 28px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 7px;
@@ -225,6 +225,9 @@ html, body, #root { height: 100%; overflow: hidden; }
 .icon-btn-stop:hover  { color: var(--red); background: rgba(248,113,113,0.09); }
 .icon-btn-pitch       { color: rgba(251,191,36,0.65); }
 .icon-btn-pitch:hover { color: var(--amber); background: rgba(251,191,36,0.08); }
+
+.icon-btn-settings       { font-size: 16px; color: rgba(255,255,255,0.55); }
+.icon-btn-settings:hover { color: var(--t1); background: var(--s2); }
 
 .header-divider {
   width: 1px; height: 14px;

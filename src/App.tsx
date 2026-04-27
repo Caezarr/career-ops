@@ -300,7 +300,7 @@ export default function App() {
                 </button>
               )}
 
-              <button className="icon-btn" onClick={() => { setShowConfig(true); setCollapsed(false); }}
+              <button className="icon-btn icon-btn-settings" onClick={() => { setShowConfig(true); setCollapsed(false); }}
                 title="Settings">⚙</button>
             </>
           )}
