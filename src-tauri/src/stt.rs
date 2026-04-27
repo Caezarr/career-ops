@@ -16,10 +16,13 @@ pub async fn transcribe_whisper(wav: &[u8], openai_key: &str) -> Result<String> 
         .file_name("audio.wav")
         .mime_str("audio/wav")?;
 
+    // The prompt primes Whisper for interview context and dramatically improves
+    // accuracy on short clips (< 3 s). It also helps with FR/EN code-switching.
     let form = Form::new()
         .part("file", part)
         .text("model", "whisper-1")
-        .text("response_format", "text");
+        .text("response_format", "text")
+        .text("prompt", "Job interview question and answer. Finance, strategy, technology. Peut être en français ou en anglais.");
 
     let resp = client
         .post("https://api.openai.com/v1/audio/transcriptions")

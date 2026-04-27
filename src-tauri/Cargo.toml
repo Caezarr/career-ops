@@ -32,6 +32,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 pdf-extract = "0.7"
 base64 = "0.22"
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+http = "1"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

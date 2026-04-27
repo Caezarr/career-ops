@@ -1,25 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import {
-  register,
-  unregister,
-} from "@tauri-apps/plugin-global-shortcut";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
+import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 
-type Status =
-  | "idle"
-  | "recording"
-  | "thinking"
-  | "ready"
-  | "error"
-  | "listening";
+type Status = "idle" | "recording" | "thinking" | "ready" | "error" | "listening";
 
-interface Bullet {
-  text: string;
-  cite?: string | null;
-  unverified?: boolean;
-}
 
 interface Config {
   anthropic_key: string;
@@ -27,8 +13,10 @@ interface Config {
   cv: string;
   jd: string;
   persona: "finance" | "tech-ai" | "consulting";
-  audio_device: string;     // mic (your voice)
-  loopback_device: string;  // system audio loopback (recruiter)
+  audio_device: string;
+  loopback_device: string;
+  model: string;
+  assemblyai_key: string;
 }
 
 const DEFAULT_CONFIG: Config = {
@@ -39,58 +27,49 @@ const DEFAULT_CONFIG: Config = {
   persona: "finance",
   audio_device: "",
   loopback_device: "",
+  model: "",
+  assemblyai_key: "",
 };
 
-// Reliable drag handler for Tauri 2 — works regardless of titleBarStyle / decorations.
+// ── Window height constants (px) ─────────────────────────────────────────────
+const H_HEADER   = 52;
+const H_TRANS    = 56;
+const H_BULLET   = 68;
+const H_DOT_ANIM = 52;
+const H_ERROR    = 40;
+const H_PAD      = 14;
+const H_CONFIG   = 530;
+const H_MIN      = H_HEADER + H_DOT_ANIM + H_PAD;
+
 async function startDrag(e: React.MouseEvent) {
-  if (e.buttons !== 1) return; // primary button only
-  // Don't drag from interactive children (buttons/inputs)
+  if (e.buttons !== 1) return;
   const tag = (e.target as HTMLElement).tagName;
   if (["BUTTON", "INPUT", "TEXTAREA", "SELECT", "A"].includes(tag)) return;
-  try {
-    await getCurrentWindow().startDragging();
-  } catch (err) {
-    console.warn("startDragging failed:", err);
-  }
-}
-
-async function closeWindow() {
-  try {
-    await getCurrentWindow().close();
-  } catch (err) {
-    console.warn("close failed:", err);
-  }
-}
-
-async function minimizeWindow() {
-  try {
-    await getCurrentWindow().minimize();
-  } catch (err) {
-    console.warn("minimize failed:", err);
-  }
+  try { await getCurrentWindow().startDragging(); } catch {}
 }
 
 export default function App() {
-  const [status, setStatus] = useState<Status>("idle");
-  const [transcript, setTranscript] = useState<string>("");
-  const [bullets, setBullets] = useState<Bullet[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [showConfig, setShowConfig] = useState(true);
-  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+  const [status, setStatus]             = useState<Status>("idle");
+  const [transcript, setTranscript]     = useState("");
+  const [answer, setAnswer]             = useState("");
+  const [copiedAnswer, setCopiedAnswer] = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const [showConfig, setShowConfig]     = useState(true);
+  const [config, setConfig]             = useState<Config>(DEFAULT_CONFIG);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [collapsed, setCollapsed]       = useState(false);
+  const [appMode, setAppMode]           = useState<"qa" | "pitch">("qa");
+  const timerRef = useRef<number | null>(null);
 
-  const recordingTimerRef = useRef<number | null>(null);
-
+  // ── Persist config ──────────────────────────────────────────────────────────
   useEffect(() => {
     const saved = localStorage.getItem("ic-config");
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        setConfig({ ...DEFAULT_CONFIG, ...parsed });
-        if (parsed.anthropic_key) setShowConfig(false);
-      } catch {
-        // ignore
-      }
+        const p = JSON.parse(saved);
+        setConfig({ ...DEFAULT_CONFIG, ...p });
+        if (p.anthropic_key) setShowConfig(false);
+      } catch {}
     }
   }, []);
 
@@ -99,69 +78,91 @@ export default function App() {
     localStorage.setItem("ic-config", JSON.stringify(next));
   }, []);
 
+  // ── Event listeners ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const unlistenStatus = listen<Status>("status", (e) => {
+    const ulStatus = listen<Status>("status", (e) => {
       setStatus(e.payload);
       if (e.payload === "recording") {
         setRecordingTime(0);
-        recordingTimerRef.current = window.setInterval(() => {
-          setRecordingTime((t) => t + 0.1);
-        }, 100);
-      } else if (recordingTimerRef.current !== null) {
-        window.clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
+        timerRef.current = window.setInterval(
+          () => setRecordingTime((t) => t + 0.1), 100
+        );
+      } else if (timerRef.current !== null) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
       }
     });
 
-    const unlistenTranscript = listen<string>("transcript", (e) => {
+    // Clear answer when a new question starts transcribing
+    const ulTranscript = listen<string>("transcript", (e) => {
       setTranscript(e.payload);
+      setAnswer("");
     });
 
-    const unlistenBullets = listen<Bullet[]>("bullets", (e) => {
-      setBullets(e.payload);
+    // Stream answer tokens as they arrive from Haiku
+    const ulAnswer = listen<string>("answer-token", (e) => {
+      setAnswer((prev) => prev + e.payload);
     });
 
-    const unlistenError = listen<string>("error", (e) => {
+    const ulError = listen<string>("error", (e) => {
       setError(e.payload);
       setStatus("error");
     });
 
     return () => {
-      unlistenStatus.then((fn) => fn());
-      unlistenTranscript.then((fn) => fn());
-      unlistenBullets.then((fn) => fn());
-      unlistenError.then((fn) => fn());
+      ulStatus.then((f) => f());
+      ulTranscript.then((f) => f());
+      ulAnswer.then((f) => f());
+      ulError.then((f) => f());
     };
   }, []);
 
+  // Auto-expand when a new question begins processing
   useEffect(() => {
-    const shortcut = "CmdOrCtrl+Shift+Space";
-    let mounted = true;
+    if (["thinking", "recording", "error"].includes(status)) setCollapsed(false);
+  }, [status]);
 
-    register(shortcut, async () => {
-      if (!mounted) return;
-      await toggleSession();
-    }).catch((e) => {
-      console.warn("Hotkey register failed:", e);
-    });
-
-    return () => {
-      mounted = false;
-      unregister(shortcut).catch(() => {});
-    };
+  // ── Hotkey ──────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const sc = "CmdOrCtrl+Shift+Space";
+    let alive = true;
+    register(sc, async () => { if (alive) await toggleSession(); }).catch(() => {});
+    return () => { alive = false; unregister(sc).catch(() => {}); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config]);
 
-  const triggerCapture = useCallback(async () => {
-    if (!config.anthropic_key) {
-      setError("Configure your Anthropic API key first");
-      return;
+  // ── Derived state ───────────────────────────────────────────────────────────
+  const sessionActive = ["listening", "recording", "thinking"].includes(status);
+  const hasContent    = !!answer || !!error || ["thinking","recording"].includes(status) || !!transcript;
+  const expanded      = !collapsed && (showConfig || hasContent);
+
+  // ── Auto-resize window ──────────────────────────────────────────────────────
+  useEffect(() => {
+    let h: number;
+    if (showConfig) {
+      h = H_CONFIG;
+    } else if (!expanded) {
+      h = H_HEADER;
+    } else {
+      h = H_HEADER;
+      if (transcript || ["thinking", "recording"].includes(status)) h += H_TRANS;
+      if (answer) {
+        const lines = Math.max(3, Math.ceil(answer.length / 58));
+        h += Math.min(lines * 20 + 32, 240);
+      } else if (["thinking", "recording", "listening"].includes(status)) {
+        h += H_DOT_ANIM;
+      }
+      if (error) h += H_ERROR;
+      h += H_PAD;
+      h = Math.max(H_MIN, Math.min(620, h));
     }
-    setError(null);
-    setBullets([]);
-    setTranscript("");
-    try {
-      await invoke("start_capture", {
+    getCurrentWindow().setSize(new LogicalSize(460, h)).catch(() => {});
+  }, [showConfig, expanded, answer, !!transcript, status, !!error]);
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
+  const invokeCfg = useCallback(
+    (cmd: string, extra?: object) =>
+      invoke(cmd, {
         config: {
           anthropicKey: config.anthropic_key,
           openaiKey: config.openai_key,
@@ -171,197 +172,215 @@ export default function App() {
           durationSecs: 6,
           audioDevice: config.audio_device,
           loopbackDevice: config.loopback_device,
+          model: config.model,
+          assemblyaiKey: config.assemblyai_key,
+          appMode: appMode,
+          ...extra,
         },
-      });
-    } catch (e) {
-      setError(String(e));
-      setStatus("error");
-    }
-  }, [config]);
+      }),
+    [config, appMode]
+  );
 
-  const sessionActive =
-    status === "listening" || status === "recording" || status === "thinking";
+  const triggerCapture = useCallback(async () => {
+    if (!config.anthropic_key) { setError("Configure your Anthropic API key first"); return; }
+    setError(null); setAnswer(""); setTranscript("");
+    try { await invokeCfg("start_capture"); }
+    catch (e) { setError(String(e)); setStatus("error"); }
+  }, [config, invokeCfg]);
 
   const startSession = useCallback(async () => {
-    if (!config.anthropic_key) {
-      setError("Configure your Anthropic API key first");
-      return;
-    }
-    setError(null);
-    setBullets([]);
-    setTranscript("");
+    if (!config.anthropic_key) { setError("Configure your Anthropic API key first"); return; }
+    setError(null); setAnswer(""); setTranscript("");
     try {
-      await invoke("start_session", {
-        config: {
-          anthropicKey: config.anthropic_key,
-          openaiKey: config.openai_key,
-          cv: config.cv,
-          jd: config.jd,
-          persona: config.persona,
-          durationSecs: 6,
-          audioDevice: config.audio_device,
-          loopbackDevice: config.loopback_device,
-        },
-      });
+      await invokeCfg("start_session");
       setStatus("listening");
-    } catch (e) {
-      setError(String(e));
-      setStatus("error");
-    }
-  }, [config]);
+    } catch (e) { setError(String(e)); setStatus("error"); }
+  }, [config, invokeCfg]);
 
   const stopSession = useCallback(async () => {
-    try {
-      await invoke("stop_session");
-      setStatus("idle");
-    } catch (e) {
-      console.warn(e);
-    }
+    try { await invoke("stop_session"); setStatus("idle"); } catch {}
   }, []);
 
   const toggleSession = useCallback(async () => {
-    if (sessionActive) await stopSession();
-    else await startSession();
+    if (sessionActive) await stopSession(); else await startSession();
   }, [sessionActive, startSession, stopSession]);
 
+  const generatePitch = useCallback(async () => {
+    if (!config.anthropic_key) { setError("Configure your Anthropic API key first"); return; }
+    setError(null); setAnswer(""); setTranscript("");
+    try { await invokeCfg("generate_pitch", { instructions: "" }); }
+    catch (e) { setError(String(e)); setStatus("error"); }
+  }, [config, invokeCfg]);
+
+  const copyAnswer = useCallback(async () => {
+    if (!answer) return;
+    try {
+      await navigator.clipboard.writeText(answer);
+      setCopiedAnswer(true);
+      setTimeout(() => setCopiedAnswer(false), 1500);
+    } catch {}
+  }, [answer]);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div className="app">
+
+      {/* ── Header — always-visible drag pill ── */}
       <div className="header" onMouseDown={startDrag}>
         <div className="window-controls">
-          <button
-            className="wc wc-close"
-            onClick={closeWindow}
-            title="Close"
-            aria-label="Close"
-          >
+          <button className="wc wc-close" onClick={() => getCurrentWindow().close()}
+            title="Close" aria-label="Close">
             <svg viewBox="0 0 10 10" fill="none">
-              <path
-                d="M2 2 L8 8 M8 2 L2 8"
-                stroke="rgba(0,0,0,0.6)"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
+              <path d="M2 2 L8 8 M8 2 L2 8" stroke="rgba(0,0,0,0.6)"
+                strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
           </button>
-          <button
-            className="wc wc-min"
-            onClick={minimizeWindow}
-            title="Minimize"
-            aria-label="Minimize"
-          >
+          <button className="wc wc-min" onClick={() => getCurrentWindow().minimize()}
+            title="Minimize" aria-label="Minimize">
             <svg viewBox="0 0 10 10" fill="none">
-              <path
-                d="M2 5 L8 5"
-                stroke="rgba(0,0,0,0.6)"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
+              <path d="M2 5 L8 5" stroke="rgba(0,0,0,0.6)"
+                strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
           </button>
         </div>
-        <span className="title">
-          Interview Copilot
-          <span style={{ marginLeft: 8, opacity: 0.45 }}>
-            <span className="kbd">⌘⇧Space</span> to {sessionActive ? "stop" : "start"}
-          </span>
-        </span>
+
+        <span className="title">Interview Copilot</span>
         <StatusPill status={status} time={recordingTime} />
+
+        {!showConfig && (
+          <div className="header-actions">
+            {/* Mode toggle */}
+            <button
+              className={`hbtn hbtn-mode ${appMode === "qa" ? "hbtn-mode-active" : ""}`}
+              onClick={() => setAppMode("qa")}
+              disabled={sessionActive}
+              title="Q&A mode — answer interview questions">
+              Q&A
+            </button>
+            <button
+              className={`hbtn hbtn-mode ${appMode === "pitch" ? "hbtn-mode-active" : ""}`}
+              onClick={() => setAppMode("pitch")}
+              disabled={sessionActive}
+              title="Pitch mode — structured self-presentation">
+              Pitch
+            </button>
+            <span style={{ width: 1, height: 14, background: "rgba(255,255,255,0.1)", margin: "0 2px" }} />
+            <button className="hbtn hbtn-pitch" onClick={generatePitch}
+              disabled={sessionActive || status === "thinking"}
+              title="Generate 3-min pitch now (Pyramid · STAR · MECE)">🎯</button>
+            {!sessionActive
+              ? <button className="hbtn hbtn-start" onClick={startSession}
+                  title="Start session  ⌘⇧Space">▶</button>
+              : <button className="hbtn hbtn-stop" onClick={stopSession}
+                  title="Stop session  ⌘⇧Space">■</button>
+            }
+            {hasContent && (
+              <button className="hbtn" onClick={() => setCollapsed((c) => !c)}
+                title={collapsed ? "Expand" : "Collapse"}>
+                {collapsed ? "▼" : "▲"}
+              </button>
+            )}
+            <button className="hbtn" onClick={() => { setShowConfig(true); setCollapsed(false); }}
+              title="Settings">⚙</button>
+          </div>
+        )}
       </div>
 
-      {showConfig ? (
-        <ConfigPanel
-          config={config}
-          onSave={saveConfig}
-          onClose={() => setShowConfig(false)}
-        />
-      ) : (
-        <>
-          <div className="transcript">
-            {transcript || "Waiting for question…"}
-          </div>
+      {/* ── Config panel ── */}
+      {showConfig && (
+        <ConfigPanel config={config} onSave={saveConfig}
+          onClose={() => setShowConfig(false)} />
+      )}
 
-          {bullets.length > 0 ? (
-            <div className="bullets">
-              {bullets.map((b, i) => (
-                <div
-                  key={i}
-                  className={`bullet ${i === 0 ? "headline" : ""} ${
-                    b.unverified ? "unverified" : ""
-                  }`}
-                >
-                  <span className="bullet-num">{i + 1}</span>
-                  <span>{b.text}</span>
-                </div>
-              ))}
+      {/* ── Main content — visible when expanded ── */}
+      {!showConfig && expanded && (
+        <div className="content">
+
+          {/* Transcript */}
+          {(transcript || ["thinking", "recording"].includes(status)) && (
+            <div className="transcript">
+              {transcript ? (
+                <>
+                  <span className="transcript-label">🎙 Whisper heard</span>
+                  <span className="transcript-text">{transcript}</span>
+                </>
+              ) : (
+                <span className="transcript-text muted">
+                  {status === "thinking" ? "Transcribing…" : "Capturing…"}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* Streaming prose answer */}
+          {answer ? (
+            <div className="answer" onClick={copyAnswer} title="Click to copy">
+              <span className="answer-text">
+                <AnswerText text={answer} />
+                {status === "thinking" && <span className="answer-cursor" />}
+              </span>
+              <span className="answer-copy-icon">
+                {copiedAnswer ? "✓" : "⎘"}
+              </span>
             </div>
           ) : (
-            <div className="empty-state">
-              {status === "listening"
-                ? "Listening for the recruiter's question…"
-                : status === "recording"
-                  ? "Capturing…"
-                  : status === "thinking"
-                    ? "Generating bullets…"
-                    : status === "error"
-                      ? "Error — check config"
-                      : "Click Start session — bullets appear automatically after each question."}
-            </div>
+            ["thinking", "recording", "listening"].includes(status) && (
+              <div className="generating">
+                <span className="gdot"/>
+                <span className="gdot"/>
+                <span className="gdot"/>
+              </div>
+            )
           )}
 
           {error && <div className="error">{error}</div>}
 
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            {!sessionActive ? (
-              <button className="btn btn-primary" onClick={startSession}>
-                Start session
-              </button>
-            ) : (
-              <button className="btn btn-stop" onClick={stopSession}>
-                Stop session
-              </button>
-            )}
-            <button
-              className="btn btn-ghost"
-              onClick={triggerCapture}
-              disabled={sessionActive}
-              title="One-shot 6s capture"
-            >
+          {/* Subtle single-shot button for testing */}
+          <div className="action-bar">
+            <button className="btn btn-ghost btn-xs" onClick={triggerCapture}
+              disabled={sessionActive} title="One-shot 6s capture">
               Single shot
             </button>
-            <button className="btn btn-ghost" onClick={() => setShowConfig(true)}>
-              Config
-            </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 }
 
+// ── AnswerText — renders [X:XX-X:XX] pitch markers with visual styling ────────
+const TS_RE = /(\[\d+:\d{2}[-–]\d+:\d{2}\])/g;
+
+function AnswerText({ text }: { text: string }) {
+  const parts = text.split(TS_RE);
+  return (
+    <>
+      {parts.map((part, i) =>
+        TS_RE.test(part) ? (
+          <span key={i} className="answer-ts">{part}</span>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  );
+}
+
+// ── StatusPill ────────────────────────────────────────────────────────────────
 function StatusPill({ status, time }: { status: Status; time: number }) {
   const label =
-    status === "listening"
-      ? "LISTENING"
-      : status === "recording"
-        ? `REC ${time.toFixed(1)}s`
-        : status === "thinking"
-          ? "THINKING"
-          : status === "ready"
-            ? "READY"
-            : status === "error"
-              ? "ERROR"
-              : "IDLE";
+    status === "listening" ? "LISTENING"
+    : status === "recording" ? `REC ${time.toFixed(1)}s`
+    : status === "thinking"  ? "THINKING"
+    : status === "ready"     ? "READY"
+    : status === "error"     ? "ERROR"
+    : "IDLE";
 
   const cls =
-    status === "listening"
-      ? "recording"
-      : status === "recording"
-        ? "recording"
-        : status === "thinking"
-          ? "thinking"
-          : status === "ready"
-            ? "ready"
-            : "";
+    status === "listening" || status === "recording" ? "recording"
+    : status === "thinking" ? "thinking"
+    : status === "ready"    ? "ready"
+    : "";
 
   return (
     <span className={`status-pill ${cls}`}>
@@ -371,230 +390,170 @@ function StatusPill({ status, time }: { status: Status; time: number }) {
   );
 }
 
+// ── ConfigPanel ───────────────────────────────────────────────────────────────
 function ConfigPanel({
-  config,
-  onSave,
-  onClose,
-}: {
-  config: Config;
-  onSave: (c: Config) => void;
-  onClose: () => void;
-}) {
-  const [draft, setDraft] = useState(config);
-  const [pdfStatus, setPdfStatus] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [devices, setDevices] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  config, onSave, onClose,
+}: { config: Config; onSave: (c: Config) => void; onClose: () => void }) {
+  const [draft, setDraft]           = useState(config);
+  const [pdfStatus, setPdfStatus]   = useState<string | null>(null);
+  const [pdfError, setPdfError]     = useState<string | null>(null);
+  const [devices, setDevices]       = useState<string[]>([]);
+  const [models, setModels]         = useState<string[]>([]);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelError, setModelError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     invoke<string[]>("list_audio_devices")
       .then((list) => {
         setDevices(list);
-        // Auto-pick BlackHole as loopback (recruiter audio) if present and not already set.
         if (!draft.loopback_device) {
           const bh = list.find((d) => /blackhole/i.test(d));
           if (bh) setDraft((d) => ({ ...d, loopback_device: bh }));
         }
       })
-      .catch((e) => console.warn("list_audio_devices failed:", e));
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hasBlackHole = devices.some((d) => /blackhole/i.test(d));
-  const selectStyle = {
-    background: "rgba(0,0,0,0.3)",
-    color: "white",
-    border: "1px solid rgba(255,255,255,0.1)",
-    borderRadius: 6,
-    padding: "6px 8px",
-    fontSize: 12,
-  } as const;
+  const sel: React.CSSProperties = {
+    background: "rgba(0,0,0,0.3)", color: "white",
+    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
+    padding: "6px 8px", fontSize: 12,
+  };
 
-  const handlePdfUpload = useCallback(
-    async (file: File) => {
-      setPdfError(null);
-      setPdfStatus(`Reading ${file.name}…`);
-      try {
-        const buf = await file.arrayBuffer();
-        const bytes = new Uint8Array(buf);
-        // Encode in chunks to avoid stack overflow on large PDFs
-        let binary = "";
-        const chunkSize = 0x8000;
-        for (let i = 0; i < bytes.length; i += chunkSize) {
-          binary += String.fromCharCode(
-            ...bytes.subarray(i, Math.min(i + chunkSize, bytes.length)),
-          );
-        }
-        const b64 = btoa(binary);
-        setPdfStatus("Parsing PDF…");
-        const text = await invoke<string>("parse_cv_pdf", { b64 });
-        setDraft((d) => ({ ...d, cv: text }));
-        setPdfStatus(`Loaded ${file.name} (${text.length} chars)`);
-      } catch (e) {
-        setPdfStatus(null);
-        setPdfError(typeof e === "string" ? e : String(e));
-      }
-    },
-    [],
-  );
+  const handlePdf = useCallback(async (file: File) => {
+    setPdfError(null); setPdfStatus(`Reading ${file.name}…`);
+    try {
+      const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let bin = "";
+      for (let i = 0; i < bytes.length; i += 0x8000)
+        bin += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
+      setPdfStatus("Parsing PDF…");
+      const text = await invoke<string>("parse_cv_pdf", { b64: btoa(bin) });
+      setDraft((d) => ({ ...d, cv: text }));
+      setPdfStatus(`Loaded ${file.name} (${text.length} chars)`);
+    } catch (e) { setPdfStatus(null); setPdfError(String(e)); }
+  }, []);
+
+  const detectModels = useCallback(async () => {
+    if (!draft.anthropic_key) return;
+    setModelLoading(true); setModelError(null);
+    try {
+      const list = await invoke<string[]>("list_anthropic_models", { key: draft.anthropic_key });
+      setModels(list);
+      // Auto-select first haiku-like model, else first available
+      const haiku = list.find((m) => /haiku/i.test(m));
+      setDraft((d) => ({ ...d, model: haiku ?? list[0] ?? d.model }));
+    } catch (e) { setModelError(String(e)); }
+    finally { setModelLoading(false); }
+  }, [draft.anthropic_key]);
+
+  const hasBlackHole = devices.some((d) => /blackhole/i.test(d));
 
   return (
     <div className="config">
       <label>
-        Anthropic API key (Claude — bullets)
-        <input
-          type="password"
-          placeholder="sk-ant-..."
-          value={draft.anthropic_key}
-          onChange={(e) =>
-            setDraft({ ...draft, anthropic_key: e.target.value })
-          }
-        />
+        Anthropic API key (Claude)
+        <input type="password" placeholder="sk-ant-…" value={draft.anthropic_key}
+          onChange={(e) => setDraft({ ...draft, anthropic_key: e.target.value })}/>
       </label>
       <label>
-        OpenAI API key (Whisper — STT)
-        <input
-          type="password"
-          placeholder="sk-..."
-          value={draft.openai_key}
-          onChange={(e) =>
-            setDraft({ ...draft, openai_key: e.target.value })
-          }
-        />
+        AssemblyAI key — real-time STT (session mode)
+        <input type="password" placeholder="…" value={draft.assemblyai_key}
+          onChange={(e) => setDraft({ ...draft, assemblyai_key: e.target.value })}/>
+        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
+          Get a free key at assemblyai.com — needed for live session mode
+        </span>
+      </label>
+      <label>
+        Claude model
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {models.length > 0 ? (
+            <select value={draft.model} style={{ ...sel, flex: 1 }}
+              onChange={(e) => setDraft({ ...draft, model: e.target.value })}>
+              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+          ) : (
+            <input type="text" placeholder="detect →" value={draft.model} style={{ flex: 1 }}
+              onChange={(e) => setDraft({ ...draft, model: e.target.value })}/>
+          )}
+          <button className="btn btn-ghost btn-xs"
+            onClick={detectModels} disabled={!draft.anthropic_key || modelLoading}
+            style={{ flexShrink: 0 }}>
+            {modelLoading ? "…" : "Detect"}
+          </button>
+        </div>
+        {modelError && <span style={{ fontSize: 10, color: "#ff8b8b" }}>{modelError}</span>}
+      </label>
+      <label>
+        OpenAI API key (Whisper STT)
+        <input type="password" placeholder="sk-…" value={draft.openai_key}
+          onChange={(e) => setDraft({ ...draft, openai_key: e.target.value })}/>
       </label>
       <label>
         Mic — your voice
-        <select
-          value={draft.audio_device}
-          onChange={(e) =>
-            setDraft({ ...draft, audio_device: e.target.value })
-          }
-          style={selectStyle}
-        >
+        <select value={draft.audio_device} style={sel}
+          onChange={(e) => setDraft({ ...draft, audio_device: e.target.value })}>
           <option value="">Default mic (system)</option>
-          {devices
-            .filter((d) => !/blackhole/i.test(d))
-            .map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
+          {devices.filter((d) => !/blackhole/i.test(d)).map((d) =>
+            <option key={d} value={d}>{d}</option>)}
         </select>
       </label>
       <label>
-        Loopback — recruiter audio (optional)
-        <select
-          value={draft.loopback_device}
-          onChange={(e) =>
-            setDraft({ ...draft, loopback_device: e.target.value })
-          }
-          style={selectStyle}
-        >
-          <option value="">Off — only my mic</option>
-          {devices.map((d) => (
-            <option key={d} value={d}>
-              {d}
-              {/blackhole/i.test(d) ? "  ← recommended" : ""}
-            </option>
-          ))}
+        Loopback — recruiter audio
+        <select value={draft.loopback_device} style={sel}
+          onChange={(e) => setDraft({ ...draft, loopback_device: e.target.value })}>
+          <option value="">Off — mic only</option>
+          {devices.map((d) =>
+            <option key={d} value={d}>{d}{/blackhole/i.test(d) ? " ← recommended" : ""}</option>)}
         </select>
         {!hasBlackHole && (
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
-            To capture the recruiter, install{" "}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                window.open(
-                  "https://github.com/ExistentialAudio/BlackHole",
-                  "_blank",
-                );
-              }}
-              style={{ color: "#95b8ff" }}
-            >
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
+            Install{" "}
+            <a href="#" style={{ color: "#95b8ff" }}
+              onClick={(e) => { e.preventDefault();
+                window.open("https://github.com/ExistentialAudio/BlackHole", "_blank"); }}>
               BlackHole
             </a>
-            , route Zoom/Teams output to a Multi-Output Device that includes
-            BlackHole, then pick "BlackHole 2ch" here. Mic + loopback get
-            captured in parallel and labelled (you / recruiter) before going
-            to Claude.
+            {" "}to capture recruiter audio.
           </span>
         )}
       </label>
       <label>
         Persona
-        <select
-          value={draft.persona}
-          onChange={(e) =>
-            setDraft({
-              ...draft,
-              persona: e.target.value as Config["persona"],
-            })
-          }
-          style={{
-            background: "rgba(0,0,0,0.3)",
-            color: "white",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: 6,
-            padding: "6px 8px",
-            fontSize: 12,
-          }}
-        >
-          <option value="finance">Finance</option>
-          <option value="tech-ai">Tech / AI</option>
-          <option value="consulting">Stratégie / Conseil</option>
+        <select value={draft.persona} style={sel}
+          onChange={(e) => setDraft({ ...draft, persona: e.target.value as Config["persona"] })}>
+          <option value="finance">Finance / PE / IB</option>
+          <option value="tech-ai">Tech / AI Engineering</option>
+          <option value="consulting">Stratégie / Consulting</option>
         </select>
       </label>
       <label>
-        CV — upload PDF or paste text
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handlePdfUpload(f);
-          }}
-          style={{ marginBottom: 6 }}
-        />
-        {pdfStatus && (
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>
-            {pdfStatus}
-          </span>
-        )}
-        {pdfError && (
-          <span style={{ fontSize: 11, color: "#ff8b8b" }}>{pdfError}</span>
-        )}
-        <textarea
-          placeholder="Paste your CV here, or upload a PDF above…"
-          value={draft.cv}
-          onChange={(e) => setDraft({ ...draft, cv: e.target.value })}
-          rows={6}
-        />
+        CV — PDF ou texte
+        <input ref={fileRef} type="file" accept="application/pdf,.pdf"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePdf(f); }}
+          style={{ marginBottom: 6 }}/>
+        {pdfStatus && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{pdfStatus}</span>}
+        {pdfError  && <span style={{ fontSize: 11, color: "#ff8b8b" }}>{pdfError}</span>}
+        <textarea placeholder="Colle ton CV ici, ou upload un PDF ci-dessus…"
+          value={draft.cv} rows={6}
+          onChange={(e) => setDraft({ ...draft, cv: e.target.value })}/>
       </label>
       <label>
-        Job description (paste raw text)
-        <textarea
-          placeholder="Paste the JD…"
-          value={draft.jd}
-          onChange={(e) => setDraft({ ...draft, jd: e.target.value })}
-          rows={4}
-        />
+        Job description
+        <textarea placeholder="Colle la JD…" value={draft.jd} rows={4}
+          onChange={(e) => setDraft({ ...draft, jd: e.target.value })}/>
       </label>
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button
-          className="btn"
-          disabled={!draft.anthropic_key}
-          onClick={() => {
-            onSave(draft);
-            onClose();
-          }}
-        >
-          Save & continue
+        <button className="btn btn-primary" disabled={!draft.anthropic_key}
+          onClick={() => { onSave(draft); onClose(); }}>
+          Save &amp; continue
         </button>
       </div>
-      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>
-        Stored locally in your browser. Move to Keychain in a later phase.
+      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>
+        Stored locally in WebView. Keychain migration planned.
       </p>
     </div>
   );

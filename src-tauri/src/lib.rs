@@ -30,10 +30,57 @@ pub struct CaptureConfig {
     /// Typically "BlackHole 2ch" on Mac after BlackHole + Multi-Output Device setup.
     #[serde(default)]
     pub loopback_device: String,
+    /// Claude model to use. Empty = use default in llm.rs.
+    #[serde(default)]
+    pub model: String,
+    /// AssemblyAI API key for real-time streaming STT.
+    #[serde(default)]
+    pub assemblyai_key: String,
+    /// Session mode: "qa" (default) or "pitch" (structured self-presentation).
+    #[serde(default = "default_app_mode")]
+    pub app_mode: String,
+}
+
+fn default_app_mode() -> String {
+    "qa".to_string()
 }
 
 fn default_duration() -> u32 {
     6
+}
+
+/// List Claude models available on this Anthropic API key.
+#[tauri::command]
+async fn list_anthropic_models(key: String) -> Result<Vec<String>, String> {
+    if key.is_empty() {
+        return Err("API key is empty".into());
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client
+        .get("https://api.anthropic.com/v1/models")
+        .header("x-api-key", &key)
+        .header("anthropic-version", "2023-06-01")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+    let models: Vec<String> = body["data"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|m| m["id"].as_str().map(|s| s.to_string()))
+        .collect();
+
+    if models.is_empty() {
+        return Err(format!("No models returned: {body}"));
+    }
+    Ok(models)
 }
 
 #[tauri::command]
@@ -102,7 +149,7 @@ async fn start_session(
 
     session::run_session(app, config, stop_rx)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| format!("{e:#}"))
 }
 
 #[tauri::command]
@@ -111,6 +158,27 @@ async fn stop_session(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), Stri
     if let Some(stop) = s.stop_signal.take() {
         let _ = stop.send(());
     }
+    Ok(())
+}
+
+/// Generate a structured 3-min pitch (Pyramid + STAR + MECE) on demand.
+/// Streams `"answer-token"` events; returns immediately (generation runs in background).
+#[tauri::command]
+async fn generate_pitch(
+    app: tauri::AppHandle,
+    config: CaptureConfig,
+    instructions: String,
+) -> Result<(), String> {
+    tokio::spawn(async move {
+        app.emit("status", "thinking").ok();
+        match llm::generate_pitch_streaming(&config, &instructions, &[], &app).await {
+            Ok(_)  => { app.emit("status", "ready").ok(); }
+            Err(e) => {
+                app.emit("error", format!("{e:#}")).ok();
+                app.emit("status", "error").ok();
+            }
+        }
+    });
     Ok(())
 }
 
@@ -198,9 +266,10 @@ async fn run_pipeline(
         labeled.clone()
     };
 
-    // Stage 3: generate bullets via Claude
-    let bullets = llm::generate_bullets(&config, &question).await?;
-    app.emit("bullets", &bullets)?;
+    // Stage 3: stream bullets via Claude — each Bullet fires a "bullet" event
+    // as its JSON object closes, so the UI shows bullets incrementally.
+    // Single-shot mode has no multi-turn history, so we pass an empty slice.
+    llm::generate_answer_streaming(&config, &question, &[], &app).await?;
     app.emit("status", "ready")?;
 
     {
@@ -243,8 +312,10 @@ pub fn run() {
             stop_capture,
             parse_cv_pdf,
             list_audio_devices,
+            list_anthropic_models,
             start_session,
-            stop_session
+            stop_session,
+            generate_pitch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
