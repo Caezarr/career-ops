@@ -6,7 +6,6 @@ import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 
 type Status = "idle" | "recording" | "thinking" | "ready" | "error" | "listening";
 
-
 interface Config {
   anthropic_key: string;
   openai_key: string;
@@ -32,13 +31,12 @@ const DEFAULT_CONFIG: Config = {
 };
 
 // ── Window height constants (px) ─────────────────────────────────────────────
-const H_HEADER   = 52;
-const H_TRANS    = 56;
-const H_BULLET   = 68;
-const H_DOT_ANIM = 52;
-const H_ERROR    = 40;
-const H_PAD      = 14;
-const H_CONFIG   = 530;
+const H_HEADER   = 48;
+const H_Q_CARD   = 66;
+const H_DOT_ANIM = 54;
+const H_ERROR    = 48;
+const H_PAD      = 18;
+const H_CONFIG   = 590;
 const H_MIN      = H_HEADER + H_DOT_ANIM + H_PAD;
 
 async function startDrag(e: React.MouseEvent) {
@@ -145,7 +143,7 @@ export default function App() {
       h = H_HEADER;
     } else {
       h = H_HEADER;
-      if (transcript || ["thinking", "recording"].includes(status)) h += H_TRANS;
+      if (transcript || ["thinking", "recording"].includes(status)) h += H_Q_CARD;
       if (answer) {
         const lines = Math.max(3, Math.ceil(answer.length / 58));
         h += Math.min(lines * 20 + 32, 240);
@@ -225,9 +223,11 @@ export default function App() {
   return (
     <div className="app">
 
-      {/* ── Header — always-visible drag pill ── */}
+      {/* ── Header ── */}
       <div className="header" onMouseDown={startDrag}>
-        <div className="window-controls">
+
+        {/* Left: traffic lights */}
+        <div className="wc-group">
           <button className="wc wc-close" onClick={() => getCurrentWindow().close()}
             title="Close" aria-label="Close">
             <svg viewBox="0 0 10 10" fill="none">
@@ -244,46 +244,64 @@ export default function App() {
           </button>
         </div>
 
-        <span className="title">Interview Copilot</span>
-        <StatusPill status={status} time={recordingTime} />
-
-        {!showConfig && (
-          <div className="header-actions">
-            {/* Mode toggle */}
-            <button
-              className={`hbtn hbtn-mode ${appMode === "qa" ? "hbtn-mode-active" : ""}`}
-              onClick={() => setAppMode("qa")}
-              disabled={sessionActive}
-              title="Q&A mode — answer interview questions">
-              Q&A
-            </button>
-            <button
-              className={`hbtn hbtn-mode ${appMode === "pitch" ? "hbtn-mode-active" : ""}`}
-              onClick={() => setAppMode("pitch")}
-              disabled={sessionActive}
-              title="Pitch mode — structured self-presentation">
-              Pitch
-            </button>
-            <span style={{ width: 1, height: 14, background: "rgba(255,255,255,0.1)", margin: "0 2px" }} />
-            <button className="hbtn hbtn-pitch" onClick={generatePitch}
-              disabled={sessionActive || status === "thinking"}
-              title="Generate 3-min pitch now (Pyramid · STAR · MECE)">🎯</button>
-            {!sessionActive
-              ? <button className="hbtn hbtn-start" onClick={startSession}
-                  title="Start session  ⌘⇧Space">▶</button>
-              : <button className="hbtn hbtn-stop" onClick={stopSession}
-                  title="Stop session  ⌘⇧Space">■</button>
-            }
-            {hasContent && (
-              <button className="hbtn" onClick={() => setCollapsed((c) => !c)}
-                title={collapsed ? "Expand" : "Collapse"}>
-                {collapsed ? "▼" : "▲"}
+        {/* Center: mode tabs or "Settings" title */}
+        <div className="header-center">
+          {showConfig ? (
+            <span className="header-center-title">Settings</span>
+          ) : (
+            <div className="mode-tabs">
+              <button
+                className={`mode-tab${appMode === "qa" ? " active" : ""}`}
+                onClick={() => setAppMode("qa")}
+                disabled={sessionActive}
+                title="Q&A mode — answer interview questions">
+                Q&A
               </button>
-            )}
-            <button className="hbtn" onClick={() => { setShowConfig(true); setCollapsed(false); }}
-              title="Settings">⚙</button>
-          </div>
-        )}
+              <button
+                className={`mode-tab${appMode === "pitch" ? " active" : ""}`}
+                onClick={() => setAppMode("pitch")}
+                disabled={sessionActive}
+                title="Pitch mode — structured self-presentation">
+                Pitch
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right: status + actions */}
+        <div className="header-right">
+          <StatusBadge status={status} time={recordingTime} />
+
+          {!showConfig && (
+            <>
+              <div className="header-divider" />
+              <button className="icon-btn icon-btn-pitch" onClick={generatePitch}
+                disabled={sessionActive || status === "thinking"}
+                title="Generate 3-min pitch now (Pyramid · STAR · MECE)">
+                🎯
+              </button>
+              {!sessionActive
+                ? <button className="icon-btn icon-btn-start" onClick={startSession}
+                    title="Start session  ⌘⇧Space">▶</button>
+                : <button className="icon-btn icon-btn-stop" onClick={stopSession}
+                    title="Stop session  ⌘⇧Space">■</button>
+              }
+              {hasContent && (
+                <button className="icon-btn" onClick={() => setCollapsed((c) => !c)}
+                  title={collapsed ? "Expand" : "Collapse"}>
+                  {collapsed ? "▾" : "▴"}
+                </button>
+              )}
+              <button className="icon-btn" onClick={() => { setShowConfig(true); setCollapsed(false); }}
+                title="Settings">⚙</button>
+            </>
+          )}
+
+          {showConfig && (
+            <button className="icon-btn" onClick={() => setShowConfig(false)}
+              title="Back">←</button>
+          )}
+        </div>
       </div>
 
       {/* ── Config panel ── */}
@@ -292,50 +310,62 @@ export default function App() {
           onClose={() => setShowConfig(false)} />
       )}
 
-      {/* ── Main content — visible when expanded ── */}
+      {/* ── Main content ── */}
       {!showConfig && expanded && (
         <div className="content">
 
-          {/* Transcript */}
+          {/* Transcript / question card */}
           {(transcript || ["thinking", "recording"].includes(status)) && (
-            <div className="transcript">
+            <div className="q-card">
+              <span className="q-label">
+                {sessionActive ? "🎙 Live" : "Recruiter"}
+              </span>
               {transcript ? (
-                <>
-                  <span className="transcript-label">🎙 Whisper heard</span>
-                  <span className="transcript-text">{transcript}</span>
-                </>
+                <span className={`q-text live`}>{transcript}</span>
               ) : (
-                <span className="transcript-text muted">
+                <span className="q-text">
                   {status === "thinking" ? "Transcribing…" : "Capturing…"}
                 </span>
               )}
             </div>
           )}
 
-          {/* Streaming prose answer */}
+          {/* Answer card (hero) or generating state */}
           {answer ? (
-            <div className="answer" onClick={copyAnswer} title="Click to copy">
-              <span className="answer-text">
+            <div className="a-card">
+              <div className="a-header">
+                <span className="a-label">Suggested Answer</span>
+                <button
+                  className={`a-copy${copiedAnswer ? " copied" : ""}`}
+                  onClick={copyAnswer}>
+                  {copiedAnswer ? "✓ copied" : "⎘ copy"}
+                </button>
+              </div>
+              <p className="a-text">
                 <AnswerText text={answer} />
-                {status === "thinking" && <span className="answer-cursor" />}
-              </span>
-              <span className="answer-copy-icon">
-                {copiedAnswer ? "✓" : "⎘"}
-              </span>
+                {status === "thinking" && <span className="a-cursor" />}
+              </p>
             </div>
           ) : (
             ["thinking", "recording", "listening"].includes(status) && (
               <div className="generating">
-                <span className="gdot"/>
-                <span className="gdot"/>
-                <span className="gdot"/>
+                <div className="gen-dots">
+                  <span className="gdot"/>
+                  <span className="gdot"/>
+                  <span className="gdot"/>
+                </div>
+                <span className="gen-label">
+                  {status === "listening" ? "Listening for question…" : "Generating answer…"}
+                </span>
               </div>
             )
           )}
 
-          {error && <div className="error">{error}</div>}
+          {error && (
+            <div className="error-card">{error}</div>
+          )}
 
-          {/* Subtle single-shot button for testing */}
+          {/* Single-shot capture button */}
           <div className="action-bar">
             <button className="btn btn-ghost btn-xs" onClick={triggerCapture}
               disabled={sessionActive} title="One-shot 6s capture">
@@ -348,45 +378,53 @@ export default function App() {
   );
 }
 
-// ── AnswerText — renders [X:XX-X:XX] pitch markers with visual styling ────────
-const TS_RE = /(\[\d+:\d{2}[-–]\d+:\d{2}\])/g;
+// ── AnswerText — renders [X:XX-X:XX] pitch markers ───────────────────────────
+const TS_SPLIT = /(\[\d+:\d{2}[-–]\d+:\d{2}\])/g;
 
 function AnswerText({ text }: { text: string }) {
-  const parts = text.split(TS_RE);
   return (
     <>
-      {parts.map((part, i) =>
-        TS_RE.test(part) ? (
-          <span key={i} className="answer-ts">{part}</span>
-        ) : (
-          <span key={i}>{part}</span>
-        )
+      {text.split(TS_SPLIT).map((part, i) =>
+        /^\[\d+:\d{2}[-–]\d+:\d{2}\]$/.test(part)
+          ? <span key={i} className="a-ts">{part}</span>
+          : <span key={i}>{part}</span>
       )}
     </>
   );
 }
 
-// ── StatusPill ────────────────────────────────────────────────────────────────
-function StatusPill({ status, time }: { status: Status; time: number }) {
-  const label =
-    status === "listening" ? "LISTENING"
-    : status === "recording" ? `REC ${time.toFixed(1)}s`
-    : status === "thinking"  ? "THINKING"
-    : status === "ready"     ? "READY"
-    : status === "error"     ? "ERROR"
-    : "IDLE";
-
-  const cls =
-    status === "listening" || status === "recording" ? "recording"
-    : status === "thinking" ? "thinking"
-    : status === "ready"    ? "ready"
+// ── StatusBadge ───────────────────────────────────────────────────────────────
+function StatusBadge({ status, time }: { status: Status; time: number }) {
+  const dotClass =
+    status === "listening" || status === "ready" ? "dot-green"
+    : status === "thinking" ? "dot-blue"
+    : status === "recording" ? "dot-red"
+    : status === "error" ? "dot-red"
     : "";
 
+  const labelClass =
+    status === "listening" || status === "ready" ? "label-green"
+    : status === "thinking" ? "label-blue"
+    : status === "recording" || status === "error" ? "label-red"
+    : "";
+
+  const label =
+    status === "listening" ? "Listening"
+    : status === "recording" ? `Rec ${time.toFixed(1)}s`
+    : status === "thinking"  ? "Thinking"
+    : status === "ready"     ? "Ready"
+    : status === "error"     ? "Error"
+    : null;
+
   return (
-    <span className={`status-pill ${cls}`}>
-      <span className="dot" />
-      {label}
-    </span>
+    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+      <span className={`status-dot${dotClass ? ` ${dotClass}` : ""}`} />
+      {label && (
+        <span className={`status-label${labelClass ? ` ${labelClass}` : ""}`}>
+          {label}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -415,12 +453,6 @@ function ConfigPanel({
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const sel: React.CSSProperties = {
-    background: "rgba(0,0,0,0.3)", color: "white",
-    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
-    padding: "6px 8px", fontSize: 12,
-  };
 
   const handlePdf = useCallback(async (file: File) => {
     setPdfError(null); setPdfStatus(`Reading ${file.name}…`);
@@ -454,107 +486,132 @@ function ConfigPanel({
 
   return (
     <div className="config">
-      <label>
-        Anthropic API key (Claude)
-        <input type="password" placeholder="sk-ant-…" value={draft.anthropic_key}
-          onChange={(e) => setDraft({ ...draft, anthropic_key: e.target.value })}/>
-      </label>
-      <label>
-        AssemblyAI key — real-time STT (session mode)
-        <input type="password" placeholder="…" value={draft.assemblyai_key}
-          onChange={(e) => setDraft({ ...draft, assemblyai_key: e.target.value })}/>
-        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>
-          Get a free key at assemblyai.com — needed for live session mode
-        </span>
-      </label>
-      <label>
-        Claude model
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {models.length > 0 ? (
-            <select value={draft.model} style={{ ...sel, flex: 1 }}
-              onChange={(e) => setDraft({ ...draft, model: e.target.value })}>
-              {models.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
-          ) : (
-            <input type="text" placeholder="detect →" value={draft.model} style={{ flex: 1 }}
-              onChange={(e) => setDraft({ ...draft, model: e.target.value })}/>
-          )}
-          <button className="btn btn-ghost btn-xs"
-            onClick={detectModels} disabled={!draft.anthropic_key || modelLoading}
-            style={{ flexShrink: 0 }}>
-            {modelLoading ? "…" : "Detect"}
-          </button>
-        </div>
-        {modelError && <span style={{ fontSize: 10, color: "#ff8b8b" }}>{modelError}</span>}
-      </label>
-      <label>
-        OpenAI API key (Whisper STT)
-        <input type="password" placeholder="sk-…" value={draft.openai_key}
-          onChange={(e) => setDraft({ ...draft, openai_key: e.target.value })}/>
-      </label>
-      <label>
-        Mic — your voice
-        <select value={draft.audio_device} style={sel}
-          onChange={(e) => setDraft({ ...draft, audio_device: e.target.value })}>
-          <option value="">Default mic (system)</option>
-          {devices.filter((d) => !/blackhole/i.test(d)).map((d) =>
-            <option key={d} value={d}>{d}</option>)}
-        </select>
-      </label>
-      <label>
-        Loopback — recruiter audio
-        <select value={draft.loopback_device} style={sel}
-          onChange={(e) => setDraft({ ...draft, loopback_device: e.target.value })}>
-          <option value="">Off — mic only</option>
-          {devices.map((d) =>
-            <option key={d} value={d}>{d}{/blackhole/i.test(d) ? " ← recommended" : ""}</option>)}
-        </select>
-        {!hasBlackHole && (
-          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>
-            Install{" "}
-            <a href="#" style={{ color: "#95b8ff" }}
-              onClick={(e) => { e.preventDefault();
-                window.open("https://github.com/ExistentialAudio/BlackHole", "_blank"); }}>
-              BlackHole
-            </a>
-            {" "}to capture recruiter audio.
+
+      {/* Section: API Keys */}
+      <div className="config-section">
+        <span className="config-section-title">API Keys</span>
+
+        <label>
+          Anthropic API key (Claude)
+          <input type="password" placeholder="sk-ant-…" value={draft.anthropic_key}
+            onChange={(e) => setDraft({ ...draft, anthropic_key: e.target.value })}/>
+        </label>
+
+        <label>
+          AssemblyAI key — real-time STT
+          <input type="password" placeholder="…" value={draft.assemblyai_key}
+            onChange={(e) => setDraft({ ...draft, assemblyai_key: e.target.value })}/>
+          <span className="config-hint">
+            Free key at assemblyai.com — needed for live session mode
           </span>
-        )}
-      </label>
-      <label>
-        Persona
-        <select value={draft.persona} style={sel}
-          onChange={(e) => setDraft({ ...draft, persona: e.target.value as Config["persona"] })}>
-          <option value="finance">Finance / PE / IB</option>
-          <option value="tech-ai">Tech / AI Engineering</option>
-          <option value="consulting">Stratégie / Consulting</option>
-        </select>
-      </label>
-      <label>
-        CV — PDF ou texte
-        <input ref={fileRef} type="file" accept="application/pdf,.pdf"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePdf(f); }}
-          style={{ marginBottom: 6 }}/>
-        {pdfStatus && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>{pdfStatus}</span>}
-        {pdfError  && <span style={{ fontSize: 11, color: "#ff8b8b" }}>{pdfError}</span>}
-        <textarea placeholder="Colle ton CV ici, ou upload un PDF ci-dessus…"
-          value={draft.cv} rows={6}
-          onChange={(e) => setDraft({ ...draft, cv: e.target.value })}/>
-      </label>
-      <label>
-        Job description
-        <textarea placeholder="Colle la JD…" value={draft.jd} rows={4}
-          onChange={(e) => setDraft({ ...draft, jd: e.target.value })}/>
-      </label>
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        </label>
+
+        <label>
+          OpenAI API key (Whisper STT)
+          <input type="password" placeholder="sk-…" value={draft.openai_key}
+            onChange={(e) => setDraft({ ...draft, openai_key: e.target.value })}/>
+        </label>
+
+        <label>
+          Claude model
+          <div className="config-row">
+            {models.length > 0 ? (
+              <select value={draft.model}
+                onChange={(e) => setDraft({ ...draft, model: e.target.value })}>
+                {models.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            ) : (
+              <input type="text" placeholder="detect →" value={draft.model}
+                onChange={(e) => setDraft({ ...draft, model: e.target.value })}/>
+            )}
+            <button className="btn btn-ghost btn-xs"
+              onClick={detectModels} disabled={!draft.anthropic_key || modelLoading}
+              style={{ flexShrink: 0 }}>
+              {modelLoading ? "…" : "Detect"}
+            </button>
+          </div>
+          {modelError && <span className="config-error">{modelError}</span>}
+        </label>
+      </div>
+
+      {/* Section: Audio */}
+      <div className="config-section">
+        <span className="config-section-title">Audio</span>
+
+        <label>
+          Mic — your voice
+          <select value={draft.audio_device}
+            onChange={(e) => setDraft({ ...draft, audio_device: e.target.value })}>
+            <option value="">Default mic (system)</option>
+            {devices.filter((d) => !/blackhole/i.test(d)).map((d) =>
+              <option key={d} value={d}>{d}</option>)}
+          </select>
+        </label>
+
+        <label>
+          Loopback — recruiter audio
+          <select value={draft.loopback_device}
+            onChange={(e) => setDraft({ ...draft, loopback_device: e.target.value })}>
+            <option value="">Off — mic only</option>
+            {devices.map((d) =>
+              <option key={d} value={d}>{d}{/blackhole/i.test(d) ? " ← recommended" : ""}</option>)}
+          </select>
+          {!hasBlackHole && (
+            <span className="config-hint">
+              Install{" "}
+              <a href="#" onClick={(e) => { e.preventDefault();
+                window.open("https://github.com/ExistentialAudio/BlackHole", "_blank"); }}>
+                BlackHole
+              </a>
+              {" "}to capture recruiter audio.
+            </span>
+          )}
+        </label>
+      </div>
+
+      {/* Section: Profile */}
+      <div className="config-section">
+        <span className="config-section-title">Profile</span>
+
+        <label>
+          Persona
+          <select value={draft.persona}
+            onChange={(e) => setDraft({ ...draft, persona: e.target.value as Config["persona"] })}>
+            <option value="finance">Finance / PE / IB</option>
+            <option value="tech-ai">Tech / AI Engineering</option>
+            <option value="consulting">Stratégie / Consulting</option>
+          </select>
+        </label>
+
+        <label>
+          CV — PDF or text
+          <input ref={fileRef} type="file" accept="application/pdf,.pdf"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePdf(f); }}
+            style={{ marginBottom: 4 }}/>
+          {pdfStatus && <span className="config-status">{pdfStatus}</span>}
+          {pdfError  && <span className="config-error">{pdfError}</span>}
+          <textarea placeholder="Paste your CV here, or upload a PDF above…"
+            value={draft.cv} rows={6}
+            onChange={(e) => setDraft({ ...draft, cv: e.target.value })}/>
+        </label>
+
+        <label>
+          Job description
+          <textarea placeholder="Paste the JD…" value={draft.jd} rows={4}
+            onChange={(e) => setDraft({ ...draft, jd: e.target.value })}/>
+        </label>
+      </div>
+
+      {/* Footer */}
+      <div className="config-footer">
         <button className="btn btn-primary" disabled={!draft.anthropic_key}
           onClick={() => { onSave(draft); onClose(); }}>
           Save &amp; continue
         </button>
+        <span className="config-footer-note">
+          Stored locally in WebView. Keychain migration planned.
+        </span>
       </div>
-      <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>
-        Stored locally in WebView. Keychain migration planned.
-      </p>
     </div>
   );
 }
