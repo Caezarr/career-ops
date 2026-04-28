@@ -14,6 +14,7 @@ const BREADCRUMBS: Record<Page, BreadcrumbSpec> = {
   applications: { parts: ['Applications'] },
   cv: { parts: ['CV'] },
   prep: { parts: ['Prep'] },
+  copilot: { parts: ['Copilot'] },
   settings: { parts: ['Settings'] },
 };
 

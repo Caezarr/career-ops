@@ -8,7 +8,6 @@ import {
   Settings,
   ChevronUp,
 } from 'lucide-react';
-import { invoke } from '@tauri-apps/api/core';
 import { mockUser } from '../data/mock';
 import { useNavigation, type Page } from '../navigation';
 
@@ -37,6 +36,7 @@ const PAGE_IDS: ReadonlyArray<Page> = [
   'applications',
   'cv',
   'prep',
+  'copilot',
   'settings',
 ];
 
@@ -47,16 +47,7 @@ function isPage(id: string): id is Page {
 export default function Sidebar() {
   const { page, navigate } = useNavigation();
 
-  const handleNavClick = async (id: string) => {
-    if (id === 'copilot') {
-      try {
-        await invoke('show_copilot_window');
-      } catch (e) {
-        // Best-effort — surface to console; other nav items are no-op.
-        console.warn('show_copilot_window failed:', e);
-      }
-      return;
-    }
+  const handleNavClick = (id: string) => {
     if (isPage(id)) {
       navigate(id);
     }

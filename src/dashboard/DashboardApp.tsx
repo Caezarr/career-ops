@@ -3,6 +3,7 @@ import Jobs from "./pages/Jobs";
 import Applications from "./pages/Applications";
 import CV from "./pages/CV";
 import Prep from "./pages/Prep";
+import Copilot from "./pages/Copilot";
 import { NavigationProvider, useNavigation } from "./navigation";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
@@ -15,6 +16,7 @@ import "./styles/jobs.css";
 import "./styles/applications.css";
 import "./styles/cv.css";
 import "./styles/prep.css";
+import "./styles/copilot.css";
 
 function PageRouter() {
   const { page } = useNavigation();
@@ -27,6 +29,8 @@ function PageRouter() {
       return <CV />;
     case "prep":
       return <Prep />;
+    case "copilot":
+      return <Copilot />;
     case "settings":
       return <Dashboard />; // placeholder
     default:
