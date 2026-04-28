@@ -10,16 +10,16 @@ import {
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { mockUser } from '../data/mock';
+import { useNavigation, type Page } from '../navigation';
 
 interface NavEntry {
   id: string;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
-  active?: boolean;
 }
 
 const topNav: NavEntry[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, active: true },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'applications', label: 'Applications', icon: FileText },
   { id: 'cv', label: 'CV', icon: IdCard },
@@ -31,7 +31,22 @@ const bottomNav: NavEntry[] = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
+const PAGE_IDS: ReadonlyArray<Page> = [
+  'dashboard',
+  'jobs',
+  'applications',
+  'cv',
+  'prep',
+  'settings',
+];
+
+function isPage(id: string): id is Page {
+  return (PAGE_IDS as ReadonlyArray<string>).includes(id);
+}
+
 export default function Sidebar() {
+  const { page, navigate } = useNavigation();
+
   const handleNavClick = async (id: string) => {
     if (id === 'copilot') {
       try {
@@ -42,7 +57,9 @@ export default function Sidebar() {
       }
       return;
     }
-    // Other nav items are no-op for now (pages not built yet).
+    if (isPage(id)) {
+      navigate(id);
+    }
   };
 
   return (
@@ -52,12 +69,13 @@ export default function Sidebar() {
       <nav className="sidebar__nav" aria-label="Primary">
         {topNav.map((item) => {
           const Icon = item.icon;
+          const active = isPage(item.id) && page === item.id;
           return (
             <button
               key={item.id}
               type="button"
-              className={`sidebar__nav-item${item.active ? ' sidebar__nav-item--active' : ''}`}
-              aria-current={item.active ? 'page' : undefined}
+              className={`sidebar__nav-item${active ? ' sidebar__nav-item--active' : ''}`}
+              aria-current={active ? 'page' : undefined}
               onClick={() => handleNavClick(item.id)}
             >
               <Icon size={18} strokeWidth={2} className="sidebar__nav-icon" />
@@ -70,11 +88,13 @@ export default function Sidebar() {
 
         {bottomNav.map((item) => {
           const Icon = item.icon;
+          const active = isPage(item.id) && page === item.id;
           return (
             <button
               key={item.id}
               type="button"
-              className="sidebar__nav-item"
+              className={`sidebar__nav-item${active ? ' sidebar__nav-item--active' : ''}`}
+              aria-current={active ? 'page' : undefined}
               onClick={() => handleNavClick(item.id)}
             >
               <Icon size={18} strokeWidth={2} className="sidebar__nav-icon" />

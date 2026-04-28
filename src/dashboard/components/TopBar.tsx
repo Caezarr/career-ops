@@ -1,16 +1,47 @@
+import { Fragment } from 'react';
 import { ChevronRight, Search, Bell } from 'lucide-react';
 import '../styles/topbar.css';
 import { mockUser } from '../data/mock';
+import { useNavigation, type Page } from '../navigation';
+
+interface BreadcrumbSpec {
+  parts: string[];
+}
+
+const BREADCRUMBS: Record<Page, BreadcrumbSpec> = {
+  dashboard: { parts: ['Dashboard', 'Career Intelligence Hub'] },
+  jobs: { parts: ['Jobs'] },
+  applications: { parts: ['Applications'] },
+  cv: { parts: ['CV'] },
+  prep: { parts: ['Prep'] },
+  settings: { parts: ['Settings'] },
+};
 
 export default function TopBar() {
+  const { page } = useNavigation();
+  const { parts } = BREADCRUMBS[page];
+
   return (
     <header className="topbar">
       <nav className="topbar__breadcrumb" aria-label="Breadcrumb">
-        <span className="topbar__breadcrumb-item">Dashboard</span>
-        <ChevronRight size={14} className="topbar__breadcrumb-sep" />
-        <span className="topbar__breadcrumb-item topbar__breadcrumb-item--current">
-          Career Intelligence Hub
-        </span>
+        {parts.map((part, idx) => {
+          const isLast = idx === parts.length - 1;
+          return (
+            <Fragment key={`${part}-${idx}`}>
+              <span
+                className={
+                  'topbar__breadcrumb-item' +
+                  (isLast && parts.length > 1 ? ' topbar__breadcrumb-item--current' : '')
+                }
+              >
+                {part}
+              </span>
+              {!isLast && (
+                <ChevronRight size={14} className="topbar__breadcrumb-sep" />
+              )}
+            </Fragment>
+          );
+        })}
       </nav>
 
       <div className="topbar__search">

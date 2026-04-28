@@ -183,10 +183,15 @@ export const companyBrand = (company: string): CompanyBrand => {
     OpenAI: { bg: '#0f172a', fg: '#ffffff', label: 'OAI' },
     Stripe: { bg: '#635bff', fg: '#ffffff', label: 'S' },
     'Goldman Sachs': { bg: '#1f4ea1', fg: '#ffffff', label: 'GS' },
-    'Mistral AI': { bg: '#f59e0b', fg: '#ffffff', label: 'M' },
+    'Mistral AI': { bg: '#f97316', fg: '#ffffff', label: 'M' },
     Amplitude: { bg: '#1e6cf2', fg: '#ffffff', label: 'A' },
     Airtable: { bg: '#0f172a', fg: '#ffd166', label: 'AT' },
     Notion: { bg: '#ffffff', fg: '#0f172a', label: 'N', border: '#0f172a' },
+    Qonto: { bg: '#0a0a0a', fg: '#ffffff', label: 'Q' },
+    Alan: { bg: '#7c3aed', fg: '#ffffff', label: 'A' },
+    Doctolib: { bg: '#0084ff', fg: '#ffffff', label: 'd' },
+    Pennylane: { bg: '#10b981', fg: '#ffffff', label: 'P' },
+    Mirakl: { bg: '#1e3a8a', fg: '#ffffff', label: 'M' },
   };
   return map[company] ?? { bg: '#e2e8f0', fg: '#0f172a', label: company.charAt(0) };
 };
