@@ -4,6 +4,7 @@ import Applications from "./pages/Applications";
 import CV from "./pages/CV";
 import Prep from "./pages/Prep";
 import Copilot from "./pages/Copilot";
+import Settings from "./pages/Settings";
 import { NavigationProvider, useNavigation } from "./navigation";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
@@ -17,6 +18,7 @@ import "./styles/applications.css";
 import "./styles/cv.css";
 import "./styles/prep.css";
 import "./styles/copilot.css";
+import "./styles/settings.css";
 
 function PageRouter() {
   const { page } = useNavigation();
@@ -32,7 +34,7 @@ function PageRouter() {
     case "copilot":
       return <Copilot />;
     case "settings":
-      return <Dashboard />; // placeholder
+      return <Settings />;
     default:
       return <Dashboard />;
   }
