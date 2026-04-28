@@ -2,6 +2,7 @@ import Dashboard from "./pages/Dashboard";
 import Jobs from "./pages/Jobs";
 import Applications from "./pages/Applications";
 import CV from "./pages/CV";
+import Prep from "./pages/Prep";
 import { NavigationProvider, useNavigation } from "./navigation";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
@@ -13,6 +14,7 @@ import "./styles/insight.css";
 import "./styles/jobs.css";
 import "./styles/applications.css";
 import "./styles/cv.css";
+import "./styles/prep.css";
 
 function PageRouter() {
   const { page } = useNavigation();
@@ -24,7 +26,7 @@ function PageRouter() {
     case "cv":
       return <CV />;
     case "prep":
-      return <Dashboard />; // placeholder
+      return <Prep />;
     case "settings":
       return <Dashboard />; // placeholder
     default:
