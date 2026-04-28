@@ -1,0 +1,119 @@
+.dashboard-root .topbar {
+  height: 64px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+.dashboard-root .topbar__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.dashboard-root .topbar__breadcrumb-item {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.dashboard-root .topbar__breadcrumb-item--current {
+  color: var(--text-2);
+  font-weight: 400;
+}
+
+.dashboard-root .topbar__breadcrumb-sep {
+  color: var(--text-3);
+}
+
+.dashboard-root .topbar__search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.dashboard-root .topbar__search-inner {
+  width: 100%;
+  max-width: 480px;
+  height: 40px;
+  background: var(--bg-soft);
+  border-radius: 10px;
+  padding: 0 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-root .topbar__search-icon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.dashboard-root .topbar__search-input {
+  flex: 1;
+  font-size: 14px;
+  color: var(--text-1);
+}
+
+.dashboard-root .topbar__search-input::placeholder {
+  color: var(--text-3);
+}
+
+.dashboard-root .topbar__search-kbd {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+
+.dashboard-root .topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.dashboard-root .topbar__bell {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  transition: background 120ms ease;
+}
+
+.dashboard-root .topbar__bell:hover {
+  background: var(--bg-hover);
+}
+
+.dashboard-root .topbar__bell-dot {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  background: var(--indigo);
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+}
+
+.dashboard-root .topbar__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--indigo);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+}

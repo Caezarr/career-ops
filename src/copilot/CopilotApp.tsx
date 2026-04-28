@@ -47,7 +47,7 @@ async function startDrag(e: React.MouseEvent) {
   try { await getCurrentWindow().startDragging(); } catch {}
 }
 
-export default function App() {
+export function CopilotApp() {
   const [status, setStatus]             = useState<Status>("idle");
   const [transcript, setTranscript]     = useState("");
   const [answer, setAnswer]             = useState("");

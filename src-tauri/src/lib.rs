@@ -161,6 +161,16 @@ async fn stop_session(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), Stri
     Ok(())
 }
 
+/// Show the floating Copilot overlay window. Called from the Dashboard sidebar.
+#[tauri::command]
+async fn show_copilot_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("copilot") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 /// Generate a structured 3-min pitch (Pyramid + STAR + MECE) on demand.
 /// Streams `"answer-token"` events; returns immediately (generation runs in background).
 #[tauri::command]
@@ -297,10 +307,12 @@ pub fn run() {
             app.manage(state);
 
             // Best-effort stealth on macOS: window-level capture exclusion.
+            // Only the Copilot overlay needs to hide from screen capture; the
+            // main Dashboard window is a normal product window.
             // On macOS 15+ this is ignored by ScreenCaptureKit but we still set it.
             #[cfg(target_os = "macos")]
             {
-                if let Some(window) = app.get_webview_window("main") {
+                if let Some(window) = app.get_webview_window("copilot") {
                     let _ = window.set_content_protected(true);
                 }
             }
@@ -315,7 +327,8 @@ pub fn run() {
             list_anthropic_models,
             start_session,
             stop_session,
-            generate_pitch
+            generate_pitch,
+            show_copilot_window
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

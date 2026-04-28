@@ -1,0 +1,123 @@
+.dashboard-root .today-tasks {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--shadow-card);
+}
+
+.dashboard-root .today-tasks__header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.dashboard-root .today-tasks__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+
+.dashboard-root .today-tasks__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  margin-left: 8px;
+}
+
+.dashboard-root .today-tasks__more {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--text-3);
+  transition: background 120ms ease;
+}
+
+.dashboard-root .today-tasks__more:hover {
+  background: var(--bg-soft);
+}
+
+.dashboard-root .today-tasks__list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-root .task-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-root .task-item__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-root .task-item__icon--indigo {
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+}
+
+.dashboard-root .task-item__icon--purple {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.dashboard-root .task-item__icon--green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.dashboard-root .task-item__icon--orange {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.dashboard-root .task-item__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-root .task-item__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+
+.dashboard-root .task-item__subtitle {
+  font-size: 12px;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+.dashboard-root .task-item__subtitle--indigo { color: var(--indigo-text); }
+.dashboard-root .task-item__subtitle--purple { color: var(--purple); }
+.dashboard-root .task-item__subtitle--green  { color: var(--green); }
+.dashboard-root .task-item__subtitle--orange { color: var(--orange); }
+
+.dashboard-root .task-item__check {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 120ms ease;
+}
+
+.dashboard-root .task-item__check:hover {
+  border-color: var(--indigo);
+}

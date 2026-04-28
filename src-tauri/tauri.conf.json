@@ -15,6 +15,24 @@
       {
         "title": "Interview Copilot",
         "label": "main",
+        "url": "index.html",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 1024,
+        "minHeight": 700,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "shadow": true,
+        "visible": true
+      },
+      {
+        "title": "Copilot",
+        "label": "copilot",
+        "url": "index.html#copilot",
         "width": 460,
         "height": 560,
         "minWidth": 360,
@@ -28,7 +46,8 @@
         "hiddenTitle": true,
         "shadow": true,
         "visibleOnAllWorkspaces": true,
-        "contentProtected": true
+        "contentProtected": true,
+        "visible": false
       }
     ],
     "security": {
