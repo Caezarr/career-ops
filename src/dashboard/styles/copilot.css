@@ -1,0 +1,898 @@
+/* ── Copilot dashboard page ───────────────────────────────────────────────── */
+/* Scoped under `.dashboard-root` so it never leaks into the floating overlay. */
+
+/* ── Page-level grid override ────────────────────────────────────────────── */
+.dashboard-root .dashboard--copilot {
+  grid-template-columns: 220px 1fr;
+}
+
+.dashboard-root .copilot-page {
+  padding: 24px 32px 32px;
+}
+
+.dashboard-root .copilot-page__breadcrumb {
+  display: block;
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 12px;
+}
+
+.dashboard-root .copilot-page__grid {
+  display: grid;
+  grid-template-columns: minmax(420px, 1fr) 540px;
+  gap: 32px;
+  align-items: start;
+}
+
+.dashboard-root .copilot-page__left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.dashboard-root .copilot-page__right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Generic shared bits ─────────────────────────────────────────────────── */
+
+.dashboard-root .cp-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+}
+
+.dashboard-root .cp-pill--green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.dashboard-root .cp-pill--small {
+  font-size: 10px;
+  padding: 2px 8px;
+}
+
+.dashboard-root .cp-pill--beta {
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 6px;
+  text-transform: uppercase;
+}
+
+.dashboard-root .cp-section-eyebrow {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-root .cp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.dashboard-root .cp-btn--outlined {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-1);
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.dashboard-root .cp-btn--outlined:hover {
+  background: var(--bg-hover);
+}
+
+.dashboard-root .cp-btn--block {
+  width: 100%;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  margin-top: 14px;
+}
+
+.dashboard-root .cp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--text-3);
+  transition: background 120ms ease, color 120ms ease;
+  cursor: pointer;
+}
+
+.dashboard-root .cp-icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-2);
+}
+
+/* ── Stop button (red) ───────────────────────────────────────────────────── */
+.dashboard-root .cp-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--red);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.dashboard-root .cp-stop-btn:hover {
+  background: #dc2626;
+}
+
+.dashboard-root .cp-stop-btn svg {
+  display: block;
+}
+
+/* ── Interview-in-progress card ──────────────────────────────────────────── */
+.dashboard-root .cp-interview-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.dashboard-root .cp-interview-card__top {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.dashboard-root .cp-interview-card__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--indigo-soft);
+  color: var(--indigo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-root .cp-interview-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-root .cp-interview-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-root .cp-interview-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-interview-card__subtitle {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.dashboard-root .cp-interview-card__started {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+
+.dashboard-root .cp-interview-card__actions {
+  margin-top: 16px;
+}
+
+/* ── Summary row (Next up + Streak) ──────────────────────────────────────── */
+.dashboard-root .copilot-summary-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.dashboard-root .cp-summary-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-root .cp-summary-card__eyebrow {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-root .cp-summary-card__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-top: 6px;
+}
+
+.dashboard-root .cp-summary-card__subtitle {
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+
+.dashboard-root .cp-summary-card__meta {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 14px;
+}
+
+/* Prep streak specific */
+.dashboard-root .cp-streak-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dashboard-root .cp-streak-flame {
+  color: var(--orange);
+}
+
+.dashboard-root .cp-streak-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1;
+}
+
+.dashboard-root .cp-streak-unit {
+  font-size: 12.5px;
+  color: var(--text-3);
+  align-self: flex-end;
+  margin-bottom: 3px;
+}
+
+.dashboard-root .cp-week-dots {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 16px;
+}
+
+.dashboard-root .cp-week-dot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .cp-week-dot__label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dashboard-root .cp-week-dot__icon--done {
+  color: var(--green);
+}
+
+.dashboard-root .cp-week-dot__icon--empty {
+  color: var(--border);
+}
+
+/* ── Recent activity card ────────────────────────────────────────────────── */
+.dashboard-root .cp-recent-activity {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  box-shadow: var(--shadow-card);
+}
+
+.dashboard-root .cp-recent-activity__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 14px;
+}
+
+.dashboard-root .cp-recent-activity__list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-root .cp-activity-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-root .cp-activity-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-root .cp-activity-icon--green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.dashboard-root .cp-activity-icon--purple {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.dashboard-root .cp-activity-icon--indigo {
+  background: var(--indigo-soft);
+  color: var(--indigo);
+}
+
+.dashboard-root .cp-activity-item__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-root .cp-activity-item__title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-activity-item__subtitle {
+  font-size: 12px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.dashboard-root .cp-activity-item__timestamp {
+  font-size: 12px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* ── Embedded Copilot panel (right column hero) ──────────────────────────── */
+.dashboard-root .cp-embedded-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow:
+    0 8px 32px rgba(15, 23, 42, 0.08),
+    0 2px 8px rgba(15, 23, 42, 0.04);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* ── Panel header (Career Copilot · Listening · controls) ────────────────── */
+.dashboard-root .cp-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.dashboard-root .cp-panel-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-root .cp-panel-header__sparkles {
+  color: var(--indigo);
+}
+
+.dashboard-root .cp-panel-header__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-panel-header__status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--green);
+}
+
+.dashboard-root .cp-listening-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.dashboard-root .cp-panel-header__actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* ── Mode tabs row ───────────────────────────────────────────────────────── */
+.dashboard-root .cp-mode-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.dashboard-root .cp-mode-tabs__left {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.dashboard-root .cp-mode-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  padding: 6px 0;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.dashboard-root .cp-mode-tab--active {
+  color: var(--text-1);
+  font-weight: 600;
+  padding: 6px 0 8px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid var(--indigo);
+}
+
+.dashboard-root .cp-mode-tabs__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Session bar (company + timer + stop) ────────────────────────────────── */
+.dashboard-root .cp-session-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.dashboard-root .cp-session-bar__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-root .cp-session-bar__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-session-bar__timer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.dashboard-root .cp-rec-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--red);
+  display: inline-block;
+}
+
+.dashboard-root .cp-session-bar__timer {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* ── Live transcript ─────────────────────────────────────────────────────── */
+.dashboard-root .cp-live-transcript {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.dashboard-root .cp-live-transcript__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dashboard-root .cp-live-transcript__header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .cp-live-transcript__list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Transcript bubble */
+.dashboard-root .cp-bubble {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.dashboard-root .cp-bubble__avatar {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-root .cp-bubble--user .cp-bubble__avatar {
+  background: var(--indigo);
+  color: #ffffff;
+}
+
+.dashboard-root .cp-bubble__avatar-text {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-root .cp-bubble__avatar-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  border: 1.5px solid var(--bg);
+}
+
+.dashboard-root .cp-bubble__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-root .cp-bubble__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dashboard-root .cp-bubble__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-bubble__time {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+
+.dashboard-root .cp-bubble__text {
+  margin: 2px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-1);
+}
+
+/* ── Copilot answer ──────────────────────────────────────────────────────── */
+.dashboard-root .cp-answer {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.dashboard-root .cp-answer .cp-section-eyebrow {
+  margin-bottom: 10px;
+}
+
+.dashboard-root .cp-answer__card {
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.dashboard-root .cp-answer__text {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-answer__cursor {
+  display: inline-block;
+  width: 2px;
+  height: 0.85em;
+  background: var(--indigo);
+  margin-left: 2px;
+  vertical-align: -2px;
+  animation: cp-cursor-blink 0.75s steps(1, end) infinite;
+}
+
+@keyframes cp-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.dashboard-root .cp-answer__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Score chips with colored bottom edge */
+.dashboard-root .cp-score-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-1);
+  border-bottom-width: 2px;
+  border-bottom-style: solid;
+}
+
+.dashboard-root .cp-score-chip--green {
+  border-bottom-color: var(--green);
+}
+
+.dashboard-root .cp-score-chip--orange {
+  border-bottom-color: var(--orange);
+}
+
+.dashboard-root .cp-score-chip--green .cp-score-chip__icon {
+  color: var(--green);
+}
+
+.dashboard-root .cp-score-chip--orange .cp-score-chip__icon {
+  color: var(--orange);
+}
+
+.dashboard-root .cp-score-chip__label {
+  color: var(--text-1);
+}
+
+/* ── Model status bar ────────────────────────────────────────────────────── */
+.dashboard-root .cp-model-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-soft);
+  gap: 12px;
+}
+
+.dashboard-root .cp-model-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 120ms ease;
+}
+
+.dashboard-root .cp-model-selector:hover {
+  background: var(--bg-hover);
+}
+
+.dashboard-root .cp-model-selector__logo {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--text-1);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-root .cp-model-selector__name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-model-selector__chevron {
+  color: var(--text-3);
+}
+
+.dashboard-root .cp-model-bar__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .cp-confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .cp-confidence__icon {
+  color: var(--green);
+}
+
+.dashboard-root .cp-confidence__text {
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.dashboard-root .cp-model-bar__actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+/* ── Configuration panel ─────────────────────────────────────────────────── */
+.dashboard-root .cp-config {
+  padding: 16px 18px;
+}
+
+.dashboard-root .cp-config__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0 0 10px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.dashboard-root .cp-config__title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-config__chevron {
+  color: var(--text-3);
+}
+
+.dashboard-root .cp-config__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.dashboard-root .cp-config__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+  border-radius: 6px;
+  transition: background 120ms ease;
+}
+
+.dashboard-root .cp-config__item:hover {
+  background: var(--bg-hover);
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+.dashboard-root .cp-config__item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-root .cp-config__item-icon {
+  color: var(--text-3);
+}
+
+.dashboard-root .cp-config__item-label {
+  font-size: 12.5px;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-config__item-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-root .cp-config__item-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  display: inline-block;
+}
+
+.dashboard-root .cp-config__item-value {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.dashboard-root .cp-config__item-chevron {
+  color: var(--text-3);
+}
