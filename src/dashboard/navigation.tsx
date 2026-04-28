@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, ReactNode } from "react";
 
-export type Page = "dashboard" | "jobs" | "applications" | "cv" | "prep" | "settings";
+export type Page = "dashboard" | "jobs" | "applications" | "cv" | "prep" | "copilot" | "settings";
 
 interface NavCtx {
   page: Page;
