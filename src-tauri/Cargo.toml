@@ -34,6 +34,10 @@ pdf-extract = "0.7"
 base64 = "0.22"
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 http = "1"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "sqlite", "macros", "migrate", "chrono", "uuid"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+keyring = { version = "3", features = ["apple-native"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
