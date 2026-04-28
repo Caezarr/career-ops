@@ -63,6 +63,14 @@
   color: var(--green);
 }
 
+.dashboard-root .stat-card__trend--down {
+  color: var(--red);
+}
+
+.dashboard-root .stat-card__trend--none {
+  color: var(--text-3);
+}
+
 .dashboard-root .stat-card__trend-icon {
   flex-shrink: 0;
 }

@@ -1,0 +1,781 @@
+/* ── Applications page styles (light mode, scoped to .dashboard-root) ────── */
+
+/* Variant: 340px right panel */
+.dashboard-root .dashboard.dashboard--applications {
+  grid-template-columns: 220px 1fr 340px;
+}
+
+.dashboard-root .right-panel--applications {
+  padding: 0; /* internal section handles its own padding */
+}
+
+/* Page container */
+.dashboard-root .applications {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 32px;
+}
+
+/* ── 1. Header ───────────────────────────────────────────────────────────── */
+.dashboard-root .applications__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 32px 32px 0;
+  gap: 24px;
+}
+
+.dashboard-root .applications__header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-root .applications__title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin: 0;
+}
+
+.dashboard-root .applications__subtitle {
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 6px 0 0;
+}
+
+.dashboard-root .applications__header-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.dashboard-root .applications__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-root .applications__btn--ghost {
+  background: var(--bg);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.dashboard-root .applications__btn--ghost:hover {
+  background: var(--bg-soft);
+}
+
+.dashboard-root .applications__btn--primary {
+  background: var(--indigo);
+  color: #ffffff;
+  border: 1px solid var(--indigo);
+  font-weight: 600;
+}
+
+.dashboard-root .applications__btn--primary:hover {
+  background: var(--indigo-text);
+  border-color: var(--indigo-text);
+}
+
+/* ── 2. Stats ────────────────────────────────────────────────────────────── */
+.dashboard-root .applications__stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 24px 32px 0;
+}
+
+/* ── 3. Tab filters ──────────────────────────────────────────────────────── */
+.dashboard-root .applications__filters {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 28px 32px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-root .applications__tabs {
+  display: flex;
+  gap: 24px;
+}
+
+.dashboard-root .applications__tab {
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-2);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-root .applications__tab:hover {
+  color: var(--text-1);
+}
+
+.dashboard-root .applications__tab--active {
+  color: var(--text-1);
+  font-weight: 600;
+  border-bottom-color: var(--indigo);
+}
+
+.dashboard-root .applications__dropdowns {
+  display: flex;
+  gap: 10px;
+}
+
+.dashboard-root .applications__dropdown {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-1);
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-root .applications__dropdown:hover {
+  background: var(--bg-soft);
+}
+
+.dashboard-root .applications__dropdown--narrow {
+  min-width: 140px;
+}
+
+.dashboard-root .applications__dropdown--wide {
+  min-width: 180px;
+}
+
+.dashboard-root .applications__dropdown-icon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* ── 4. Table ────────────────────────────────────────────────────────────── */
+.dashboard-root .applications__table-section {
+  margin: 0 32px 32px;
+}
+
+.dashboard-root .applications__table {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-root .applications__row {
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 1.4fr)
+    minmax(160px, 1.6fr)
+    100px
+    90px
+    100px
+    70px
+    130px
+    80px;
+  gap: 16px;
+  align-items: center;
+}
+
+.dashboard-root .applications__row--header {
+  padding: 12px 16px;
+}
+
+.dashboard-root .applications__header-cell {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dashboard-root .applications__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboard-root .applications__rows .applications__row {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-root .applications__rows .applications__row:hover {
+  background: var(--bg-hover);
+}
+
+.dashboard-root .applications__rows .applications__row--selected {
+  border: 2px solid var(--indigo);
+  padding: 13px 15px;
+}
+
+.dashboard-root .applications__cell {
+  font-size: 13px;
+  color: var(--text-1);
+  min-width: 0;
+}
+
+.dashboard-root .applications__cell--company {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dashboard-root .applications__company-name {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-root .applications__cell--role {
+  font-size: 13.5px;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-root .applications__cell--muted {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.dashboard-root .applications__cell--next-step {
+  min-width: 0;
+}
+
+.dashboard-root .applications__next-step-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--indigo-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.dashboard-root .applications__next-step-link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-root .applications__cell--actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.dashboard-root .applications__icon-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--text-3);
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.dashboard-root .applications__icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+/* ── 5. Stage pill ───────────────────────────────────────────────────────── */
+.dashboard-root .stage-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dashboard-root .stage-pill--interview {
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+}
+
+.dashboard-root .stage-pill--phone {
+  background: var(--orange-soft);
+  color: #d97706;
+}
+
+.dashboard-root .stage-pill--applied {
+  background: var(--blue-soft);
+  color: #2563eb;
+}
+
+.dashboard-root .stage-pill--offer {
+  background: var(--green-soft);
+  color: #059669;
+}
+
+.dashboard-root .stage-pill--rejected {
+  background: var(--red-soft);
+  color: #dc2626;
+}
+
+/* ── 6. Pagination ───────────────────────────────────────────────────────── */
+.dashboard-root .applications__pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding: 12px 0;
+}
+
+.dashboard-root .applications__pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .applications__page-nav {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-1);
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-root .applications__page-nav:hover {
+  background: var(--bg-soft);
+}
+
+.dashboard-root .applications__page-num {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-1);
+  font-weight: 500;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-root .applications__page-num:hover {
+  background: var(--bg-soft);
+}
+
+.dashboard-root .applications__page-num--active {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: #ffffff;
+}
+
+.dashboard-root .applications__page-num--active:hover {
+  background: var(--indigo-text);
+  border-color: var(--indigo-text);
+}
+
+.dashboard-root .applications__pagination-range {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+/* ── 7. Right panel (ApplicationDetail) ──────────────────────────────────── */
+.dashboard-root .app-detail {
+  background: var(--bg-soft);
+  padding: 24px;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* DetailHeader */
+.dashboard-root .app-detail__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.dashboard-root .app-detail__header-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dashboard-root .app-detail__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dashboard-root .app-detail__title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.dashboard-root .app-detail__subtitle {
+  font-size: 13px;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.dashboard-root .app-detail__close {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.dashboard-root .app-detail__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-1);
+}
+
+/* DetailMeta */
+.dashboard-root .app-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.dashboard-root .app-detail__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .app-detail__meta-icon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* Section heading */
+.dashboard-root .app-detail__section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 12px;
+}
+
+.dashboard-root .app-detail__section {
+  display: block;
+}
+
+/* Materials */
+.dashboard-root .app-detail__materials {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-root .app-detail__material {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.dashboard-root .app-detail__material-icon {
+  flex-shrink: 0;
+}
+
+.dashboard-root .app-detail__material-icon--done {
+  color: var(--green);
+  fill: var(--green-soft);
+}
+
+.dashboard-root .app-detail__material-icon--missing {
+  color: var(--text-3);
+}
+
+.dashboard-root .app-detail__material-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-root .app-detail__material-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dashboard-root .app-detail__material-meta {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.dashboard-root .app-detail__material-link-icon {
+  color: var(--text-3);
+  cursor: pointer;
+  transition: color 150ms ease;
+}
+
+.dashboard-root .app-detail__material-link-icon:hover {
+  color: var(--text-1);
+}
+
+.dashboard-root .app-detail__material-add {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--indigo-text);
+}
+
+.dashboard-root .app-detail__material-add:hover {
+  text-decoration: underline;
+}
+
+/* Timeline */
+.dashboard-root .app-detail__section-title + .app-detail__timeline {
+  margin-top: 14px;
+}
+
+.dashboard-root .app-detail__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Vertical connector line behind icons */
+.dashboard-root .app-detail__timeline::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.dashboard-root .app-detail__timeline-event {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-root .app-detail__timeline-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dashboard-root .app-detail__timeline-icon--solid {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-root .app-detail__timeline-solid-icon {
+  /* Solid green CheckCircle2: green-filled circle with a white check inside */
+  color: #ffffff; /* stroke color (the check polyline) */
+}
+
+.dashboard-root .app-detail__timeline-solid-icon circle {
+  fill: var(--green);
+  stroke: var(--green);
+}
+
+.dashboard-root .app-detail__timeline-icon--tone-green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.dashboard-root .app-detail__timeline-icon--tone-blue {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.dashboard-root .app-detail__timeline-icon--tone-purple {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.dashboard-root .app-detail__timeline-icon--tone-orange {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.dashboard-root .app-detail__timeline-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dashboard-root .app-detail__timeline-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.dashboard-root .app-detail__timeline-date {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 2px 0 0;
+}
+
+/* AI Next Steps card */
+.dashboard-root .ai-next-steps {
+  background: var(--indigo-soft);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.dashboard-root .ai-next-steps__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-root .ai-next-steps__header-icon {
+  color: var(--indigo);
+  flex-shrink: 0;
+}
+
+.dashboard-root .ai-next-steps__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--indigo-text);
+}
+
+.dashboard-root .ai-next-steps__list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboard-root .ai-next-steps__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.4;
+}
+
+.dashboard-root .ai-next-steps__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--indigo);
+  margin-top: 7px;
+  flex-shrink: 0;
+}
+
+/* Action buttons */
+.dashboard-root .app-detail__actions {
+  display: flex;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.dashboard-root .app-detail__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.dashboard-root .app-detail__btn--ghost {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.dashboard-root .app-detail__btn--ghost:hover {
+  background: var(--bg-hover);
+}
+
+.dashboard-root .app-detail__btn--primary {
+  flex: 2;
+  background: var(--indigo);
+  color: #ffffff;
+  border: 1px solid var(--indigo);
+  font-weight: 600;
+  padding: 12px 22px;
+}
+
+.dashboard-root .app-detail__btn--primary:hover {
+  background: var(--indigo-text);
+  border-color: var(--indigo-text);
+}
