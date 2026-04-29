@@ -3,6 +3,9 @@
 /* Variant: full-width main, no right panel */
 .dashboard-root .dashboard.dashboard--full {
   grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
 }
 
 /* Page container — vertical stack */

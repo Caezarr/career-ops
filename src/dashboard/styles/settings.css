@@ -3,6 +3,9 @@
 /* Page-level grid override — sidebar + main only (no right panel) */
 .dashboard-root .dashboard--settings {
   grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
 }
 
 /* ── Page container & header ──────────────────────────────────────────────── */

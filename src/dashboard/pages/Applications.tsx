@@ -10,9 +10,9 @@ export default function Applications() {
   return (
     <div className="dashboard dashboard--applications">
       <Sidebar />
+      <TopBar />
 
       <main className="dashboard__main">
-        <TopBar />
         <div className="dashboard__main-scroll">
           <div className="applications">
             <ApplicationsHeader />

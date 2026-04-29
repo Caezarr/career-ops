@@ -10,9 +10,9 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <Sidebar />
+      <TopBar />
 
       <main className="dashboard__main">
-        <TopBar />
         <div className="dashboard__main-scroll">
           <div className="dashboard__greeting">
             <h1 className="greeting__title">{mockGreeting.greeting}</h1>

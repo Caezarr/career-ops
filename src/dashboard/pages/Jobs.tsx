@@ -10,8 +10,8 @@ export default function Jobs() {
   return (
     <div className="dashboard dashboard--full">
       <Sidebar />
+      <TopBar />
       <main className="dashboard__main">
-        <TopBar />
         <div className="dashboard__main-scroll">
           <div className="jobs">
             <JobsHeader />

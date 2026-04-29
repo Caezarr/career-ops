@@ -4,6 +4,9 @@
 /* ── Page-level grid override ────────────────────────────────────────────── */
 .dashboard-root .dashboard--copilot {
   grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
 }
 
 .dashboard-root .copilot-page {

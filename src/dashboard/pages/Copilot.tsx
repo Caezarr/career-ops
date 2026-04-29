@@ -10,9 +10,9 @@ export default function Copilot() {
   return (
     <div className="dashboard dashboard--copilot">
       <Sidebar />
+      <TopBar />
 
       <main className="dashboard__main">
-        <TopBar />
         <div className="dashboard__main-scroll">
           <div className="copilot-page">
             <span className="copilot-page__breadcrumb">Prep</span>
