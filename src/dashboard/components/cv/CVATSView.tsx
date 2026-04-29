@@ -30,8 +30,12 @@ export default function CVATSView() {
   const setAtsAnalysis = useAppStore((s) => s.setAtsAnalysis);
   const atsByCv = useAppStore((s) => s.atsByCv);
   const setSelectedCv = useAppStore((s) => s.setSelectedCv);
+  // JD lives in the store so leaving the tab and coming back keeps the
+  // input — and the same JD is reused by Tailoring's Analyze match so
+  // the cache hits there instead of burning credits on a re-run.
+  const jd = useAppStore((s) => s.atsAnalyzerJd);
+  const setJd = useAppStore((s) => s.setAtsAnalyzerJd);
 
-  const [jd, setJd] = useState('');
   const [running, setRunning] = useState(false);
   const [runState, setRunState] = useState<Record<string, RunState>>({});
   const [expandedCvId, setExpandedCvId] = useState<string | null>(null);

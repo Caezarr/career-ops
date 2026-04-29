@@ -52,6 +52,10 @@ export const useAppStore = create<AppStore>()(
       applications: state.applications,
       cvs: state.cvs,
       defaultCvId: state.defaultCvId,
+      // Persist AI analyses + ATS analyzer JD so the user doesn't burn
+      // Anthropic credits re-running on every nav / restart.
+      atsByCv: state.atsByCv,
+      atsAnalyzerJd: state.atsAnalyzerJd,
       prepSessions: state.prepSessions,
       todaysPlan: state.todaysPlan,
       todaysTasks: state.todaysTasks,

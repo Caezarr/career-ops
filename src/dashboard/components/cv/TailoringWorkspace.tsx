@@ -32,6 +32,7 @@ export default function TailoringWorkspace() {
   const createCV = useAppStore((s) => s.createCV);
   const setSelectedCv = useAppStore((s) => s.setSelectedCv);
   const atsByCv = useAppStore((s) => s.atsByCv);
+  const atsAnalyzerJd = useAppStore((s) => s.atsAnalyzerJd);
 
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
@@ -174,7 +175,10 @@ export default function TailoringWorkspace() {
         open={analyzeOpen}
         onClose={() => setAnalyzeOpen(false)}
         cvId={baseCv?.id}
-        jdText={tailoringTarget.role}
+        // Prefer the JD pasted in the ATS Analyzer tab so the cache from
+        // the multi-CV comparison hits and we don't re-spend credits.
+        // Fall back to the target-role label only when no JD has been entered.
+        jdText={atsAnalyzerJd.trim() || tailoringTarget.role}
         onApply={() => toast.success('Suggestions applied')}
       />
 
