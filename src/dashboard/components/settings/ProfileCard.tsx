@@ -3,6 +3,7 @@ import { Camera, ChevronDown, MapPin } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
 import ChangePhotoModal from '../shared/ChangePhotoModal';
+import UserAvatar from '../UserAvatar';
 
 export default function ProfileCard() {
   const toast = useToast();
@@ -81,9 +82,7 @@ export default function ProfileCard() {
 
       <div className="settings-profile__top">
         <div className="settings-profile__identity">
-          <div className="settings-profile__avatar" aria-hidden="true">
-            {initials}
-          </div>
+          <UserAvatar size={64} initialsOverride={initials} className="settings-profile__avatar" />
           <div className="settings-profile__identity-text">
             <div className="settings-profile__name">{user.name}</div>
             <div className="settings-profile__email">{user.email}</div>

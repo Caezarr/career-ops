@@ -16,6 +16,8 @@ export interface User {
   language: string;
   location: string;
   avatarInitials: string;
+  /** Optional data-URL or remote URL for the user's profile photo. */
+  avatarUrl?: string;
   targetRole: string;
   targetCompany: string;
 }
