@@ -13,8 +13,13 @@ export default function CV() {
   const cvTab = useAppStore((s) => s.cvTab);
   const setCvTab = useAppStore((s) => s.setCvTab);
 
+  // Right-panel preview is only meaningful in CV Manager (and as visual
+  // context in Optimization History). The ATS Analyzer is a comparator
+  // view that needs the full width, so we drop the preview there.
+  const showRightPanel = cvTab !== 'ats';
+
   return (
-    <div className="dashboard dashboard--cv">
+    <div className={`dashboard dashboard--cv${showRightPanel ? '' : ' dashboard--cv-full'}`}>
       <Sidebar />
       <TopBar />
 
@@ -31,9 +36,11 @@ export default function CV() {
         </div>
       </main>
 
-      <aside className="right-panel right-panel--cv" aria-label="CV preview and analysis">
-        <CVRightPanel />
-      </aside>
+      {showRightPanel && (
+        <aside className="right-panel right-panel--cv" aria-label="CV preview and analysis">
+          <CVRightPanel />
+        </aside>
+      )}
     </div>
   );
 }

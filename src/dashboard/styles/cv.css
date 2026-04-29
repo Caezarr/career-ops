@@ -9,6 +9,15 @@
     "sidebar main    right";
 }
 
+/* When the user is on the ATS Analyzer tab, hide the preview panel so the
+   comparison table has the full width to breathe. */
+.dashboard-root .dashboard.dashboard--cv-full {
+  grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+}
+
 .dashboard-root .right-panel--cv {
   padding: 20px;
   background: var(--bg-soft);
@@ -1363,8 +1372,13 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 8px 8px 12px;
+  padding: 8px 4px 12px 8px;
   min-height: 320px;
+  /* Keep scroll inside the panel and reserve a stable gutter so the
+     chevron column never sits under the scrollbar thumb. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .dashboard-root .cv-ats-analyzer__empty {
@@ -1397,10 +1411,12 @@
 
 .dashboard-root .cv-ats-analyzer__th {
   display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) 60px 60px 70px 24px;
-  gap: 12px;
+  /* Variant col grows; score cols fixed at pill width; chevron col gets
+     real breathing room so the icon never collides with the scrollbar. */
+  grid-template-columns: minmax(180px, 1.4fr) 70px 70px 80px 28px;
+  gap: 14px;
   align-items: center;
-  padding: 10px 14px;
+  padding: 10px 18px 10px 14px;
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1418,16 +1434,17 @@
 
 .dashboard-root .cv-ats-analyzer__row-toggle {
   display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) 60px 60px 70px 24px;
-  gap: 12px;
+  grid-template-columns: minmax(180px, 1.4fr) 70px 70px 80px 28px;
+  gap: 14px;
   align-items: center;
   width: 100%;
-  padding: 12px 14px;
+  padding: 12px 18px 12px 14px;
   background: transparent;
   border: none;
   cursor: pointer;
   text-align: left;
   transition: background 120ms ease;
+  min-width: 0;
 }
 .dashboard-root .cv-ats-analyzer__row-toggle:hover {
   background: var(--bg-hover);
@@ -1472,15 +1489,42 @@
 .dashboard-root .cv-ats-analyzer__best-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: 3px;
+  padding: 2px 7px;
   background: var(--green-soft);
   color: var(--green);
   border-radius: 999px;
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Position the best badge under the name as a small accent so it never
+   pushes the variant name into ellipsis just to make room for itself. */
+.dashboard-root .cv-ats-analyzer__name-cell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dashboard-root .cv-ats-analyzer__name-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dashboard-root .cv-ats-analyzer__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.dashboard-root .cv-ats-analyzer__name-row .cv-ats-analyzer__name {
+  flex: 1;
+  min-width: 0;
 }
 
 .dashboard-root .cv-ats-analyzer__score {

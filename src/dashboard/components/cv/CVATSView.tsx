@@ -223,15 +223,22 @@ export default function CVATSView() {
                           PDF
                         </span>
                         <div className="cv-ats-analyzer__name-block">
-                          <span className="cv-ats-analyzer__name">{cv.name}</span>
+                          <div className="cv-ats-analyzer__name-row">
+                            <span className="cv-ats-analyzer__name" title={cv.name}>
+                              {cv.name}
+                            </span>
+                            {isBest && (
+                              <span
+                                className="cv-ats-analyzer__best-badge"
+                                title="Highest ATS score for this JD"
+                              >
+                                <Trophy size={10} />
+                                <span>Best</span>
+                              </span>
+                            )}
+                          </div>
                           <span className="cv-ats-analyzer__role-focus">{cv.roleFocus}</span>
                         </div>
-                        {isBest && (
-                          <span className="cv-ats-analyzer__best-badge">
-                            <Trophy size={11} />
-                            <span>Best match</span>
-                          </span>
-                        )}
                       </div>
 
                       <span className="cv-ats-analyzer__score">
