@@ -1228,3 +1228,14 @@
   font-style: italic;
   word-break: break-word;
 }
+
+/* ── Renderer additions for variant-driven CV preview ────────────────────── */
+.dashboard-root .cv-preview-doc__spacer {
+  height: 6px;
+}
+.dashboard-root .cv-preview-doc__empty {
+  text-align: center;
+  color: var(--text-2);
+  font-size: 13px;
+  padding: 24px 8px;
+}

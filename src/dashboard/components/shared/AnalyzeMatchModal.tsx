@@ -9,6 +9,7 @@ import {
 import { analyzeCvAts, type AtsAnalysis } from '../../lib/ai';
 import { readAnthropicKey, readClaudeModel } from '../../hooks/useAnthropicKey';
 import { useAppStore } from '../../store';
+import { getCvParsedText } from '../../store/slices/cvs';
 import CircularProgress from '../cv/CircularProgress';
 
 interface AnalyzeMatchModalProps {
@@ -52,8 +53,16 @@ export default function AnalyzeMatchModal({
       setKeyMissing(true);
       return;
     }
-    if (!targetCvId) {
+    if (!targetCv) {
       setError('No CV selected.');
+      return;
+    }
+
+    const cvText = getCvParsedText(targetCv).trim();
+    if (!cvText) {
+      setError(
+        'This CV has no parsed text yet. Re-upload the PDF or create a variant from a populated CV.',
+      );
       return;
     }
 
@@ -62,6 +71,7 @@ export default function AnalyzeMatchModal({
 
     analyzeCvAts({
       cvId: targetCvId,
+      cvText,
       jdText: jdText ?? null,
       anthropicKey: key,
       model: readClaudeModel(),

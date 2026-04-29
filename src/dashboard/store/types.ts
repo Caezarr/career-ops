@@ -128,6 +128,11 @@ export interface CV {
   roleFocus: string;
   atsScore: number;
   isDefault: boolean;
+  /** Parsed CV text — fed to the AI for ATS analysis + tailoring,
+   *  and rendered in the right-panel preview. Optional for legacy seeds. */
+  parsedText?: string;
+  /** Variant-specific summary headline shown in the preview. */
+  summary?: string;
 }
 
 export type CVTab = "manager" | "ats" | "history";
