@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { TrendingUp, ArrowUpRight, ArrowRight } from 'lucide-react';
 import '../styles/insight.css';
 import { mockInsight } from '../data/mock';
+import { InsightsModal } from './shared';
 
 export default function InsightCard() {
+  const [open, setOpen] = useState(false);
+
   return (
     <section className="insight-card" aria-label="Weekly insight">
       <div className="insight-card__header">
@@ -45,10 +49,20 @@ export default function InsightCard() {
         />
       </svg>
 
-      <button type="button" className="insight-card__cta">
+      <button
+        type="button"
+        className="insight-card__cta"
+        onClick={() => setOpen(true)}
+      >
         View full insights
-        <ArrowRight size={13} strokeWidth={2.4} style={{ verticalAlign: 'middle', marginLeft: 6 }} />
+        <ArrowRight
+          size={13}
+          strokeWidth={2.4}
+          style={{ verticalAlign: 'middle', marginLeft: 6 }}
+        />
       </button>
+
+      <InsightsModal open={open} onClose={() => setOpen(false)} />
     </section>
   );
 }

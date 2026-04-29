@@ -23,6 +23,8 @@ import "./styles/prep.css";
 import "./styles/copilot.css";
 import "./styles/settings.css";
 import "./styles/primitives.css";
+import "./styles/shared.css";
+import "./styles/interactive.css";
 
 function PageRouter() {
   const { page } = useNavigation();
