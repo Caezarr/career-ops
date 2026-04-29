@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import IntegrationRow from './IntegrationRow';
 import IntegrationModal from '../shared/IntegrationModal';
 import { useAppStore, type Integration } from '../../store';
 import { useToast } from '../../primitives';
 
-export default function IntegrationsCard() {
+export default function APIKeysCard() {
   const integrations = useAppStore((s) => s.integrations);
   const toast = useToast();
   const [active, setActive] = useState<Integration | null>(null);
@@ -13,12 +13,11 @@ export default function IntegrationsCard() {
   return (
     <section
       className="settings-card settings-integrations"
-      aria-labelledby="settings-integrations-title"
+      aria-labelledby="settings-apikeys-title"
     >
-      <h2 id="settings-integrations-title" className="settings-card__title">
-        API Keys &amp; Integrations
+      <h2 id="settings-apikeys-title" className="settings-card__title">
+        API Keys
       </h2>
-
       <div className="settings-integrations__list">
         {integrations.map((integration) => (
           <IntegrationRow
@@ -28,14 +27,14 @@ export default function IntegrationsCard() {
           />
         ))}
       </div>
-
       <button
         type="button"
-        className="settings-integrations__view-all"
-        onClick={() => toast.info('All integrations coming soon')}
+        className="settings-btn settings-btn--outline"
+        style={{ marginTop: 12 }}
+        onClick={() => toast.info('Add integration — coming soon')}
       >
-        <span>View all integrations</span>
-        <ArrowRight size={14} strokeWidth={2} />
+        <Plus size={14} />
+        <span>Add integration</span>
       </button>
 
       <IntegrationModal

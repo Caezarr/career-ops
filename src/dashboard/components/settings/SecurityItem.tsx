@@ -10,6 +10,7 @@ interface SecurityItemProps {
   /** Either a subtitle string or a custom node (e.g. an "Enabled" pill). */
   meta: ReactNode;
   actionLabel: string;
+  onAction?: () => void;
 }
 
 export default function SecurityItem({
@@ -18,6 +19,7 @@ export default function SecurityItem({
   title,
   meta,
   actionLabel,
+  onAction,
 }: SecurityItemProps) {
   return (
     <div className="settings-security-item">
@@ -31,7 +33,7 @@ export default function SecurityItem({
         <div className="settings-security-item__title">{title}</div>
         <div className="settings-security-item__meta">{meta}</div>
       </div>
-      <button type="button" className="settings-security-item__action">
+      <button type="button" className="settings-security-item__action" onClick={onAction}>
         <span>{actionLabel}</span>
         <ArrowRight size={14} strokeWidth={2} />
       </button>

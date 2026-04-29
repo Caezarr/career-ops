@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { Crown } from 'lucide-react';
 import UsageBar from './UsageBar';
+import BillingModal from '../shared/BillingModal';
 import { mockBilling } from '../../data/settings';
 
 export default function BillingCard() {
+  const [open, setOpen] = useState(false);
+
   return (
     <section
       className="settings-card settings-billing"
@@ -35,7 +39,11 @@ export default function BillingCard() {
           </div>
         </div>
 
-        <button type="button" className="settings-btn settings-btn--outline">
+        <button
+          type="button"
+          className="settings-btn settings-btn--outline"
+          onClick={() => setOpen(true)}
+        >
           Manage billing
         </button>
       </div>
@@ -53,6 +61,8 @@ export default function BillingCard() {
           ))}
         </div>
       </div>
+
+      <BillingModal open={open} onClose={() => setOpen(false)} />
     </section>
   );
 }

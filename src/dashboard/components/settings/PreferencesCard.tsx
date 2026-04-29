@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import PreferenceItem from './PreferenceItem';
 import { mockPreferences, type PreferenceIcon } from '../../data/settings';
+import { useAppStore } from '../../store';
+import type { Preferences } from '../../store';
 
 const ICONS: Record<PreferenceIcon, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
   keyboard: Keyboard,
@@ -16,7 +18,18 @@ const ICONS: Record<PreferenceIcon, React.ComponentType<{ size?: number; strokeW
   sparkles: Sparkles,
 };
 
+const ID_TO_KEY: Record<string, keyof Preferences> = {
+  kbd: 'keyboardShortcuts',
+  login: 'startOnLogin',
+  email: 'emailNotifications',
+  insights: 'weeklyInsights',
+  ai: 'aiActivitySummaries',
+};
+
 export default function PreferencesCard() {
+  const preferences = useAppStore((s) => s.preferences);
+  const setPreference = useAppStore((s) => s.setPreference);
+
   return (
     <section
       className="settings-card settings-preferences"
@@ -29,13 +42,18 @@ export default function PreferencesCard() {
       <div className="settings-preferences__list">
         {mockPreferences.map((pref) => {
           const Icon = ICONS[pref.icon];
+          const key = ID_TO_KEY[pref.id];
+          const checked = key ? preferences[key] : pref.enabled;
           return (
             <PreferenceItem
               key={pref.id}
               icon={<Icon size={16} strokeWidth={2} />}
               title={pref.title}
               subtitle={pref.subtitle}
-              defaultEnabled={pref.enabled}
+              checked={checked}
+              onChange={(next) => {
+                if (key) setPreference(key, next);
+              }}
             />
           );
         })}

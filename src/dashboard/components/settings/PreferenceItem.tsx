@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { ReactNode } from 'react';
 import Toggle from './Toggle';
 
@@ -6,17 +5,17 @@ interface PreferenceItemProps {
   icon: ReactNode;
   title: string;
   subtitle: string;
-  defaultEnabled?: boolean;
+  checked: boolean;
+  onChange: (next: boolean) => void;
 }
 
 export default function PreferenceItem({
   icon,
   title,
   subtitle,
-  defaultEnabled = true,
+  checked,
+  onChange,
 }: PreferenceItemProps) {
-  const [on, setOn] = useState<boolean>(defaultEnabled);
-
   return (
     <div className="settings-pref">
       <div className="settings-pref__left">
@@ -28,7 +27,7 @@ export default function PreferenceItem({
           <div className="settings-pref__subtitle">{subtitle}</div>
         </div>
       </div>
-      <Toggle checked={on} onChange={setOn} ariaLabel={title} />
+      <Toggle checked={checked} onChange={onChange} ariaLabel={title} />
     </div>
   );
 }

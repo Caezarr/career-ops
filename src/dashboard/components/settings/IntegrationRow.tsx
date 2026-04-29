@@ -1,10 +1,11 @@
-import type { IntegrationData } from '../../data/settings';
+import type { Integration } from '../../store';
 
 interface IntegrationRowProps {
-  integration: IntegrationData;
+  integration: Integration;
+  onManage?: () => void;
 }
 
-export default function IntegrationRow({ integration }: IntegrationRowProps) {
+export default function IntegrationRow({ integration, onManage }: IntegrationRowProps) {
   const { name, model, connected, brandColor, brandBg, letter } = integration;
 
   return (
@@ -31,7 +32,16 @@ export default function IntegrationRow({ integration }: IntegrationRowProps) {
         {connected && (
           <span className="settings-pill settings-pill--green">Connected</span>
         )}
-        <button type="button" className="settings-btn settings-btn--outline settings-btn--sm">
+        {!connected && (
+          <span className="settings-pill" style={{ background: 'var(--bg-soft)', color: 'var(--text-3)' }}>
+            Disconnected
+          </span>
+        )}
+        <button
+          type="button"
+          className="settings-btn settings-btn--outline settings-btn--sm"
+          onClick={onManage}
+        >
           Manage
         </button>
       </div>
