@@ -1,103 +1,7 @@
 import { MoreHorizontal } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { getCvParsedText } from '../../store/slices/cvs';
-
-/** Renders a CV's parsed text as a structured document. Uppercase lines become
- *  section headings (with divider). Lines starting with '- ' become bullets.
- *  This way each variant's preview content reflects its actual parsedText
- *  (used by the AI ATS analyzer too). */
-function renderParsedText(text: string) {
-  const lines = text.split(/\r?\n/);
-  const elements: React.ReactNode[] = [];
-  let bulletBuffer: string[] = [];
-
-  const flushBullets = (key: string) => {
-    if (bulletBuffer.length > 0) {
-      elements.push(
-        <ul key={`bullets-${key}`} className="cv-preview-doc__bullets">
-          {bulletBuffer.map((b, i) => (
-            <li key={i}>{b}</li>
-          ))}
-        </ul>,
-      );
-      bulletBuffer = [];
-    }
-  };
-
-  lines.forEach((raw, i) => {
-    const line = raw.trimEnd();
-
-    if (line.startsWith('- ')) {
-      bulletBuffer.push(line.slice(2));
-      return;
-    }
-
-    flushBullets(String(i));
-
-    if (line === '') {
-      elements.push(<div key={`sp-${i}`} className="cv-preview-doc__spacer" />);
-      return;
-    }
-
-    // ALL CAPS short lines → section heading
-    if (line.length <= 24 && /^[A-Z][A-Z\s&/]+$/.test(line)) {
-      elements.push(
-        <div key={`h-${i}`} className="cv-preview-doc__section">
-          <div className="cv-preview-doc__section-title">{line}</div>
-          <div className="cv-preview-doc__section-divider" />
-        </div>,
-      );
-      return;
-    }
-
-    // First line = name (rendered larger)
-    if (i === 0) {
-      elements.push(
-        <div key={`name-${i}`} className="cv-preview-doc__name">
-          {line}
-        </div>,
-      );
-      return;
-    }
-    // Second line = title
-    if (i === 1) {
-      elements.push(
-        <div key={`title-${i}`} className="cv-preview-doc__title">
-          {line}
-        </div>,
-      );
-      return;
-    }
-    // Third line = contact
-    if (i === 2) {
-      elements.push(
-        <div key={`contact-${i}`} className="cv-preview-doc__contact">
-          {line}
-        </div>,
-      );
-      return;
-    }
-
-    // Detect entry headers: contain ' — ' or ' – '
-    if (line.includes(' — ') || line.includes(' – ')) {
-      elements.push(
-        <div key={`entry-${i}`} className="cv-preview-doc__entry-header">
-          <div className="cv-preview-doc__entry-role">{line}</div>
-        </div>,
-      );
-      return;
-    }
-
-    elements.push(
-      <p key={`p-${i}`} className="cv-preview-doc__paragraph">
-        {line}
-      </p>,
-    );
-  });
-
-  flushBullets('end');
-  return elements;
-}
+import { renderCvDocument } from './renderCvDocument';
 
 export default function CVPreviewCard() {
   const cvs = useAppStore((s) => s.cvs);
@@ -127,7 +31,7 @@ export default function CVPreviewCard() {
 
       <div className="cv-preview-doc" aria-label="CV preview">
         {parsedText.trim() ? (
-          renderParsedText(parsedText)
+          renderCvDocument(parsedText)
         ) : (
           <div className="cv-preview-doc__empty">
             <p>This variant has no preview content yet.</p>
