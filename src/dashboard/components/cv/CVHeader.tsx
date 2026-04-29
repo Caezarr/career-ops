@@ -3,6 +3,7 @@ import { Upload, Plus } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
 import RenameModal from '../shared/RenameModal';
+import { ingestPdfFile } from '../../lib/pdf';
 
 export default function CVHeader() {
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -12,16 +13,37 @@ export default function CVHeader() {
   const toast = useToast();
 
   const [createOpen, setCreateOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
 
-  function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
-    const baseName = f.name.replace(/\.pdf$/i, '').slice(0, 60) || 'Imported CV';
-    const cv = createCV({ name: baseName, roleFocus: 'General', atsScore: 80 });
-    setSelectedCv(cv.id);
-    setCvTab('manager');
-    toast.success(`${f.name} imported`);
     if (fileRef.current) fileRef.current.value = '';
+
+    setImporting(true);
+    try {
+      const { parsedText, baseName, roleFocus } = await ingestPdfFile(f);
+      const cv = createCV({
+        name: baseName,
+        roleFocus,
+        atsScore: 0,
+        parsedText,
+      });
+      setSelectedCv(cv.id);
+      setCvTab('manager');
+      const wordCount = parsedText.split(/\s+/).filter(Boolean).length;
+      toast.success(
+        `${f.name} imported`,
+        `Parsed ${wordCount} words · detected role focus: ${roleFocus}`,
+      );
+    } catch (err) {
+      toast.error(
+        'Could not parse PDF',
+        typeof err === 'string' ? err : (err as Error).message ?? 'Unknown error',
+      );
+    } finally {
+      setImporting(false);
+    }
   }
 
   function createVariant(name: string) {
@@ -47,9 +69,10 @@ export default function CVHeader() {
           type="button"
           className="cv__btn cv__btn--ghost"
           onClick={() => fileRef.current?.click()}
+          disabled={importing}
         >
           <Upload size={16} strokeWidth={2} />
-          <span>Import CV</span>
+          <span>{importing ? 'Parsing PDF…' : 'Import CV'}</span>
         </button>
         <button
           type="button"
