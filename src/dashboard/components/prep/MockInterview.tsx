@@ -26,6 +26,7 @@ export default function MockInterview() {
   const toast = useToast();
   const prepQuestions = useAppStore((s) => s.prepQuestions);
 
+  const recordPrepSession = useAppStore((s) => s.recordPrepSession);
   const { conversation: initialConversation, scores, feedback } = mockMockInterview;
 
   const [conversation, setConversation] = useState(initialConversation);
@@ -33,11 +34,30 @@ export default function MockInterview() {
   const [questionIndex, setQuestionIndex] = useState(0);
 
   function handleRetry() {
-    toast.info('Retry coming soon');
+    setConversation((prev) =>
+      prev.map((m) =>
+        m.from === 'user'
+          ? { ...m, text: '— Awaiting new answer. Click ▶ to start recording again. —' }
+          : m,
+      ),
+    );
+    toast.info('Answer cleared', 'Record your retry from the start.');
   }
 
   function handleSave() {
-    toast.success('Feedback saved');
+    const q = prepQuestions[questionIndex] ?? prepQuestions[0];
+    if (!q) {
+      toast.error('Nothing to save', 'No active question.');
+      return;
+    }
+    const scoreObj = {
+      structure: scores.find((s) => s.label === 'Structure')?.value ?? 0,
+      conciseness: scores.find((s) => s.label === 'Conciseness')?.value ?? 0,
+      evidence: scores.find((s) => s.label === 'Evidence')?.value ?? 0,
+      memorability: scores.find((s) => s.label === 'Memorability')?.value ?? 0,
+    };
+    recordPrepSession({ questionId: q.id, scores: scoreObj, feedback });
+    toast.success('Feedback saved', 'Session added to your history.');
   }
 
   function handleContinue() {

@@ -12,7 +12,20 @@ export type SettingsTab =
 
 export type CopilotMode = "qa" | "pitch";
 
+export type PrepInterviewTrack =
+  | "Behavioral + Technical"
+  | "Behavioral only"
+  | "Technical only"
+  | "Case study"
+  | "Culture fit";
+
 export interface UiSlice {
+  // Prep page — search query + interview track
+  prepSearchQuery: string;
+  setPrepSearchQuery: (q: string) => void;
+  prepInterviewTrack: PrepInterviewTrack;
+  setPrepInterviewTrack: (t: PrepInterviewTrack) => void;
+
   commandPaletteOpen: boolean;
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
@@ -73,4 +86,9 @@ export const createUiSlice: StateCreator<UiSlice> = (set) => ({
 
   copilotMode: "qa",
   setCopilotMode: (copilotMode) => set({ copilotMode }),
+
+  prepSearchQuery: "",
+  setPrepSearchQuery: (prepSearchQuery) => set({ prepSearchQuery }),
+  prepInterviewTrack: "Behavioral + Technical",
+  setPrepInterviewTrack: (prepInterviewTrack) => set({ prepInterviewTrack }),
 });

@@ -11,16 +11,25 @@ export default function QuestionBank() {
   const prepQuestions = useAppStore((s) => s.prepQuestions);
   const filter = useAppStore((s) => s.prepCategoryFilter);
   const setFilter = useAppStore((s) => s.setPrepCategoryFilter);
+  const searchQuery = useAppStore((s) => s.prepSearchQuery);
 
   // The filter slice supports "All", but the UI exposes only the four categories.
   const activeTab: PrepCategory = filter === 'All' ? 'Behavioral' : filter;
 
   const [practiceTarget, setPracticeTarget] = useState<PrepQuestion | null>(null);
 
-  const filtered = useMemo(
-    () => prepQuestions.filter((q) => q.category === activeTab),
-    [prepQuestions, activeTab],
-  );
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return prepQuestions.filter((qn) => {
+      if (qn.category !== activeTab) return false;
+      if (!q) return true;
+      return (
+        qn.question.toLowerCase().includes(q) ||
+        qn.framework.toLowerCase().includes(q) ||
+        qn.difficulty.toLowerCase().includes(q)
+      );
+    });
+  }, [prepQuestions, activeTab, searchQuery]);
 
   return (
     <section className="prep-question-bank">
