@@ -13,9 +13,9 @@ export default function Prep() {
   return (
     <div className="dashboard dashboard--prep">
       <Sidebar />
+      <TopBar />
 
       <main className="dashboard__main">
-        <TopBar />
         <div className="dashboard__main-scroll">
           <div className="prep-page">
             <PrepHeader />

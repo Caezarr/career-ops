@@ -16,9 +16,9 @@ export default function CV() {
   return (
     <div className="dashboard dashboard--cv">
       <Sidebar />
+      <TopBar />
 
       <main className="dashboard__main">
-        <TopBar />
         <div className="dashboard__main-scroll">
           <div className="cv-page">
             <CVHeader />

@@ -3,6 +3,9 @@
 /* Variant: Prep manages its own internal 3-column grid — main = 220px sidebar + 1fr */
 .dashboard-root .dashboard.dashboard--prep {
   grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
 }
 
 /* Page container */

@@ -4,6 +4,9 @@
 /* ── Page-level grid override ────────────────────────────────────────────── */
 .dashboard-root .dashboard--copilot {
   grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
 }
 
 .dashboard-root .copilot-page {
@@ -406,6 +409,36 @@
   flex-direction: column;
   width: 100%;
   overflow: hidden;
+}
+
+.dashboard-root .cp-embedded-panel--hidden {
+  background: transparent;
+  border: 1px dashed var(--border);
+  box-shadow: none;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  padding: 16px;
+}
+
+.dashboard-root .cp-show-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--indigo);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.dashboard-root .cp-show-panel:hover {
+  background: var(--indigo-soft);
+  border-color: var(--indigo);
 }
 
 /* ── Panel header (Career Copilot · Listening · controls) ────────────────── */

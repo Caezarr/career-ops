@@ -11,6 +11,7 @@ import {
 import { useAppStore } from '../store';
 import { useNavigation, type Page } from '../navigation';
 import UserMenu from './menus/UserMenu';
+import UserAvatar from './UserAvatar';
 
 interface NavEntry {
   id: string;
@@ -107,7 +108,7 @@ export default function Sidebar() {
             aria-label={`${user.name} account menu`}
             style={{ width: '100%' }}
           >
-            <div className="sidebar__user-avatar">{user.avatarInitials}</div>
+            <UserAvatar size={36} className="sidebar__user-avatar" />
             <div className="sidebar__user-info">
               <span className="sidebar__user-name">{user.name}</span>
               <span className="sidebar__user-badge">

@@ -12,9 +12,9 @@ export default function Settings() {
   return (
     <div className="dashboard dashboard--settings">
       <Sidebar />
+      <TopBar />
 
       <main className="dashboard__main">
-        <TopBar />
         <div className="dashboard__main-scroll">
           <div className="settings-page">
             <header className="settings-page__header">

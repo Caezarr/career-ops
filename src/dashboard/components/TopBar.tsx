@@ -6,6 +6,7 @@ import { useNavigation, type Page } from '../navigation';
 import { useAppStore } from '../store';
 import NotificationsPanel from './notifications/NotificationsPanel';
 import UserMenu from './menus/UserMenu';
+import UserAvatar from './UserAvatar';
 
 interface BreadcrumbSpec {
   parts: string[];
@@ -111,8 +112,9 @@ export default function TopBar() {
               type="button"
               className="topbar__avatar"
               aria-label={`${user.name} menu`}
+              style={{ background: 'transparent', padding: 0 }}
             >
-              {user.avatarInitials}
+              <UserAvatar size={40} />
             </button>
           }
         />

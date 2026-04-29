@@ -3,6 +3,9 @@
 /* Variant: 340px right panel */
 .dashboard-root .dashboard.dashboard--applications {
   grid-template-columns: 220px 1fr 340px;
+  grid-template-areas:
+    "sidebar topbar topbar"
+    "sidebar main    right";
 }
 
 .dashboard-root .right-panel--applications {
