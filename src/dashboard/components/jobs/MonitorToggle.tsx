@@ -1,11 +1,21 @@
-import { useState } from 'react';
+import { useAppStore } from '../../store';
+import { useToast } from '../../primitives';
 
-interface MonitorToggleProps {
-  defaultOn?: boolean;
-}
+export default function MonitorToggle() {
+  const on = useAppStore((s) => s.monitorMatches);
+  const setOn = useAppStore((s) => s.setMonitorMatches);
+  const toast = useToast();
 
-export default function MonitorToggle({ defaultOn = true }: MonitorToggleProps) {
-  const [on, setOn] = useState(defaultOn);
+  function handleToggle() {
+    const next = !on;
+    setOn(next);
+    if (next) {
+      toast.success('Monitoring new matches');
+    } else {
+      toast.info('Match monitoring paused');
+    }
+  }
+
   return (
     <button
       type="button"
@@ -13,7 +23,7 @@ export default function MonitorToggle({ defaultOn = true }: MonitorToggleProps) 
       aria-checked={on}
       aria-label="Monitor new matches"
       className={`monitor-toggle${on ? ' monitor-toggle--on' : ''}`}
-      onClick={() => setOn((v) => !v)}
+      onClick={handleToggle}
     >
       <span className="monitor-toggle__knob" />
     </button>

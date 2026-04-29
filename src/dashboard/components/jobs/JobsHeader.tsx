@@ -13,7 +13,7 @@ export default function JobsHeader() {
       <div className="jobs__monitor">
         <span className="jobs__monitor-label">Monitor new matches</span>
         <Info size={14} className="jobs__monitor-info" />
-        <MonitorToggle defaultOn />
+        <MonitorToggle />
       </div>
     </div>
   );
