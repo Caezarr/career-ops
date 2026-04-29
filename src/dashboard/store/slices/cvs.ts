@@ -1,5 +1,5 @@
 import type { StateCreator } from "zustand";
-import type { CV, CVTab } from "../types";
+import type { CV, CVTab, StoreAtsAnalysis } from "../types";
 import { mockCVVariants as legacyCVs } from "../../data/cv";
 import { uid } from "../utils";
 
@@ -152,11 +152,17 @@ export interface CvsSlice {
   selectedCvId: string | null;
   cvTab: CVTab;
   tailoringTarget: TailoringTarget;
+  /** Last AI ATS analysis result keyed by CV id. Read by Strengths /
+   *  AI suggestions / Tailoring workspace cards so they show real data
+   *  after the user runs Analyze match (instead of static mock). */
+  atsByCv: Record<string, StoreAtsAnalysis>;
 
   setSelectedCv: (id: string | null) => void;
   setCvTab: (tab: CVTab) => void;
   setDefaultCv: (id: string) => void;
   setTailoringTarget: (patch: Partial<TailoringTarget>) => void;
+  setAtsAnalysis: (cvId: string, analysis: StoreAtsAnalysis) => void;
+  clearAtsAnalysis: (cvId: string) => void;
 
   createCV: (input: {
     name: string;
@@ -181,6 +187,7 @@ export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
     role: "Strategy Associate · Bain & Company",
     baseCvId: seedCVs[0]?.id ?? null,
   },
+  atsByCv: {},
 
   setSelectedCv: (id) => set({ selectedCvId: id }),
   setCvTab: (tab) => set({ cvTab: tab }),
@@ -191,6 +198,14 @@ export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
     })),
   setTailoringTarget: (patch) =>
     set((state) => ({ tailoringTarget: { ...state.tailoringTarget, ...patch } })),
+  setAtsAnalysis: (cvId, analysis) =>
+    set((state) => ({ atsByCv: { ...state.atsByCv, [cvId]: analysis } })),
+  clearAtsAnalysis: (cvId) =>
+    set((state) => {
+      const next = { ...state.atsByCv };
+      delete next[cvId];
+      return { atsByCv: next };
+    }),
 
   createCV: (input) => {
     const fallback = previewFor(input.roleFocus);

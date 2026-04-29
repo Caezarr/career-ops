@@ -137,6 +137,29 @@ export interface CV {
 
 export type CVTab = "manager" | "ats" | "history";
 
+// ── ATS analysis (mirrors lib/ai.ts) ───────────────────────────────────────────
+export interface StoreAtsSuggestion {
+  type: "add" | "reword" | "remove";
+  original: string;
+  suggested: string;
+  rationale: string;
+}
+
+export interface StoreAtsAnalysis {
+  atsScore: number;
+  matchScore: number;
+  strengths: string[];
+  weaknesses: string[];
+  missingKeywords: string[];
+  suggestions: StoreAtsSuggestion[];
+  /** Score before this analysis was run, captured from cv.atsScore at call-time. */
+  scoreBefore?: number;
+  /** When the analysis was run (epoch ms). */
+  ranAt: number;
+  /** JD text used (truncated, optional). */
+  jdSnippet?: string;
+}
+
 // ─── Prep ───────────────────────────────────────────────────────────────────
 export type PrepCategory = "Behavioral" | "Technical" | "Case" | "Culture Fit";
 export type Difficulty = "Easy" | "Medium" | "Hard";

@@ -1,9 +1,9 @@
 /* ── CV page styles (light mode, scoped to .dashboard-root) ──────────────── */
 
-/* Variant: wider right panel so the preview reads like a real CV.
+/* Variant: very wide right panel so the preview reads like a real CV PDF.
    Uses minmax so the page still works on narrow Tauri windows. */
 .dashboard-root .dashboard.dashboard--cv {
-  grid-template-columns: 220px minmax(420px, 1fr) minmax(420px, 520px);
+  grid-template-columns: 220px minmax(380px, 1fr) minmax(520px, 640px);
   grid-template-areas:
     "sidebar topbar topbar"
     "sidebar main    right";
@@ -1241,4 +1241,36 @@
   color: var(--text-2);
   font-size: 13px;
   padding: 24px 8px;
+}
+
+/* ── 'Live' indicator badges + tailoring live banner ─────────────────────── */
+.dashboard-root .cv-side-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-root .cv-side-card__badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--green-soft);
+  color: var(--green);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.dashboard-root .cv-workspace__live-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  margin: 12px 0 4px;
+  align-self: flex-start;
 }

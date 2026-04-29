@@ -32,6 +32,7 @@ export default function AnalyzeMatchModal({
   const cvs = useAppStore((s) => s.cvs);
   const selectedCvId = useAppStore((s) => s.selectedCvId);
   const updateCv = useAppStore((s) => s.updateCv);
+  const setAtsAnalysis = useAppStore((s) => s.setAtsAnalysis);
 
   const targetCvId = cvId ?? selectedCvId ?? cvs[0]?.id;
   const targetCv = cvs.find((c) => c.id === targetCvId);
@@ -79,9 +80,24 @@ export default function AnalyzeMatchModal({
       .then((res) => {
         if (cancelled) return;
         setResult(res);
-        // Persist the new ATS score in the store too.
-        if (targetCvId) {
+        // Persist the new ATS score + the full analysis in the store so the
+        // right-panel cards (Strengths, AI suggestions) and the tailoring
+        // workspace (Keyword match, Missing keywords, Suggested edits, Diff)
+        // all reflect this run instead of the seed mock.
+        if (targetCvId && targetCv) {
+          const scoreBefore = targetCv.atsScore;
           updateCv(targetCvId, { atsScore: res.atsScore });
+          setAtsAnalysis(targetCvId, {
+            atsScore: res.atsScore,
+            matchScore: res.matchScore,
+            strengths: res.strengths,
+            weaknesses: res.weaknesses,
+            missingKeywords: res.missingKeywords,
+            suggestions: res.suggestions,
+            scoreBefore,
+            ranAt: Date.now(),
+            jdSnippet: jdText?.slice(0, 200),
+          });
         }
       })
       .catch((e) => {
@@ -95,7 +111,7 @@ export default function AnalyzeMatchModal({
     return () => {
       cancelled = true;
     };
-  }, [open, targetCvId, jdText, updateCv]);
+  }, [open, targetCvId, jdText, updateCv, setAtsAnalysis, targetCv]);
 
   const headerTitle = loading
     ? 'Analyzing match…'
