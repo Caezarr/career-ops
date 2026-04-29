@@ -36,7 +36,10 @@ export default function ApplicationsHeader() {
       };
     });
     downloadCSV('applications.csv', rows);
-    toast.success(`Exported ${rows.length} application${rows.length === 1 ? '' : 's'}`);
+    toast.success(
+      `Exported ${rows.length} application${rows.length === 1 ? '' : 's'}`,
+      'applications.csv saved to your Downloads folder.',
+    );
   }
 
   return (

@@ -41,8 +41,29 @@ export default function ProfileCard() {
   }
 
   function save() {
+    const langChanged = language !== user.language;
     updateUser({ name, email, timezone, language, location });
-    toast.success('Profile updated');
+
+    // Reflect the language on the document root so screen-readers / browser
+    // chrome know — full UI translation will come with proper i18n.
+    if (langChanged) {
+      const langCode =
+        language === 'Français' ? 'fr'
+        : language === 'Deutsch' ? 'de'
+        : language === 'English (UK)' ? 'en-GB'
+        : 'en-US';
+      document.documentElement.lang = langCode;
+      const human =
+        language === 'Français' ? 'française'
+        : language === 'Deutsch' ? 'deutsche'
+        : 'English';
+      toast.success(
+        'Profile updated',
+        `Interface ${human} preview applied — full translation rolling out soon.`,
+      );
+    } else {
+      toast.success('Profile updated');
+    }
   }
 
   const initials = name

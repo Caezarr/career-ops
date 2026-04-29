@@ -145,7 +145,13 @@ export default function JobDetail() {
         <WhyYouMatchCard items={job.whyYouMatch} />
       )}
 
-      {job.aiSummary && <AISummaryCard summary={job.aiSummary} />}
+      {job.aiSummary && (
+        <AISummaryCard
+          summary={job.aiSummary}
+          whyYouMatch={job.whyYouMatch}
+          matchScore={job.match}
+        />
+      )}
 
       <footer className="job-detail__footer">
         <button type="button" className="job-detail__save" onClick={handleSave}>
