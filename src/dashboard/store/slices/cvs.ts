@@ -34,6 +34,8 @@ export interface CvsSlice {
   renameCV: (id: string, name: string) => void;
   deleteCV: (id: string) => void;
   duplicateCV: (id: string) => CV | null;
+  /** Generic patch — used by ATS analysis to refresh atsScore, etc. */
+  updateCv: (id: string, patch: Partial<Omit<CV, "id">>) => void;
 }
 
 export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
@@ -108,4 +110,11 @@ export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
     set((state) => ({ cvs: [dup, ...state.cvs] }));
     return dup;
   },
+
+  updateCv: (id, patch) =>
+    set((state) => ({
+      cvs: state.cvs.map((cv) =>
+        cv.id === id ? { ...cv, ...patch, lastEdited: "Just now" } : cv,
+      ),
+    })),
 });
