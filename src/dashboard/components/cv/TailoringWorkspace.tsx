@@ -41,9 +41,14 @@ export default function TailoringWorkspace() {
   // ── Pull the latest Analyze match output for the chosen base CV.
   // Fall back to the static mock when the user hasn't run Analyze yet.
   const analysis = baseCv ? atsByCv[baseCv.id] : undefined;
-  const beforeMatch =
-    analysis?.scoreBefore ?? baseCv?.atsScore ?? mockTailoring.beforeMatch;
-  const afterMatch = analysis?.matchScore ?? mockTailoring.afterMatch;
+  // Before = the CV's current ATS score (what Claude scored it at).
+  // After  = the score Claude projects IF the suggestions are applied.
+  // Both come from the same analysis call → After ≥ Before always.
+  const beforeMatch = analysis?.atsScore ?? baseCv?.atsScore ?? mockTailoring.beforeMatch;
+  const afterMatch =
+    analysis?.projectedAtsScore ??
+    (baseCv?.atsScore ? Math.min(baseCv.atsScore + 12, 95) : undefined) ??
+    mockTailoring.afterMatch;
   const missingKeywords =
     analysis?.missingKeywords?.length
       ? analysis.missingKeywords

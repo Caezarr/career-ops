@@ -30,6 +30,10 @@ impl AiConfig {
 pub struct AtsAnalysis {
     pub ats_score: u8,
     pub match_score: u8,
+    /// Estimated ats_score IF the candidate applies every suggestion in
+    /// `suggestions` exactly as proposed. Always >= ats_score, capped at 100.
+    /// This is what we render as the 'After' value in the Tailoring workspace.
+    pub projected_ats_score: u8,
     pub strengths: Vec<String>,
     pub weaknesses: Vec<String>,
     pub missing_keywords: Vec<String>,

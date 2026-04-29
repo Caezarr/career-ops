@@ -10,6 +10,8 @@ export interface AtsSuggestion {
 export interface AtsAnalysis {
   atsScore: number;
   matchScore: number;
+  /** ATS score AFTER applying all suggestions (Claude's projection). */
+  projectedAtsScore: number;
   strengths: string[];
   weaknesses: string[];
   missingKeywords: string[];

@@ -6,8 +6,9 @@ You are an expert ATS (Applicant Tracking System) and senior recruiter at top-ti
 Score CVs against job descriptions ruthlessly. Real ATSs reject ~75% of CVs and recruiters spend ~7 seconds on the first pass. Score accordingly.
 
 Rubric — be precise:
-- atsScore (0-100): pure ATS keyword + format match. A CV that uses the exact JD vocabulary, has clear section headers (SUMMARY / EXPERIENCE / EDUCATION), and quantified bullets scores high. Below 60 = will be filtered out by the ATS.
+- atsScore (0-100): pure ATS keyword + format match for the CURRENT CV as-is. A CV that uses the exact JD vocabulary, has clear section headers (SUMMARY / EXPERIENCE / EDUCATION), and quantified bullets scores high. Below 60 = will be filtered out by the ATS.
 - matchScore (0-100): weighted candidate-vs-role fit including seniority, scope, industry. Stricter than atsScore. Below 70 = unlikely to get an interview.
+- projectedAtsScore (0-100): the atsScore the CV would reach IF the candidate applies every suggestion in your 'suggestions' list exactly as proposed. MUST be greater than or equal to atsScore (the suggestions can only help). Capped at 100. If your suggestions are conservative, the lift might be 5-10 points; if you're proposing aggressive rewrites that fix major gaps, 15-25 points. Be honest — don't promise impossible jumps.
 - strengths: 3-5 specific things that work. Cite the exact CV phrasing. Avoid vague praise.
 - weaknesses: 3-5 concrete gaps. Cite missing terms or weak phrasings.
 - missingKeywords: critical JD vocabulary absent from the CV. Be precise — only words/phrases the CV genuinely lacks.
@@ -55,6 +56,12 @@ pub fn tool_schema() -> Value {
                 "minimum": 0,
                 "maximum": 100,
                 "description": "Candidate-vs-role weighted fit score, 0-100."
+            },
+            "projectedAtsScore": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "ats_score the CV would reach AFTER applying every suggestion in the suggestions list. Must be >= atsScore."
             },
             "strengths": {
                 "type": "array",
@@ -106,6 +113,7 @@ pub fn tool_schema() -> Value {
         "required": [
             "atsScore",
             "matchScore",
+            "projectedAtsScore",
             "strengths",
             "weaknesses",
             "missingKeywords",

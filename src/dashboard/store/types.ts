@@ -148,6 +148,8 @@ export interface StoreAtsSuggestion {
 export interface StoreAtsAnalysis {
   atsScore: number;
   matchScore: number;
+  /** ATS score AFTER applying all suggestions (from Claude). */
+  projectedAtsScore: number;
   strengths: string[];
   weaknesses: string[];
   missingKeywords: string[];

@@ -87,9 +87,13 @@ export default function AnalyzeMatchModal({
         if (targetCvId && targetCv) {
           const scoreBefore = targetCv.atsScore;
           updateCv(targetCvId, { atsScore: res.atsScore });
+          // Defensive: if Claude somehow returned a projected lower than the
+          // current score, ignore it (the model is supposed to clamp).
+          const projected = Math.max(res.projectedAtsScore ?? res.atsScore, res.atsScore);
           setAtsAnalysis(targetCvId, {
             atsScore: res.atsScore,
             matchScore: res.matchScore,
+            projectedAtsScore: projected,
             strengths: res.strengths,
             weaknesses: res.weaknesses,
             missingKeywords: res.missingKeywords,
