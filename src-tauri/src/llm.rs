@@ -92,8 +92,10 @@ async fn stream_claude(
         return Err(anyhow!("Anthropic key empty"));
     }
 
+    // Default to Sonnet 4.5: best reasoning + judgment for live coaching.
+    // Streaming-friendly. Override via Copilot Settings if you need cheaper.
     let model = if config.model.is_empty() {
-        "claude-3-5-haiku-20241022"
+        "claude-sonnet-4-5"
     } else {
         config.model.as_str()
     };

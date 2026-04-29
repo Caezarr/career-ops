@@ -120,7 +120,7 @@ export const mockCopilotSession = {
     { label: 'Evidence', color: 'green', icon: 'check' },
     { label: 'Memorability', color: 'orange', icon: 'star' },
   ] as ScoreChipData[],
-  model: 'Claude 3.7',
+  model: 'Claude Sonnet 4.5',
   confidence: 'High confidence',
   config: [
     {

@@ -74,7 +74,7 @@ export const mockIntegrations: IntegrationData[] = [
   {
     id: 'anthropic',
     name: 'Anthropic',
-    model: 'Claude 3.5 Sonnet',
+    model: 'Claude Sonnet 4.5',
     connected: true,
     brandColor: '#cc785c',
     brandBg: '#fde7d8',

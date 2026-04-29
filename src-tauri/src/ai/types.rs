@@ -15,9 +15,11 @@ impl AiConfig {
     }
 
     /// Default model used when none provided.
-    /// Sonnet 3.5 is the right balance of quality + cost for ATS / tailoring.
+    /// Sonnet 4.5 — top-tier reasoning and judgment, worth the cost for ATS,
+    /// CV tailoring and interview-grade output. Override per-call by setting
+    /// `model` on the AiConfig.
     pub fn model_or_default(&self) -> &str {
-        self.model.as_deref().unwrap_or("claude-3-5-sonnet-20241022")
+        self.model.as_deref().unwrap_or("claude-sonnet-4-5")
     }
 }
 

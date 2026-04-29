@@ -11,11 +11,11 @@ import {
 import { useNavigation } from '../../navigation';
 
 const MODEL_OPTIONS = [
-  'Claude 3.7 Sonnet',
-  'Claude 3.5 Sonnet',
-  'Claude 3.5 Haiku',
+  'Claude Sonnet 4.5',
+  'Claude Opus 4.1',
+  'Claude Haiku 4.5',
+  'Claude Sonnet 3.7',
   'GPT-4o',
-  'GPT-4 Turbo',
 ];
 
 export default function ModelStatusBar() {
