@@ -57,6 +57,14 @@ export interface UiSlice {
   // Copilot mode tabs (Q&A vs Pitch).
   copilotMode: CopilotMode;
   setCopilotMode: (mode: CopilotMode) => void;
+
+  // ATS Analyzer (CV page) — persisted JD textarea so leaving the tab and
+  // coming back keeps the input. Also reused as the JD for the Tailoring
+  // workspace's Analyze match so the cache hit lands and we don't burn
+  // credits on duplicate analyses.
+  atsAnalyzerJd: string;
+  setAtsAnalyzerJd: (jd: string) => void;
+  clearAtsAnalyzerJd: () => void;
 }
 
 export const createUiSlice: StateCreator<UiSlice> = (set) => ({
@@ -91,4 +99,8 @@ export const createUiSlice: StateCreator<UiSlice> = (set) => ({
   setPrepSearchQuery: (prepSearchQuery) => set({ prepSearchQuery }),
   prepInterviewTrack: "Behavioral + Technical",
   setPrepInterviewTrack: (prepInterviewTrack) => set({ prepInterviewTrack }),
+
+  atsAnalyzerJd: "",
+  setAtsAnalyzerJd: (atsAnalyzerJd) => set({ atsAnalyzerJd }),
+  clearAtsAnalyzerJd: () => set({ atsAnalyzerJd: "" }),
 });

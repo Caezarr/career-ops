@@ -2,6 +2,7 @@ import { useRef, useState, type DragEvent } from 'react';
 import { UploadCloud, Upload } from 'lucide-react';
 import { useToast } from '../../primitives';
 import { useAppStore } from '../../store';
+import { ingestPdfFile } from '../../lib/pdf';
 
 export default function UploadZone() {
   const toast = useToast();
@@ -9,18 +10,36 @@ export default function UploadZone() {
   const setSelectedCv = useAppStore((s) => s.setSelectedCv);
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [parsing, setParsing] = useState(false);
 
-  function ingest(file: File) {
+  async function ingest(file: File) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       toast.error('PDF only, please');
       return;
     }
-    const cv = createCV({
-      name: file.name.replace(/\.pdf$/i, ''),
-      roleFocus: 'General',
-    });
-    setSelectedCv(cv.id);
-    toast.success(`${file.name} uploaded`);
+    setParsing(true);
+    try {
+      const { parsedText, baseName, roleFocus } = await ingestPdfFile(file);
+      const cv = createCV({
+        name: baseName,
+        roleFocus,
+        atsScore: 0,
+        parsedText,
+      });
+      setSelectedCv(cv.id);
+      const wordCount = parsedText.split(/\s+/).filter(Boolean).length;
+      toast.success(
+        `${file.name} uploaded`,
+        `Parsed ${wordCount} words · detected role focus: ${roleFocus}`,
+      );
+    } catch (err) {
+      toast.error(
+        'Could not parse PDF',
+        typeof err === 'string' ? err : (err as Error).message ?? 'Unknown error',
+      );
+    } finally {
+      setParsing(false);
+    }
   }
 
   function onDrop(e: DragEvent<HTMLDivElement>) {
@@ -83,9 +102,9 @@ export default function UploadZone() {
         </div>
         <div className="cv__upload-secondary">PDF only, max 10MB</div>
       </div>
-      <button type="button" className="cv__upload-btn" onClick={trigger}>
+      <button type="button" className="cv__upload-btn" onClick={trigger} disabled={parsing}>
         <Upload size={14} strokeWidth={2} />
-        <span>Upload</span>
+        <span>{parsing ? 'Parsing…' : 'Upload'}</span>
       </button>
     </div>
   );

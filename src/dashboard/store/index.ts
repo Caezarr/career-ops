@@ -14,6 +14,7 @@ import { createTasksSlice, type TasksSlice } from "./slices/tasks";
 import { createPreferencesSlice, type PreferencesSlice } from "./slices/preferences";
 import { createIntegrationsSlice, type IntegrationsSlice } from "./slices/integrations";
 import { createUiSlice, type UiSlice } from "./slices/ui";
+import { createAnalyzerSlice, type AnalyzerSlice } from "./slices/analyzer";
 
 export type AppStore = UserSlice &
   NotificationsSlice &
@@ -24,7 +25,8 @@ export type AppStore = UserSlice &
   TasksSlice &
   PreferencesSlice &
   IntegrationsSlice &
-  UiSlice;
+  UiSlice &
+  AnalyzerSlice;
 
 const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUserSlice(...(a as Parameters<typeof createUserSlice>)),
@@ -37,6 +39,7 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createPreferencesSlice(...(a as Parameters<typeof createPreferencesSlice>)),
   ...createIntegrationsSlice(...(a as Parameters<typeof createIntegrationsSlice>)),
   ...createUiSlice(...(a as Parameters<typeof createUiSlice>)),
+  ...createAnalyzerSlice(...(a as Parameters<typeof createAnalyzerSlice>)),
 });
 
 export const useAppStore = create<AppStore>()(
@@ -52,6 +55,10 @@ export const useAppStore = create<AppStore>()(
       applications: state.applications,
       cvs: state.cvs,
       defaultCvId: state.defaultCvId,
+      // Persist AI analyses + ATS analyzer JD so the user doesn't burn
+      // Anthropic credits re-running on every nav / restart.
+      atsByCv: state.atsByCv,
+      atsAnalyzerJd: state.atsAnalyzerJd,
       prepSessions: state.prepSessions,
       todaysPlan: state.todaysPlan,
       todaysTasks: state.todaysTasks,

@@ -31,11 +31,47 @@ export default function TailoringWorkspace() {
   const setTailoringTarget = useAppStore((s) => s.setTailoringTarget);
   const createCV = useAppStore((s) => s.createCV);
   const setSelectedCv = useAppStore((s) => s.setSelectedCv);
+  const atsByCv = useAppStore((s) => s.atsByCv);
+  const atsAnalyzerJd = useAppStore((s) => s.atsAnalyzerJd);
 
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
 
   const baseCv = cvs.find((c) => c.id === tailoringTarget.baseCvId) ?? cvs[0];
+
+  // ── Pull the latest Analyze match output for the chosen base CV.
+  // Fall back to the static mock when the user hasn't run Analyze yet.
+  const analysis = baseCv ? atsByCv[baseCv.id] : undefined;
+  // Before = the CV's current ATS score (what Claude scored it at).
+  // After  = the score Claude projects IF the suggestions are applied.
+  // Both come from the same analysis call → After ≥ Before always.
+  const beforeMatch = analysis?.atsScore ?? baseCv?.atsScore ?? mockTailoring.beforeMatch;
+  const afterMatch =
+    analysis?.projectedAtsScore ??
+    (baseCv?.atsScore ? Math.min(baseCv.atsScore + 12, 95) : undefined) ??
+    mockTailoring.afterMatch;
+  const missingKeywords =
+    analysis?.missingKeywords?.length
+      ? analysis.missingKeywords
+      : mockTailoring.missingKeywords;
+  const suggestedEdits =
+    analysis?.suggestions?.length
+      ? analysis.suggestions.slice(0, 3).map((s) => s.suggested || s.rationale)
+      : mockTailoring.suggestedEdits;
+
+  // Diff sections derived from the AI suggestions:
+  // - reword/remove → Remove/Reduce (the original text)
+  // - reword/add    → Add/Strengthen (the suggested text)
+  const removeReduce = analysis?.suggestions?.length
+    ? analysis.suggestions
+        .filter((s) => s.type !== 'add' && s.original && s.original !== '<empty>')
+        .map((s) => s.original)
+    : mockTailoring.removeReduce;
+  const addStrengthen = analysis?.suggestions?.length
+    ? analysis.suggestions
+        .filter((s) => s.type !== 'remove' && s.suggested)
+        .map((s) => s.suggested)
+    : mockTailoring.addStrengthen;
 
   return (
     <section className="cv-workspace" aria-label="Tailoring workspace">
@@ -117,23 +153,32 @@ export default function TailoringWorkspace() {
         </div>
       </div>
 
+      {analysis && (
+        <div className="cv-workspace__live-banner">
+          <Sparkles size={12} strokeWidth={2.2} />
+          <span>
+            Live results from your last Analyze match
+            {tailoringTarget.role && ` against ${tailoringTarget.role}`}
+          </span>
+        </div>
+      )}
+
       <div className="cv-workspace__analysis">
-        <KeywordMatchSection
-          before={mockTailoring.beforeMatch}
-          after={mockTailoring.afterMatch}
-        />
-        <MissingKeywords keywords={mockTailoring.missingKeywords} />
-        <SuggestedEdits edits={mockTailoring.suggestedEdits} />
+        <KeywordMatchSection before={beforeMatch} after={afterMatch} />
+        <MissingKeywords keywords={missingKeywords} />
+        <SuggestedEdits edits={suggestedEdits} />
       </div>
 
-      <DiffSection
-        removeReduce={mockTailoring.removeReduce}
-        addStrengthen={mockTailoring.addStrengthen}
-      />
+      <DiffSection removeReduce={removeReduce} addStrengthen={addStrengthen} />
 
       <AnalyzeMatchModal
         open={analyzeOpen}
         onClose={() => setAnalyzeOpen(false)}
+        cvId={baseCv?.id}
+        // Prefer the JD pasted in the ATS Analyzer tab so the cache from
+        // the multi-CV comparison hits and we don't re-spend credits.
+        // Fall back to the target-role label only when no JD has been entered.
+        jdText={atsAnalyzerJd.trim() || tailoringTarget.role}
         onApply={() => toast.success('Suggestions applied')}
       />
 

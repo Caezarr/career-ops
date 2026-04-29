@@ -90,9 +90,10 @@ export default function CVVariantsTable() {
       <PreviewFullModal
         open={!!previewTarget}
         onClose={() => setPreviewTarget(null)}
+        cvId={previewTarget?.id}
         cvName={previewTarget?.name}
         onExport={() => {
-          const fname = `${(previewTarget?.name ?? 'cv').replace(/\s+/g, '-')}.pdf.txt`;
+          const fname = `${(previewTarget?.name ?? 'cv').replace(/\s+/g, '-')}.pdf`;
           downloadStub(fname, `Stub export for ${previewTarget?.name ?? 'CV'}`);
           toast.success('CV exported as PDF');
         }}

@@ -1,11 +1,21 @@
 /* ── CV page styles (light mode, scoped to .dashboard-root) ──────────────── */
 
-/* Variant: 340px right panel */
+/* Variant: very wide right panel so the preview reads like a real CV PDF.
+   Uses minmax so the page still works on narrow Tauri windows. */
 .dashboard-root .dashboard.dashboard--cv {
-  grid-template-columns: 220px 1fr 340px;
+  grid-template-columns: 220px minmax(380px, 1fr) minmax(520px, 640px);
   grid-template-areas:
     "sidebar topbar topbar"
     "sidebar main    right";
+}
+
+/* When the user is on the ATS Analyzer tab, hide the preview panel so the
+   comparison table has the full width to breathe. */
+.dashboard-root .dashboard.dashboard--cv-full {
+  grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
 }
 
 .dashboard-root .right-panel--cv {
@@ -13,6 +23,12 @@
   background: var(--bg-soft);
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  /* Constrain to the grid row so the inner panel can scroll independently
+     instead of pushing buttons below the viewport. */
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* Page container */
@@ -778,113 +794,114 @@
   color: var(--text-1);
 }
 
-/* Inner CV doc */
+/* Inner CV doc — wider panel = larger comfortable reading size */
 .dashboard-root .cv-preview-doc {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 16px 18px;
+  padding: 22px 26px;
   font-family: Georgia, "Times New Roman", serif;
   color: var(--text-1);
-  font-size: 8px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .dashboard-root .cv-preview-doc__header {
   text-align: center;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #d0d0d8;
 }
 
 .dashboard-root .cv-preview-doc__name {
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #0a0a0a;
 }
 
 .dashboard-root .cv-preview-doc__title {
-  font-size: 9px;
+  font-size: 12px;
   color: #475569;
-  margin-top: 2px;
+  margin-top: 3px;
   font-style: italic;
 }
 
 .dashboard-root .cv-preview-doc__contact {
-  font-size: 7.5px;
+  font-size: 10px;
   color: #475569;
-  margin-top: 4px;
+  margin-top: 6px;
   letter-spacing: 0.01em;
 }
 
 .dashboard-root .cv-preview-doc__section {
-  margin-top: 8px;
+  margin-top: 12px;
 }
 
 .dashboard-root .cv-preview-doc__section-title {
-  font-size: 9px;
+  font-size: 11.5px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   color: #0a0a0a;
 }
 
 .dashboard-root .cv-preview-doc__section-divider {
   height: 1px;
   background: #d0d0d8;
-  margin: 2px 0 5px;
+  margin: 4px 0 8px;
 }
 
 .dashboard-root .cv-preview-doc__paragraph {
-  font-size: 7.5px;
+  font-size: 11px;
   color: var(--text-1);
-  margin: 0;
-  line-height: 1.5;
+  margin: 0 0 4px;
+  line-height: 1.55;
   text-align: justify;
 }
 
 .dashboard-root .cv-preview-doc__entry {
-  margin-bottom: 6px;
+  margin-bottom: 10px;
 }
 
 .dashboard-root .cv-preview-doc__entry-header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 6px;
+  gap: 8px;
+  margin-top: 4px;
 }
 
 .dashboard-root .cv-preview-doc__entry-role {
-  font-size: 8px;
+  font-size: 11.5px;
   font-weight: 700;
   color: #0a0a0a;
 }
 
 .dashboard-root .cv-preview-doc__entry-period {
-  font-size: 7.5px;
+  font-size: 10.5px;
   color: #475569;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .dashboard-root .cv-preview-doc__entry-sub {
-  font-size: 7.5px;
+  font-size: 10.5px;
   color: #475569;
   font-style: italic;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .dashboard-root .cv-preview-doc__bullets {
   list-style: disc;
-  padding-left: 12px;
-  margin: 3px 0 0;
-  font-size: 7px;
+  padding-left: 18px;
+  margin: 4px 0 8px;
+  font-size: 10.5px;
   color: var(--text-1);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .dashboard-root .cv-preview-doc__bullets li {
-  margin-bottom: 1px;
+  margin-bottom: 3px;
 }
 
 /* ATS score card */
@@ -1058,4 +1075,534 @@
 .dashboard-root .cv-right__btn--primary:hover {
   background: var(--indigo-text);
   border-color: var(--indigo-text);
+}
+
+/* ── ATS analysis result (live Claude output) ─────────────────────────────── */
+.dashboard-root .ats-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.dashboard-root .ats-setup {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 16px;
+  background: var(--indigo-soft);
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  color: var(--text-1);
+}
+.dashboard-root .ats-setup svg { color: var(--indigo); flex-shrink: 0; margin-top: 2px; }
+.dashboard-root .ats-setup h3 { font-size: 15px; font-weight: 700; margin: 0 0 6px; }
+.dashboard-root .ats-setup p { font-size: 13px; line-height: 1.5; color: var(--text-2); margin: 0 0 6px; }
+.dashboard-root .ats-setup__hint { color: var(--text-3); font-size: 12px; }
+
+.dashboard-root .ats-result {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dashboard-root .ats-result__scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.dashboard-root .ats-result__score {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  min-width: 0;
+}
+.dashboard-root .ats-result__score-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .ats-result__score-hint {
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.dashboard-root .ats-result__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.dashboard-root .ats-result__col { min-width: 0; }
+.dashboard-root .ats-result__h {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .ats-result__h svg { color: var(--indigo); }
+
+.dashboard-root .ats-result__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dashboard-root .ats-result__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.dashboard-root .ats-result__list--good li svg { color: var(--green); flex-shrink: 0; margin-top: 3px; }
+.dashboard-root .ats-result__list--bad  li svg { color: var(--red);   flex-shrink: 0; margin-top: 3px; }
+
+.dashboard-root .ats-result__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dashboard-root .ats-result__chip {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dashboard-root .ats-result__edits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dashboard-root .ats-result__edit {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.dashboard-root .ats-result__edit-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+  align-self: flex-start;
+  text-align: center;
+}
+.dashboard-root .ats-result__edit-tag--add    { background: var(--green-soft); color: var(--green); }
+.dashboard-root .ats-result__edit-tag--reword { background: var(--indigo-soft); color: var(--indigo-text); }
+.dashboard-root .ats-result__edit-tag--remove { background: var(--red-soft); color: var(--red); }
+.dashboard-root .ats-result__edit-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dashboard-root .ats-result__edit-original {
+  font-size: 12.5px;
+  color: var(--text-2);
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.5);
+  word-break: break-word;
+}
+.dashboard-root .ats-result__edit-suggested {
+  font-size: 13px;
+  color: var(--text-1);
+  font-weight: 500;
+  word-break: break-word;
+}
+.dashboard-root .ats-result__edit-rationale {
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: italic;
+  word-break: break-word;
+}
+
+/* ── Renderer additions for variant-driven CV preview ────────────────────── */
+.dashboard-root .cv-preview-doc__spacer {
+  height: 6px;
+}
+.dashboard-root .cv-preview-doc__empty {
+  text-align: center;
+  color: var(--text-2);
+  font-size: 13px;
+  padding: 24px 8px;
+}
+
+/* ── 'Live' indicator badges + tailoring live banner ─────────────────────── */
+.dashboard-root .cv-side-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-root .cv-side-card__badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--green-soft);
+  color: var(--green);
+  border-radius: 999px;
+  padding: 2px 7px;
+}
+
+.dashboard-root .cv-workspace__live-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  margin: 12px 0 4px;
+  align-self: flex-start;
+}
+
+/* ── ATS Analyzer (multi-CV comparison view) ─────────────────────────────── */
+.dashboard-root .cv-ats-analyzer {
+  margin: 24px 32px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dashboard-root .cv-ats-analyzer__header h2 {
+  margin: 0 0 4px;
+}
+
+.dashboard-root .cv-ats-analyzer__lede {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 720px;
+}
+
+.dashboard-root .cv-ats-analyzer__grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 0.8fr) minmax(420px, 1.2fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-root .cv-ats-analyzer__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Left column ─────────────────────────────────────────────────────────── */
+.dashboard-root .cv-ats-analyzer__left {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.dashboard-root .cv-ats-analyzer__label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.dashboard-root .cv-ats-analyzer__textarea {
+  min-height: 280px;
+  font-size: 13px;
+  line-height: 1.55;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  resize: vertical;
+}
+
+.dashboard-root .cv-ats-analyzer__cta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dashboard-root .cv-ats-analyzer__hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--orange-soft);
+  color: #92400e;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* ── Right column ────────────────────────────────────────────────────────── */
+.dashboard-root .cv-ats-analyzer__right {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 4px 12px 8px;
+  min-height: 320px;
+  /* Keep scroll inside the panel and reserve a stable gutter so the
+     chevron column never sits under the scrollbar thumb. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.dashboard-root .cv-ats-analyzer__empty {
+  padding: 48px 32px;
+  text-align: center;
+  color: var(--text-2);
+}
+.dashboard-root .cv-ats-analyzer__empty svg {
+  color: var(--indigo);
+  margin-bottom: 12px;
+}
+.dashboard-root .cv-ats-analyzer__empty h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 8px;
+}
+.dashboard-root .cv-ats-analyzer__empty p {
+  font-size: 13px;
+  line-height: 1.55;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+/* ── Comparison table ────────────────────────────────────────────────────── */
+.dashboard-root .cv-ats-analyzer__table {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-root .cv-ats-analyzer__th {
+  display: grid;
+  /* Variant col grows; score cols fixed at pill width; chevron col gets
+     real breathing room so the icon never collides with the scrollbar. */
+  grid-template-columns: minmax(180px, 1.4fr) 70px 70px 80px 28px;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 18px 10px 14px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard-root .cv-ats-analyzer__tr {
+  border-bottom: 1px solid var(--border-soft);
+}
+.dashboard-root .cv-ats-analyzer__tr:last-child {
+  border-bottom: none;
+}
+
+.dashboard-root .cv-ats-analyzer__row-toggle {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) 70px 70px 80px 28px;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 18px 12px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease;
+  min-width: 0;
+}
+.dashboard-root .cv-ats-analyzer__row-toggle:hover {
+  background: var(--bg-hover);
+}
+.dashboard-root .cv-ats-analyzer__row-toggle:disabled {
+  cursor: default;
+}
+.dashboard-root .cv-ats-analyzer__tr--expanded > .cv-ats-analyzer__row-toggle {
+  background: var(--indigo-soft);
+}
+.dashboard-root .cv-ats-analyzer__tr--best > .cv-ats-analyzer__row-toggle {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.dashboard-root .cv-ats-analyzer__name-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dashboard-root .cv-ats-analyzer__name-block {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dashboard-root .cv-ats-analyzer__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dashboard-root .cv-ats-analyzer__role-focus {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-root .cv-ats-analyzer__best-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  background: var(--green-soft);
+  color: var(--green);
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Position the best badge under the name as a small accent so it never
+   pushes the variant name into ellipsis just to make room for itself. */
+.dashboard-root .cv-ats-analyzer__name-cell {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dashboard-root .cv-ats-analyzer__name-block {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dashboard-root .cv-ats-analyzer__name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.dashboard-root .cv-ats-analyzer__name-row .cv-ats-analyzer__name {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-root .cv-ats-analyzer__score {
+  display: inline-flex;
+  align-items: center;
+}
+
+.dashboard-root .cv-ats-analyzer__pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 50px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.dashboard-root .cv-ats-analyzer__pill--green  { background: var(--green-soft);  color: var(--green); }
+.dashboard-root .cv-ats-analyzer__pill--orange { background: var(--orange-soft); color: #b45309; }
+.dashboard-root .cv-ats-analyzer__pill--red    { background: var(--red-soft);    color: var(--red); }
+.dashboard-root .cv-ats-analyzer__pill--muted  { opacity: 0.7; }
+
+.dashboard-root .cv-ats-analyzer__cell-empty {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.dashboard-root .cv-ats-analyzer__cell-err {
+  color: var(--red);
+}
+
+.dashboard-root .cv-ats-analyzer__loader {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--indigo);
+  border-radius: 50%;
+  animation: cv-ats-spin 0.7s linear infinite;
+}
+@keyframes cv-ats-spin {
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-root .cv-ats-analyzer__chevron {
+  color: var(--text-3);
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+/* ── Drill-down detail ───────────────────────────────────────────────────── */
+.dashboard-root .cv-ats-analyzer__detail {
+  padding: 12px 18px 18px;
+  background: var(--bg-soft);
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-root .cv-ats-analyzer__detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+@media (max-width: 720px) {
+  .dashboard-root .cv-ats-analyzer__detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-root .cv-ats-analyzer__keywords {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboard-root .cv-ats-analyzer__detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }

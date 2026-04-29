@@ -1,3 +1,4 @@
+mod ai;
 mod audio;
 mod db;
 mod llm;
@@ -558,6 +559,71 @@ async fn db_dashboard_stats(pool: State<'_, SqlitePool>) -> Result<DashboardStat
     })
 }
 
+// ── AI: ATS analysis command ─────────────────────────────────────────────────
+
+/// Analyze a CV against an optional job description using Claude.
+///
+/// The CV content can be supplied two ways:
+///   - `cv_text`  — raw parsed text passed directly from the frontend
+///                  (preferred for store-driven variants that aren't yet
+///                  persisted in SQLite)
+///   - `cv_id`    — fallback: load from the SQLite DB (used when the CV
+///                  was uploaded via `db_create_cv`)
+///
+/// At least one of the two MUST be provided. If both are given, `cv_text`
+/// wins. When `cv_id` is also passed alongside `cv_text` we still cache
+/// the resulting ats_score on the row so the variants table updates.
+#[tauri::command]
+async fn analyze_cv_ats(
+    pool: State<'_, SqlitePool>,
+    cv_id: Option<String>,
+    cv_text: Option<String>,
+    jd_text: Option<String>,
+    anthropic_key: String,
+    model: Option<String>,
+) -> Result<ai::AtsAnalysis, ai::AiError> {
+    let pool = pool.inner();
+
+    // 1. Resolve CV text from one of the two sources.
+    let parsed_text = match (cv_text.as_deref(), cv_id.as_deref()) {
+        (Some(t), _) if !t.trim().is_empty() => t.to_string(),
+        (_, Some(id)) => {
+            let cv = db::cv::get_with_blob(pool, id)
+                .await
+                .map_err(|e| ai::AiError::InvalidResponse(format!("CV not found: {e}")))?;
+            cv.parsed_text.unwrap_or_default()
+        }
+        _ => return Err(ai::AiError::CvEmpty),
+    };
+
+    if parsed_text.trim().is_empty() {
+        return Err(ai::AiError::CvEmpty);
+    }
+
+    // 2. Call Claude with the score_cv tool.
+    let cfg = ai::AiConfig::new(anthropic_key, model);
+    let user_msg = ai::prompts::ats::build_user_message(&parsed_text, jd_text.as_deref());
+
+    let analysis = ai::anthropic::ask_structured::<ai::AtsAnalysis>(
+        &cfg,
+        ai::prompts::ats::ATS_SYSTEM,
+        &user_msg,
+        "score_cv",
+        "Score the CV against the job description and return a structured analysis.",
+        ai::prompts::ats::tool_schema(),
+        2000,
+    )
+    .await?;
+
+    // 3. Cache the ats_score on the CV row when the CV exists in DB
+    //    (best-effort — silent on failure).
+    if let Some(id) = cv_id.as_deref() {
+        let _ = db::cv::update_ats_score(pool, id, analysis.ats_score as f64).await;
+    }
+
+    Ok(analysis)
+}
+
 async fn run_pipeline(
     app: tauri::AppHandle,
     state: Arc<Mutex<AppState>>,
@@ -745,7 +811,9 @@ pub fn run() {
             db_list_integrations,
             db_upsert_integration,
             // DB: dashboard aggregate
-            db_dashboard_stats
+            db_dashboard_stats,
+            // AI: ATS analysis
+            analyze_cv_ats
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

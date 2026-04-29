@@ -128,9 +128,39 @@ export interface CV {
   roleFocus: string;
   atsScore: number;
   isDefault: boolean;
+  /** Parsed CV text — fed to the AI for ATS analysis + tailoring,
+   *  and rendered in the right-panel preview. Optional for legacy seeds. */
+  parsedText?: string;
+  /** Variant-specific summary headline shown in the preview. */
+  summary?: string;
 }
 
 export type CVTab = "manager" | "ats" | "history";
+
+// ── ATS analysis (mirrors lib/ai.ts) ───────────────────────────────────────────
+export interface StoreAtsSuggestion {
+  type: "add" | "reword" | "remove";
+  original: string;
+  suggested: string;
+  rationale: string;
+}
+
+export interface StoreAtsAnalysis {
+  atsScore: number;
+  matchScore: number;
+  /** ATS score AFTER applying all suggestions (from Claude). */
+  projectedAtsScore: number;
+  strengths: string[];
+  weaknesses: string[];
+  missingKeywords: string[];
+  suggestions: StoreAtsSuggestion[];
+  /** Score before this analysis was run, captured from cv.atsScore at call-time. */
+  scoreBefore?: number;
+  /** When the analysis was run (epoch ms). */
+  ranAt: number;
+  /** JD text used (truncated, optional). */
+  jdSnippet?: string;
+}
 
 // ─── Prep ───────────────────────────────────────────────────────────────────
 export type PrepCategory = "Behavioral" | "Technical" | "Case" | "Culture Fit";

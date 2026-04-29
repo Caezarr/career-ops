@@ -519,7 +519,7 @@ async fn integration_upsert() {
         UpsertIntegrationInput {
             id: "anthropic".into(),
             status: "connected".into(),
-            model: Some("claude-3-5-sonnet".into()),
+            model: Some("claude-sonnet-4-5".into()),
             config: None,
         },
     )
