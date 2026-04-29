@@ -1,14 +1,35 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Play } from 'lucide-react';
-import { mockPrepQuestions } from '../../data/prep';
 import DifficultyPill from './DifficultyPill';
 import PracticeScorePill from './PracticeScorePill';
+import PracticeModal from '../shared/PracticeModal';
+import { useAppStore, type PrepCategory, type PrepQuestion } from '../../store';
 
-type BankTab = 'Behavioral' | 'Technical' | 'Case' | 'Culture Fit';
-const TABS: BankTab[] = ['Behavioral', 'Technical', 'Case', 'Culture Fit'];
+const TABS: PrepCategory[] = ['Behavioral', 'Technical', 'Case', 'Culture Fit'];
 
 export default function QuestionBank() {
-  const [activeTab, setActiveTab] = useState<BankTab>('Behavioral');
+  const prepQuestions = useAppStore((s) => s.prepQuestions);
+  const filter = useAppStore((s) => s.prepCategoryFilter);
+  const setFilter = useAppStore((s) => s.setPrepCategoryFilter);
+  const searchQuery = useAppStore((s) => s.prepSearchQuery);
+
+  // The filter slice supports "All", but the UI exposes only the four categories.
+  const activeTab: PrepCategory = filter === 'All' ? 'Behavioral' : filter;
+
+  const [practiceTarget, setPracticeTarget] = useState<PrepQuestion | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return prepQuestions.filter((qn) => {
+      if (qn.category !== activeTab) return false;
+      if (!q) return true;
+      return (
+        qn.question.toLowerCase().includes(q) ||
+        qn.framework.toLowerCase().includes(q) ||
+        qn.difficulty.toLowerCase().includes(q)
+      );
+    });
+  }, [prepQuestions, activeTab, searchQuery]);
 
   return (
     <section className="prep-question-bank">
@@ -23,7 +44,7 @@ export default function QuestionBank() {
               'prep-question-bank__tab' +
               (activeTab === tab ? ' prep-question-bank__tab--active' : '')
             }
-            onClick={() => setActiveTab(tab)}
+            onClick={() => setFilter(tab)}
             aria-pressed={activeTab === tab}
           >
             {tab}
@@ -42,7 +63,15 @@ export default function QuestionBank() {
         </div>
 
         <div className="prep-qb-table__body">
-          {mockPrepQuestions.map((q) => (
+          {filtered.length === 0 && (
+            <div
+              role="row"
+              style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--text-3)', fontSize: 13 }}
+            >
+              No questions in this category yet.
+            </div>
+          )}
+          {filtered.map((q) => (
             <div key={q.id} className="prep-qb-table__row" role="row">
               <span className="prep-qb-table__index">{q.index}</span>
               <span className="prep-qb-table__question">{q.question}</span>
@@ -51,9 +80,13 @@ export default function QuestionBank() {
               </span>
               <span className="prep-qb-table__framework">{q.framework}</span>
               <span>
-                <PracticeScorePill score={q.practiceScore} />
+                <PracticeScorePill score={q.practiceScore ?? 0} />
               </span>
-              <button type="button" className="prep-qb-table__practice">
+              <button
+                type="button"
+                className="prep-qb-table__practice"
+                onClick={() => setPracticeTarget(q)}
+              >
                 <span>Practice</span>
                 <Play size={14} strokeWidth={2} fill="currentColor" />
               </button>
@@ -61,6 +94,12 @@ export default function QuestionBank() {
           ))}
         </div>
       </div>
+
+      <PracticeModal
+        open={!!practiceTarget}
+        onClose={() => setPracticeTarget(null)}
+        question={practiceTarget}
+      />
     </section>
   );
 }

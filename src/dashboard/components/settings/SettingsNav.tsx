@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import {
   User,
   Key,
@@ -7,9 +6,10 @@ import {
   Bell,
   CreditCard,
 } from 'lucide-react';
+import { useAppStore, type SettingsTab } from '../../store';
 
 interface NavItem {
-  id: string;
+  id: SettingsTab;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 }
@@ -24,7 +24,8 @@ const items: NavItem[] = [
 ];
 
 export default function SettingsNav() {
-  const [active, setActive] = useState<string>('account');
+  const active = useAppStore((s) => s.settingsTab);
+  const setActive = useAppStore((s) => s.setSettingsTab);
 
   return (
     <nav className="settings-nav" aria-label="Settings sections">

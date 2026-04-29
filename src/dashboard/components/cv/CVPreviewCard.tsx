@@ -1,16 +1,22 @@
 import { MoreHorizontal } from 'lucide-react';
 import { mockCVPreview } from '../../data/cv';
+import { useAppStore } from '../../store';
 
 export default function CVPreviewCard() {
   const cv = mockCVPreview;
+  const cvs = useAppStore((s) => s.cvs);
+  const selectedCvId = useAppStore((s) => s.selectedCvId);
+  const selectedCv = cvs.find((c) => c.id === selectedCvId) ?? cvs[0];
+  const displayName = selectedCv?.name ?? 'Consulting CV';
+  const displayMeta = `PDF · 1 page · ${selectedCv?.lastEdited ?? 'Updated today'}`;
 
   return (
     <div className="cv-preview-card">
       <div className="cv-preview-card__top">
         <span className="cv-pdf-badge" aria-hidden="true">PDF</span>
         <div className="cv-preview-card__top-text">
-          <div className="cv-preview-card__name">Consulting CV</div>
-          <div className="cv-preview-card__meta">PDF · 1 page · Updated today</div>
+          <div className="cv-preview-card__name">{displayName}</div>
+          <div className="cv-preview-card__meta">{displayMeta}</div>
         </div>
         <button
           type="button"

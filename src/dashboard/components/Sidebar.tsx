@@ -8,8 +8,9 @@ import {
   Settings,
   ChevronUp,
 } from 'lucide-react';
-import { mockUser } from '../data/mock';
+import { useAppStore } from '../store';
 import { useNavigation, type Page } from '../navigation';
+import UserMenu from './menus/UserMenu';
 
 interface NavEntry {
   id: string;
@@ -46,6 +47,7 @@ function isPage(id: string): id is Page {
 
 export default function Sidebar() {
   const { page, navigate } = useNavigation();
+  const user = useAppStore((s) => s.user);
 
   const handleNavClick = (id: string) => {
     if (isPage(id)) {
@@ -95,16 +97,27 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="sidebar__user">
-        <div className="sidebar__user-avatar">
-          {mockUser.initials}
-        </div>
-        <div className="sidebar__user-info">
-          <span className="sidebar__user-name">{mockUser.name}</span>
-          <span className="sidebar__user-badge">{mockUser.plan}</span>
-        </div>
-        <ChevronUp size={16} className="sidebar__user-chevron" />
-      </div>
+      <UserMenu
+        align="start"
+        side="top"
+        trigger={
+          <button
+            type="button"
+            className="sidebar__user"
+            aria-label={`${user.name} account menu`}
+            style={{ width: '100%' }}
+          >
+            <div className="sidebar__user-avatar">{user.avatarInitials}</div>
+            <div className="sidebar__user-info">
+              <span className="sidebar__user-name">{user.name}</span>
+              <span className="sidebar__user-badge">
+                {user.plan === 'pro' ? 'Pro' : 'Free'}
+              </span>
+            </div>
+            <ChevronUp size={16} className="sidebar__user-chevron" />
+          </button>
+        }
+      />
     </aside>
   );
 }

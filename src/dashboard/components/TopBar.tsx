@@ -1,8 +1,11 @@
-import { Fragment } from 'react';
+import { Fragment, useRef } from 'react';
 import { ChevronRight, Search, Bell } from 'lucide-react';
+import clsx from 'clsx';
 import '../styles/topbar.css';
-import { mockUser } from '../data/mock';
 import { useNavigation, type Page } from '../navigation';
+import { useAppStore } from '../store';
+import NotificationsPanel from './notifications/NotificationsPanel';
+import UserMenu from './menus/UserMenu';
 
 interface BreadcrumbSpec {
   parts: string[];
@@ -21,6 +24,16 @@ const BREADCRUMBS: Record<Page, BreadcrumbSpec> = {
 export default function TopBar() {
   const { page } = useNavigation();
   const { parts } = BREADCRUMBS[page];
+
+  const user = useAppStore((s) => s.user);
+  const notifications = useAppStore((s) => s.notifications);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const notificationsOpen = useAppStore((s) => s.notificationsPanelOpen);
+  const toggleNotifications = useAppStore((s) => s.toggleNotificationsPanel);
+  const setNotificationsOpen = useAppStore((s) => s.setNotificationsPanelOpen);
+  const openCommandPalette = useAppStore((s) => s.setCommandPaletteOpen);
+
+  const bellRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <header className="topbar">
@@ -46,26 +59,63 @@ export default function TopBar() {
       </nav>
 
       <div className="topbar__search">
-        <div className="topbar__search-inner" role="search">
+        <button
+          type="button"
+          className="topbar__search-inner"
+          aria-label="Open command palette"
+          onClick={() => openCommandPalette(true)}
+        >
           <Search size={16} className="topbar__search-icon" />
-          <input
-            type="text"
+          <span
             className="topbar__search-input"
-            placeholder="Search anything..."
-            aria-label="Search"
-          />
+            style={{ color: 'var(--text-3)', textAlign: 'left' }}
+          >
+            Search anything...
+          </span>
           <span className="topbar__search-kbd">⌘K</span>
-        </div>
+        </button>
       </div>
 
       <div className="topbar__actions">
-        <button type="button" className="topbar__bell" aria-label="Notifications">
+        <button
+          ref={bellRef}
+          type="button"
+          className="topbar__bell"
+          aria-label={
+            unreadCount > 0
+              ? `Notifications, ${unreadCount} unread`
+              : 'Notifications'
+          }
+          aria-haspopup="dialog"
+          aria-expanded={notificationsOpen}
+          onClick={() => toggleNotifications()}
+        >
           <Bell size={18} strokeWidth={2} />
-          <span className="topbar__bell-dot" aria-hidden="true" />
+          {unreadCount > 0 && (
+            <span
+              className={clsx('topbar__bell-dot', 'topbar__bell-dot--unread')}
+              aria-hidden="true"
+            />
+          )}
         </button>
-        <div className="topbar__avatar" aria-label={mockUser.name}>
-          {mockUser.initials}
-        </div>
+        <NotificationsPanel
+          open={notificationsOpen}
+          onClose={() => setNotificationsOpen(false)}
+          anchorRef={bellRef}
+        />
+        <UserMenu
+          align="end"
+          side="bottom"
+          trigger={
+            <button
+              type="button"
+              className="topbar__avatar"
+              aria-label={`${user.name} menu`}
+            >
+              {user.avatarInitials}
+            </button>
+          }
+        />
       </div>
     </header>
   );

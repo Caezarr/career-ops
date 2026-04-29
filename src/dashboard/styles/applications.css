@@ -340,6 +340,11 @@
   color: #dc2626;
 }
 
+.dashboard-root .stage-pill--sourced {
+  background: var(--bg-soft);
+  color: var(--text-2);
+}
+
 /* ── 6. Pagination ───────────────────────────────────────────────────────── */
 .dashboard-root .applications__pagination {
   display: flex;

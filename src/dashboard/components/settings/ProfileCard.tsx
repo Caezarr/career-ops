@@ -1,15 +1,72 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Camera, ChevronDown, MapPin } from 'lucide-react';
-import { mockSettingsProfile } from '../../data/settings';
+import { useAppStore } from '../../store';
+import { useToast } from '../../primitives';
+import ChangePhotoModal from '../shared/ChangePhotoModal';
 
 export default function ProfileCard() {
-  const [name, setName] = useState(mockSettingsProfile.name);
-  const [email, setEmail] = useState(mockSettingsProfile.email);
-  const [timezone, setTimezone] = useState(mockSettingsProfile.timezone);
-  const [language, setLanguage] = useState(mockSettingsProfile.language);
-  const [location, setLocation] = useState(mockSettingsProfile.location);
+  const toast = useToast();
+  const user = useAppStore((s) => s.user);
+  const updateUser = useAppStore((s) => s.updateUser);
 
-  const initials = mockSettingsProfile.name
+  const [name, setName] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [timezone, setTimezone] = useState(user.timezone);
+  const [language, setLanguage] = useState(user.language);
+  const [location, setLocation] = useState(user.location);
+  const [photoOpen, setPhotoOpen] = useState(false);
+
+  // Re-sync if the underlying store changes (e.g. another component edits it).
+  useEffect(() => {
+    setName(user.name);
+    setEmail(user.email);
+    setTimezone(user.timezone);
+    setLanguage(user.language);
+    setLocation(user.location);
+  }, [user]);
+
+  const dirty =
+    name !== user.name ||
+    email !== user.email ||
+    timezone !== user.timezone ||
+    language !== user.language ||
+    location !== user.location;
+
+  function discard() {
+    setName(user.name);
+    setEmail(user.email);
+    setTimezone(user.timezone);
+    setLanguage(user.language);
+    setLocation(user.location);
+  }
+
+  function save() {
+    const langChanged = language !== user.language;
+    updateUser({ name, email, timezone, language, location });
+
+    // Reflect the language on the document root so screen-readers / browser
+    // chrome know — full UI translation will come with proper i18n.
+    if (langChanged) {
+      const langCode =
+        language === 'Français' ? 'fr'
+        : language === 'Deutsch' ? 'de'
+        : language === 'English (UK)' ? 'en-GB'
+        : 'en-US';
+      document.documentElement.lang = langCode;
+      const human =
+        language === 'Français' ? 'française'
+        : language === 'Deutsch' ? 'deutsche'
+        : 'English';
+      toast.success(
+        'Profile updated',
+        `Interface ${human} preview applied — full translation rolling out soon.`,
+      );
+    } else {
+      toast.success('Profile updated');
+    }
+  }
+
+  const initials = name
     .split(' ')
     .map((p) => p[0])
     .slice(0, 2)
@@ -28,13 +85,19 @@ export default function ProfileCard() {
             {initials}
           </div>
           <div className="settings-profile__identity-text">
-            <div className="settings-profile__name">{mockSettingsProfile.name}</div>
-            <div className="settings-profile__email">{mockSettingsProfile.email}</div>
-            <span className="settings-profile__plan">{mockSettingsProfile.plan}</span>
+            <div className="settings-profile__name">{user.name}</div>
+            <div className="settings-profile__email">{user.email}</div>
+            <span className="settings-profile__plan">
+              {user.plan === 'pro' ? 'Pro' : 'Free'}
+            </span>
           </div>
         </div>
 
-        <button type="button" className="settings-btn settings-btn--outline">
+        <button
+          type="button"
+          className="settings-btn settings-btn--outline"
+          onClick={() => setPhotoOpen(true)}
+        >
           <Camera size={14} strokeWidth={2} />
           <span>Change photo</span>
         </button>
@@ -122,7 +185,32 @@ export default function ProfileCard() {
             <MapPin size={16} className="settings-input__icon" />
           </div>
         </div>
+
+        <div className="settings-profile__form-actions">
+          <button
+            type="button"
+            className="settings-btn settings-btn--outline"
+            disabled={!dirty}
+            onClick={discard}
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            className="ds-btn ds-btn--primary"
+            disabled={!dirty}
+            onClick={save}
+          >
+            Save changes
+          </button>
+        </div>
       </div>
+
+      <ChangePhotoModal
+        open={photoOpen}
+        onClose={() => setPhotoOpen(false)}
+        initials={initials}
+      />
     </section>
   );
 }

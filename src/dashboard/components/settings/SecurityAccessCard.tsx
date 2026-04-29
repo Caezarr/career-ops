@@ -1,8 +1,16 @@
+import { useState } from 'react';
 import { Lock, ShieldCheck, Monitor } from 'lucide-react';
 import SecurityItem from './SecurityItem';
 import { mockSecurity } from '../../data/settings';
+import ChangePasswordModal from '../shared/ChangePasswordModal';
+import Manage2FAModal from '../shared/Manage2FAModal';
+import ManageSessionsModal from '../shared/ManageSessionsModal';
 
 export default function SecurityAccessCard() {
+  const [pwOpen, setPwOpen] = useState(false);
+  const [tfaOpen, setTfaOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+
   return (
     <section className="settings-card settings-security" aria-labelledby="settings-security-title">
       <h2 id="settings-security-title" className="settings-card__title">
@@ -20,6 +28,7 @@ export default function SecurityAccessCard() {
             </span>
           }
           actionLabel="Change password"
+          onAction={() => setPwOpen(true)}
         />
         <SecurityItem
           iconTone="green"
@@ -31,6 +40,7 @@ export default function SecurityAccessCard() {
             </span>
           }
           actionLabel="Manage 2FA"
+          onAction={() => setTfaOpen(true)}
         />
         <SecurityItem
           iconTone="indigo"
@@ -42,8 +52,13 @@ export default function SecurityAccessCard() {
             </span>
           }
           actionLabel="Manage sessions"
+          onAction={() => setSessionsOpen(true)}
         />
       </div>
+
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      <Manage2FAModal open={tfaOpen} onClose={() => setTfaOpen(false)} />
+      <ManageSessionsModal open={sessionsOpen} onClose={() => setSessionsOpen(false)} />
     </section>
   );
 }
