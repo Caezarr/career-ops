@@ -1,3 +1,4 @@
+mod ai;
 mod audio;
 mod db;
 mod llm;
@@ -558,6 +559,52 @@ async fn db_dashboard_stats(pool: State<'_, SqlitePool>) -> Result<DashboardStat
     })
 }
 
+// ── AI: ATS analysis command ─────────────────────────────────────────────────
+
+/// Analyze a CV against an optional job description using Claude.
+/// Returns a structured ATS analysis (score, strengths, weaknesses, missing
+/// keywords, actionable suggestions) and caches the score on the CV row.
+#[tauri::command]
+async fn analyze_cv_ats(
+    pool: State<'_, SqlitePool>,
+    cv_id: String,
+    jd_text: Option<String>,
+    anthropic_key: String,
+    model: Option<String>,
+) -> Result<ai::AtsAnalysis, ai::AiError> {
+    let pool = pool.inner();
+
+    // 1. Read CV (full row, we need parsed_text).
+    let cv = db::cv::get_with_blob(pool, &cv_id)
+        .await
+        .map_err(|e| ai::AiError::InvalidResponse(format!("CV not found: {e}")))?;
+
+    let parsed_text = cv.parsed_text.unwrap_or_default();
+    if parsed_text.trim().is_empty() {
+        return Err(ai::AiError::CvEmpty);
+    }
+
+    // 2. Call Claude with the score_cv tool.
+    let cfg = ai::AiConfig::new(anthropic_key, model);
+    let user_msg = ai::prompts::ats::build_user_message(&parsed_text, jd_text.as_deref());
+
+    let analysis = ai::anthropic::ask_structured::<ai::AtsAnalysis>(
+        &cfg,
+        ai::prompts::ats::ATS_SYSTEM,
+        &user_msg,
+        "score_cv",
+        "Score the CV against the job description and return a structured analysis.",
+        ai::prompts::ats::tool_schema(),
+        2000,
+    )
+    .await?;
+
+    // 3. Cache the ats_score on the CV row (best-effort).
+    let _ = db::cv::update_ats_score(pool, &cv_id, analysis.ats_score as f64).await;
+
+    Ok(analysis)
+}
+
 async fn run_pipeline(
     app: tauri::AppHandle,
     state: Arc<Mutex<AppState>>,
@@ -745,7 +792,9 @@ pub fn run() {
             db_list_integrations,
             db_upsert_integration,
             // DB: dashboard aggregate
-            db_dashboard_stats
+            db_dashboard_stats,
+            // AI: ATS analysis
+            analyze_cv_ats
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
