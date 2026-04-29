@@ -148,3 +148,38 @@
   font-size: 13px;
   font-weight: 600;
 }
+
+/* ── Global analyzer status pill (visible from any page while running) ───── */
+.dashboard-root .analyzer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+  white-space: nowrap;
+}
+.dashboard-root .analyzer-pill:hover {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+.dashboard-root .analyzer-pill__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--indigo);
+  animation: analyzer-pulse 1.2s ease-in-out infinite;
+}
+@keyframes analyzer-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(0.65); opacity: 0.55; }
+}
+.dashboard-root .analyzer-pill__label {
+  font-variant-numeric: tabular-nums;
+}

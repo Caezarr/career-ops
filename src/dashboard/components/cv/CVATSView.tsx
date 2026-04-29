@@ -11,33 +11,27 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../primitives';
 import { useAppStore } from '../../store';
-import { getCvParsedText } from '../../store/slices/cvs';
-import { analyzeCvAts } from '../../lib/ai';
-import { readAnthropicKey, readClaudeModel } from '../../hooks/useAnthropicKey';
+import { readAnthropicKey } from '../../hooks/useAnthropicKey';
+import { runAnalyzer } from '../../lib/runAnalyzer';
 
 const JD_SNIPPET_LEN = 200;
-
-/** Per-CV run state during a comparison run. */
-interface RunState {
-  status: 'idle' | 'queued' | 'running' | 'done' | 'error' | 'skipped-cached';
-  error?: string;
-}
 
 export default function CVATSView() {
   const toast = useToast();
   const cvs = useAppStore((s) => s.cvs);
-  const updateCv = useAppStore((s) => s.updateCv);
-  const setAtsAnalysis = useAppStore((s) => s.setAtsAnalysis);
   const atsByCv = useAppStore((s) => s.atsByCv);
   const setSelectedCv = useAppStore((s) => s.setSelectedCv);
-  // JD lives in the store so leaving the tab and coming back keeps the
-  // input — and the same JD is reused by Tailoring's Analyze match so
-  // the cache hits there instead of burning credits on a re-run.
+
+  // Persisted JD textarea (survives nav + restart).
   const jd = useAppStore((s) => s.atsAnalyzerJd);
   const setJd = useAppStore((s) => s.setAtsAnalyzerJd);
 
-  const [running, setRunning] = useState(false);
-  const [runState, setRunState] = useState<Record<string, RunState>>({});
+  // Background run state — lives in the store so the run keeps progressing
+  // even when the user navigates away from this tab.
+  const running = useAppStore((s) => s.analyzerRunning);
+  const runProgress = useAppStore((s) => s.analyzerProgress);
+  const analyzerJdSnippet = useAppStore((s) => s.analyzerJdSnippet);
+
   const [expandedCvId, setExpandedCvId] = useState<string | null>(null);
 
   const jdSnippet = jd.slice(0, JD_SNIPPET_LEN);
@@ -48,111 +42,54 @@ export default function CVATSView() {
       .map((cv) => {
         const cached = atsByCv[cv.id];
         const sameJd = cached?.jdSnippet === jdSnippet;
-        const state = runState[cv.id];
+        // Only show progress for the run that matches the JD currently typed.
+        const progressForCurrentJd =
+          analyzerJdSnippet === jdSnippet ? runProgress[cv.id] : undefined;
         return {
           cv,
           analysis: sameJd ? cached : undefined,
-          state,
+          state: progressForCurrentJd,
         };
       })
       .sort((a, b) => {
-        // Sort by ats score desc; CVs with no analysis go to the bottom.
         const sa = a.analysis?.atsScore ?? -1;
         const sb = b.analysis?.atsScore ?? -1;
         return sb - sa;
       });
-  }, [cvs, atsByCv, jdSnippet, runState]);
+  }, [cvs, atsByCv, jdSnippet, runProgress, analyzerJdSnippet]);
 
   const bestRow = rows.find((r) => r.analysis);
   const bestAtsScore = bestRow?.analysis?.atsScore ?? null;
 
   async function runAll(force: boolean) {
-    const text = jd.trim();
-    if (!text) {
-      toast.error('Paste a job description first');
-      return;
-    }
-    const key = readAnthropicKey();
-    if (!key) {
-      toast.error(
-        'Anthropic key missing',
-        'Open the Copilot overlay → Settings to add it.',
+    try {
+      const result = await runAnalyzer({
+        cvIds: cvs.map((c) => c.id),
+        jdText: jd,
+        force,
+      });
+      if (!result) {
+        toast.info('Already running', 'Wait for the current run to finish.');
+        return;
+      }
+      const { completed, cached, failed, bestCvId } = result;
+      const best = bestCvId ? cvs.find((c) => c.id === bestCvId) : null;
+      const bits: string[] = [];
+      if (cached > 0) bits.push(`${cached} from cache`);
+      if (failed > 0) bits.push(`${failed} failed`);
+      const desc = best
+        ? `Best match: ${best.name}${bits.length ? ' · ' + bits.join(' · ') : ''}`
+        : bits.join(' · ') || undefined;
+      toast.success(
+        `Compared ${completed} variant${completed === 1 ? '' : 's'}`,
+        desc,
       );
-      return;
+    } catch (e) {
+      toast.error(
+        'Couldn\'t start the analysis',
+        typeof e === 'string' ? e : (e as Error).message ?? 'Unknown error',
+      );
     }
-    if (cvs.length === 0) {
-      toast.error('No CVs to compare', 'Import at least one CV first.');
-      return;
-    }
-
-    setRunning(true);
-    const initial: Record<string, RunState> = {};
-    cvs.forEach((cv) => {
-      initial[cv.id] = { status: 'queued' };
-    });
-    setRunState(initial);
-
-    let completed = 0;
-    for (const cv of cvs) {
-      // Cache hit: don't re-run if same JD already cached, unless force.
-      const cached = atsByCv[cv.id];
-      if (!force && cached?.jdSnippet === jdSnippet) {
-        setRunState((s) => ({ ...s, [cv.id]: { status: 'skipped-cached' } }));
-        completed++;
-        continue;
-      }
-
-      const cvText = getCvParsedText(cv).trim();
-      if (!cvText) {
-        setRunState((s) => ({
-          ...s,
-          [cv.id]: { status: 'error', error: 'No parsed text on this variant' },
-        }));
-        continue;
-      }
-
-      setRunState((s) => ({ ...s, [cv.id]: { status: 'running' } }));
-
-      try {
-        const res = await analyzeCvAts({
-          cvId: cv.id,
-          cvText,
-          jdText: text,
-          anthropicKey: key,
-          model: readClaudeModel(),
-        });
-        const projected = Math.max(res.projectedAtsScore ?? res.atsScore, res.atsScore);
-        updateCv(cv.id, { atsScore: res.atsScore });
-        setAtsAnalysis(cv.id, {
-          atsScore: res.atsScore,
-          matchScore: res.matchScore,
-          projectedAtsScore: projected,
-          strengths: res.strengths,
-          weaknesses: res.weaknesses,
-          missingKeywords: res.missingKeywords,
-          suggestions: res.suggestions,
-          scoreBefore: cv.atsScore,
-          ranAt: Date.now(),
-          jdSnippet,
-        });
-        setRunState((s) => ({ ...s, [cv.id]: { status: 'done' } }));
-        completed++;
-      } catch (e) {
-        setRunState((s) => ({
-          ...s,
-          [cv.id]: {
-            status: 'error',
-            error: typeof e === 'string' ? e : (e as Error).message ?? 'failed',
-          },
-        }));
-      }
-    }
-
-    setRunning(false);
-    toast.success(
-      `Compared ${completed} variant${completed === 1 ? '' : 's'}`,
-      bestRow ? `Best match: ${bestRow.cv.name}` : undefined,
-    );
   }
 
   const keyMissing = !readAnthropicKey();
@@ -183,7 +120,6 @@ export default function CVATSView() {
             placeholder="Paste the full job description here…"
             value={jd}
             onChange={(e) => setJd(e.target.value)}
-            disabled={running}
           />
           <div className="cv-ats-analyzer__cta-row">
             <button
@@ -195,7 +131,7 @@ export default function CVATSView() {
               <Sparkles size={14} strokeWidth={2.2} />
               <span>
                 {running
-                  ? 'Comparing…'
+                  ? 'Comparing in background…'
                   : `Analyze across ${cvs.length} variant${cvs.length === 1 ? '' : 's'}`}
               </span>
             </button>
@@ -212,6 +148,15 @@ export default function CVATSView() {
               </button>
             )}
           </div>
+          {running && (
+            <div className="cv-ats-analyzer__hint cv-ats-analyzer__hint--info">
+              <Sparkles size={13} />
+              <span>
+                You can navigate to other pages — the analysis keeps running
+                and the results will be here when you come back.
+              </span>
+            </div>
+          )}
           {keyMissing && (
             <div className="cv-ats-analyzer__hint">
               <KeyRound size={13} />

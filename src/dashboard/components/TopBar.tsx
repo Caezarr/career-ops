@@ -7,6 +7,7 @@ import { useAppStore } from '../store';
 import NotificationsPanel from './notifications/NotificationsPanel';
 import UserMenu from './menus/UserMenu';
 import UserAvatar from './UserAvatar';
+import AnalyzerStatusPill from './AnalyzerStatusPill';
 
 interface BreadcrumbSpec {
   parts: string[];
@@ -78,6 +79,7 @@ export default function TopBar() {
       </div>
 
       <div className="topbar__actions">
+        <AnalyzerStatusPill />
         <button
           ref={bellRef}
           type="button"
