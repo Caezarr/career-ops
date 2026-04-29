@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { CheckCircle2, AlertTriangle, KeyRound, Sparkles } from 'lucide-react';
+import { useEffect, useState, useCallback } from 'react';
+import { CheckCircle2, AlertTriangle, KeyRound, Sparkles, RotateCw } from 'lucide-react';
 import {
   Modal,
   ModalBody,
@@ -33,63 +33,83 @@ export default function AnalyzeMatchModal({
   const selectedCvId = useAppStore((s) => s.selectedCvId);
   const updateCv = useAppStore((s) => s.updateCv);
   const setAtsAnalysis = useAppStore((s) => s.setAtsAnalysis);
+  const atsByCv = useAppStore((s) => s.atsByCv);
 
   const targetCvId = cvId ?? selectedCvId ?? cvs[0]?.id;
   const targetCv = cvs.find((c) => c.id === targetCvId);
+
+  // Cached analysis for this CV from the store, if any.
+  const cached = targetCvId ? atsByCv[targetCvId] : undefined;
+  const currentJd = (jdText ?? '').slice(0, 200);
+  // Cache is valid if it exists AND was run against the same JD context.
+  const cacheValid = !!cached && (cached.jdSnippet ?? '') === currentJd;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<AtsAnalysis | null>(null);
   const [keyMissing, setKeyMissing] = useState(false);
+  const [ranAt, setRanAt] = useState<number | undefined>(undefined);
 
-  useEffect(() => {
-    if (!open) return;
+  /** Run the analysis. `force=true` bypasses the cache. */
+  const runAnalysis = useCallback(
+    async (force: boolean) => {
+      setError(null);
+      setKeyMissing(false);
+      setResult(null);
 
-    setResult(null);
-    setError(null);
-    setKeyMissing(false);
+      const key = readAnthropicKey();
+      if (!key) {
+        setKeyMissing(true);
+        return;
+      }
+      if (!targetCv) {
+        setError('No CV selected.');
+        return;
+      }
 
-    const key = readAnthropicKey();
-    if (!key) {
-      setKeyMissing(true);
-      return;
-    }
-    if (!targetCv) {
-      setError('No CV selected.');
-      return;
-    }
+      // Cache hit → render it without calling Claude.
+      if (!force && cacheValid && cached) {
+        setResult({
+          atsScore: cached.atsScore,
+          matchScore: cached.matchScore,
+          projectedAtsScore: cached.projectedAtsScore,
+          strengths: cached.strengths,
+          weaknesses: cached.weaknesses,
+          missingKeywords: cached.missingKeywords,
+          suggestions: cached.suggestions,
+        });
+        setRanAt(cached.ranAt);
+        return;
+      }
 
-    const cvText = getCvParsedText(targetCv).trim();
-    if (!cvText) {
-      setError(
-        'This CV has no parsed text yet. Re-upload the PDF or create a variant from a populated CV.',
-      );
-      return;
-    }
+      const cvText = getCvParsedText(targetCv).trim();
+      if (!cvText) {
+        setError(
+          'This CV has no parsed text yet. Re-upload the PDF or create a variant from a populated CV.',
+        );
+        return;
+      }
 
-    let cancelled = false;
-    setLoading(true);
-
-    analyzeCvAts({
-      cvId: targetCvId,
-      cvText,
-      jdText: jdText ?? null,
-      anthropicKey: key,
-      model: readClaudeModel(),
-    })
-      .then((res) => {
-        if (cancelled) return;
+      setLoading(true);
+      try {
+        const res = await analyzeCvAts({
+          cvId: targetCvId,
+          cvText,
+          jdText: jdText ?? null,
+          anthropicKey: key,
+          model: readClaudeModel(),
+        });
         setResult(res);
-        // Persist the new ATS score + the full analysis in the store so the
-        // right-panel cards (Strengths, AI suggestions) and the tailoring
-        // workspace (Keyword match, Missing keywords, Suggested edits, Diff)
-        // all reflect this run instead of the seed mock.
+        const now = Date.now();
+        setRanAt(now);
+
         if (targetCvId && targetCv) {
           const scoreBefore = targetCv.atsScore;
           updateCv(targetCvId, { atsScore: res.atsScore });
-          // Defensive: if Claude somehow returned a projected lower than the
-          // current score, ignore it (the model is supposed to clamp).
-          const projected = Math.max(res.projectedAtsScore ?? res.atsScore, res.atsScore);
+          const projected = Math.max(
+            res.projectedAtsScore ?? res.atsScore,
+            res.atsScore,
+          );
           setAtsAnalysis(targetCvId, {
             atsScore: res.atsScore,
             matchScore: res.matchScore,
@@ -99,27 +119,26 @@ export default function AnalyzeMatchModal({
             missingKeywords: res.missingKeywords,
             suggestions: res.suggestions,
             scoreBefore,
-            ranAt: Date.now(),
-            jdSnippet: jdText?.slice(0, 200),
+            ranAt: now,
+            jdSnippet: currentJd,
           });
         }
-      })
-      .catch((e) => {
-        if (cancelled) return;
+      } catch (e) {
         setError(typeof e === 'string' ? e : (e as Error).message ?? 'Analysis failed');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      } finally {
+        setLoading(false);
+      }
+    },
+    // Intentionally exhaustive deps via closure capture only — these refs
+    // are stable enough for the modal's lifecycle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [targetCvId, jdText, cacheValid],
+  );
 
-    return () => {
-      cancelled = true;
-    };
-    // Intentionally NOT including `targetCv`, `updateCv`, `setAtsAnalysis`
-    // in the deps: targetCv is recomputed on every render (the array selector
-    // returns a new ref each time the store updates) — including it would
-    // cause the effect to cancel and refetch on every render, leading to an
-    // infinite loop where the result is never visibly applied.
+  // Trigger on open: show cache or fetch.
+  useEffect(() => {
+    if (!open) return;
+    void runAnalysis(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, targetCvId, jdText]);
 
@@ -131,10 +150,13 @@ export default function AnalyzeMatchModal({
     ? 'Analysis failed'
     : 'Match analysis';
 
+  const ageLabel = ranAt ? formatAgo(Date.now() - ranAt) : null;
   const headerSubtitle = loading
     ? `Comparing ${targetCv?.name ?? 'your CV'} against the role`
     : result
-    ? `${targetCv?.name ?? 'CV'} · ${jdText?.trim() ? 'matched against the JD' : 'baseline scoring'}`
+    ? `${targetCv?.name ?? 'CV'} · ${jdText?.trim() ? 'matched against the JD' : 'baseline scoring'}${
+        ageLabel ? ` · last run ${ageLabel}` : ''
+      }`
     : '';
 
   return (
@@ -163,6 +185,18 @@ export default function AnalyzeMatchModal({
         <button type="button" className="ds-btn ds-btn--secondary" onClick={onClose}>
           Close
         </button>
+        {result && (
+          <button
+            type="button"
+            className="ds-btn ds-btn--secondary"
+            onClick={() => void runAnalysis(true)}
+            disabled={loading || keyMissing}
+            title="Force a fresh analysis (consumes API credits)"
+          >
+            <RotateCw size={13} />
+            <span style={{ marginLeft: 6 }}>Re-run</span>
+          </button>
+        )}
         <button
           type="button"
           className="ds-btn ds-btn--primary"
@@ -177,6 +211,18 @@ export default function AnalyzeMatchModal({
       </ModalFooter>
     </Modal>
   );
+}
+
+/** Human-readable 'X ago' from a millisecond delta. */
+function formatAgo(ms: number): string {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} h ago`;
+  const day = Math.floor(hr / 24);
+  return `${day}d ago`;
 }
 
 function KeyMissingPrompt() {
