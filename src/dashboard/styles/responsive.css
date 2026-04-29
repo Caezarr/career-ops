@@ -1,0 +1,150 @@
+/* ── Cross-page responsive guards ────────────────────────────────────────── */
+/* The Tauri main window minimum is 1024×700, but users can resize it.
+   These guards keep things readable down to ~840px wide before we tell them
+   to widen the window. They also ensure long names/roles never break layout. */
+
+/* Universal text-overflow protection */
+.dashboard-root .pipeline-card__role,
+.dashboard-root .pipeline-card__company,
+.dashboard-root .stat-card__label,
+.dashboard-root .application-row__role,
+.dashboard-root .application-row__company,
+.dashboard-root .job-list-item__role,
+.dashboard-root .job-list-item__company,
+.dashboard-root .cv-variant-row__name,
+.dashboard-root .prep-qb-table__question,
+.dashboard-root .activity-item__title,
+.dashboard-root .next-up__title,
+.dashboard-root .settings-profile__name,
+.dashboard-root .settings-profile__email,
+.dashboard-root .topbar__breadcrumb-item,
+.dashboard-root .sidebar__user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Multi-line clamp for descriptions/AI bullets */
+.dashboard-root .ai-summary__body,
+.dashboard-root .ai-next-step__text,
+.dashboard-root .home-mode-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Sidebar collapse on narrower windows ────────────────────────────────── */
+@media (max-width: 1100px) {
+  .dashboard-root .dashboard {
+    grid-template-columns: 200px 1fr 300px !important;
+  }
+  .dashboard-root .dashboard.dashboard--full {
+    grid-template-columns: 200px 1fr !important;
+  }
+  .dashboard-root .dashboard.dashboard--applications {
+    grid-template-columns: 200px 1fr 320px !important;
+  }
+  .dashboard-root .dashboard.dashboard--cv {
+    grid-template-columns: 200px 1fr 320px !important;
+  }
+  .dashboard-root .dashboard.dashboard--prep {
+    grid-template-columns: 200px 1fr !important;
+  }
+  .dashboard-root .dashboard.dashboard--copilot {
+    grid-template-columns: 200px 1fr !important;
+  }
+  .dashboard-root .dashboard.dashboard--settings {
+    grid-template-columns: 200px 1fr !important;
+  }
+}
+
+@media (max-width: 960px) {
+  .dashboard-root .dashboard,
+  .dashboard-root .dashboard.dashboard--full,
+  .dashboard-root .dashboard.dashboard--applications,
+  .dashboard-root .dashboard.dashboard--cv,
+  .dashboard-root .dashboard.dashboard--prep,
+  .dashboard-root .dashboard.dashboard--copilot,
+  .dashboard-root .dashboard.dashboard--settings {
+    grid-template-columns: 64px 1fr !important;
+  }
+  .dashboard-root .right-panel {
+    display: none !important;
+  }
+  .dashboard-root .sidebar__logo {
+    font-size: 0;
+  }
+  .dashboard-root .sidebar__nav-item span,
+  .dashboard-root .sidebar__user-info,
+  .dashboard-root .sidebar__user-chevron {
+    display: none;
+  }
+  .dashboard-root .sidebar__nav-item {
+    justify-content: center;
+    padding: 9px 8px;
+  }
+}
+
+/* ── Pipeline columns wrap on narrow screens ─────────────────────────────── */
+@media (max-width: 1280px) {
+  .dashboard-root .pipeline__columns {
+    overflow-x: auto;
+  }
+  .dashboard-root .pipeline-column {
+    min-width: 220px;
+  }
+}
+
+/* ── Settings grid collapses ─────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .dashboard-root .settings-grid {
+    grid-template-columns: 200px 1fr !important;
+  }
+  .dashboard-root .settings-profile,
+  .dashboard-root .settings-security,
+  .dashboard-root .settings-integrations,
+  .dashboard-root .settings-preferences,
+  .dashboard-root .settings-billing,
+  .dashboard-root .settings-danger {
+    grid-column: 2 !important;
+    grid-row: auto !important;
+  }
+  .dashboard-root .settings-nav {
+    grid-row: 1 / 999 !important;
+  }
+}
+
+/* ── Prep grid collapses ─────────────────────────────────────────────────── */
+@media (max-width: 1280px) {
+  .dashboard-root .prep-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+/* ── Copilot page grid collapses ─────────────────────────────────────────── */
+@media (max-width: 1280px) {
+  .dashboard-root .copilot-page__grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Jobs split (master/detail) collapses on narrow ──────────────────────── */
+@media (max-width: 1100px) {
+  .dashboard-root .jobs__split {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Better focus rings for accessibility ────────────────────────────────── */
+.dashboard-root button:focus-visible,
+.dashboard-root a:focus-visible,
+.dashboard-root [role="button"]:focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* Selects, inputs, textareas already have focus styles — keep them. */

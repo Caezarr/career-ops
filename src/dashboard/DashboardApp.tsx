@@ -25,6 +25,7 @@ import "./styles/settings.css";
 import "./styles/primitives.css";
 import "./styles/shared.css";
 import "./styles/interactive.css";
+import "./styles/responsive.css";
 
 function PageRouter() {
   const { page } = useNavigation();
