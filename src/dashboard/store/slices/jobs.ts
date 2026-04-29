@@ -5,6 +5,7 @@ import {
   mockSelectedJob as legacySelectedJob,
 } from "../../data/jobs";
 import { companyBrand } from "../../data/mock";
+import { uid } from "../utils";
 
 // Parse "€90k - €120k" → { min: 90000, max: 120000, currency: "€" }
 function parseSalary(raw: string): { min: number; max: number; currency: string } {
@@ -73,6 +74,17 @@ export interface JobsSlice {
 
   toggleBookmark: (id: string) => void;
   isBookmarked: (id: string) => boolean;
+
+  createJob: (input: {
+    role: string;
+    company: string;
+    location?: string;
+    salaryMin?: number;
+    salaryMax?: number;
+    salaryCurrency?: string;
+    jdText?: string;
+    match?: number;
+  }) => Job;
 }
 
 export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
@@ -96,4 +108,25 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
       ),
     })),
   isBookmarked: (id) => !!get().jobs.find((j) => j.id === id)?.bookmarked,
+
+  createJob: (input) => {
+    const brand = companyBrand(input.company);
+    const job: Job = {
+      id: uid("job"),
+      role: input.role,
+      company: input.company,
+      location: input.location ?? "Remote",
+      salaryMin: input.salaryMin ?? 0,
+      salaryMax: input.salaryMax ?? 0,
+      salaryCurrency: input.salaryCurrency ?? "€",
+      match: input.match ?? 0,
+      postedAgo: "Just now",
+      bookmarked: false,
+      jdText: input.jdText,
+      avatarColor: brand.bg,
+      avatarLabel: brand.label,
+    };
+    set((state) => ({ jobs: [job, ...state.jobs] }));
+    return job;
+  },
 });

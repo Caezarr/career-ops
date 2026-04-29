@@ -13,17 +13,24 @@ const seedCVs: CV[] = legacyCVs.map((cv, i) => ({
   isDefault: i === 0,
 }));
 
+export interface TailoringTarget {
+  role: string;
+  baseCvId: string | null;
+}
+
 export interface CvsSlice {
   cvs: CV[];
   defaultCvId: string | null;
   selectedCvId: string | null;
   cvTab: CVTab;
+  tailoringTarget: TailoringTarget;
 
   setSelectedCv: (id: string | null) => void;
   setCvTab: (tab: CVTab) => void;
   setDefaultCv: (id: string) => void;
+  setTailoringTarget: (patch: Partial<TailoringTarget>) => void;
 
-  createCV: (input: { name: string; roleFocus: string }) => CV;
+  createCV: (input: { name: string; roleFocus: string; atsScore?: number }) => CV;
   renameCV: (id: string, name: string) => void;
   deleteCV: (id: string) => void;
   duplicateCV: (id: string) => CV | null;
@@ -34,6 +41,10 @@ export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
   defaultCvId: seedCVs[0]?.id ?? null,
   selectedCvId: seedCVs[0]?.id ?? null,
   cvTab: "manager",
+  tailoringTarget: {
+    role: "Strategy Associate · Bain & Company",
+    baseCvId: seedCVs[0]?.id ?? null,
+  },
 
   setSelectedCv: (id) => set({ selectedCvId: id }),
   setCvTab: (tab) => set({ cvTab: tab }),
@@ -42,6 +53,8 @@ export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
       defaultCvId: id,
       cvs: state.cvs.map((cv) => ({ ...cv, isDefault: cv.id === id })),
     })),
+  setTailoringTarget: (patch) =>
+    set((state) => ({ tailoringTarget: { ...state.tailoringTarget, ...patch } })),
 
   createCV: (input) => {
     const cv: CV = {
@@ -50,7 +63,7 @@ export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
       lastEdited: "Just now",
       fileType: "PDF",
       roleFocus: input.roleFocus,
-      atsScore: 0,
+      atsScore: input.atsScore ?? 0,
       isDefault: false,
     };
     set((state) => ({ cvs: [cv, ...state.cvs] }));

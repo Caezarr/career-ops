@@ -65,3 +65,4 @@ export const useAppStore = create<AppStore>()(
 
 // Re-export types for convenience.
 export type * from "./types";
+export type { PipelineSort, SettingsTab, CopilotMode } from "./slices/ui";

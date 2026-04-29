@@ -115,7 +115,7 @@ export interface Application {
 }
 
 export type ApplicationsTab = "all" | "active" | "interviews" | "archived";
-export type ApplicationsSort = "recent" | "company" | "stage";
+export type ApplicationsSort = "recent" | "applied" | "match" | "company" | "stage";
 
 // ─── CVs ────────────────────────────────────────────────────────────────────
 export interface CV {

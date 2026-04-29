@@ -121,7 +121,7 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
   selectedApplicationId: seedApplications[0]?.id ?? null,
   applicationsTab: "all",
   applicationsSort: "recent",
-  applicationsRoleFilter: "all-roles",
+  applicationsRoleFilter: "All roles",
   applicationsPage: 1,
 
   setSelectedApplication: (id) => set({ selectedApplicationId: id }),

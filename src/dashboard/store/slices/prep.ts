@@ -3,7 +3,17 @@ import type { PlanTask, PrepCategory, PrepChartPeriod, PrepQuestion, PrepSession
 import { mockPrepQuestions as legacyQuestions, mockTodaysPlan } from "../../data/prep";
 import { uid } from "../utils";
 
-// The legacy mock didn't have categories — derive them roughly by framework / id.
+// Explicit per-question category mapping (matches the spec).
+// Falls back to a framework-based derivation if a question id isn't listed.
+const CATEGORY_BY_ID: Record<string, PrepCategory> = {
+  q1: "Behavioral",
+  q2: "Behavioral",
+  q3: "Culture Fit",
+  q4: "Technical",
+  q5: "Behavioral",
+  q6: "Case",
+};
+
 function deriveCategory(framework: string): PrepCategory {
   const fw = framework.toLowerCase();
   if (fw.includes("mece") || fw.includes("pyramid")) return "Case";
@@ -15,7 +25,7 @@ function deriveCategory(framework: string): PrepCategory {
 const seedQuestions: PrepQuestion[] = legacyQuestions.map((q) => ({
   id: q.id,
   index: q.index,
-  category: deriveCategory(q.framework),
+  category: CATEGORY_BY_ID[q.id] ?? deriveCategory(q.framework),
   question: q.question,
   difficulty: q.difficulty,
   framework: q.framework,
@@ -50,6 +60,7 @@ export interface PrepSlice {
 
   setPrepChartPeriod: (period: PrepChartPeriod) => void;
   setPrepCategoryFilter: (category: PrepCategory | "All") => void;
+  setPracticeScore: (questionId: string, score: number) => void;
   bumpStreak: () => void;
 }
 
@@ -99,6 +110,12 @@ export const createPrepSlice: StateCreator<PrepSlice> = (set) => ({
 
   setPrepChartPeriod: (prepChartPeriod) => set({ prepChartPeriod }),
   setPrepCategoryFilter: (prepCategoryFilter) => set({ prepCategoryFilter }),
+  setPracticeScore: (questionId, score) =>
+    set((state) => ({
+      prepQuestions: state.prepQuestions.map((q) =>
+        q.id === questionId ? { ...q, practiceScore: score } : q,
+      ),
+    })),
   bumpStreak: () =>
     set((state) => ({ prepStreakDays: state.prepStreakDays + 1 })),
 });
