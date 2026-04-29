@@ -111,7 +111,13 @@ export default function AnalyzeMatchModal({
     return () => {
       cancelled = true;
     };
-  }, [open, targetCvId, jdText, updateCv, setAtsAnalysis, targetCv]);
+    // Intentionally NOT including `targetCv`, `updateCv`, `setAtsAnalysis`
+    // in the deps: targetCv is recomputed on every render (the array selector
+    // returns a new ref each time the store updates) — including it would
+    // cause the effect to cancel and refetch on every render, leading to an
+    // infinite loop where the result is never visibly applied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, targetCvId, jdText]);
 
   const headerTitle = loading
     ? 'Analyzing match…'
