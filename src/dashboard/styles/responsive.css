@@ -3,39 +3,269 @@
    These guards keep things readable down to ~840px wide before we tell them
    to widen the window. They also ensure long names/roles never break layout. */
 
-/* Universal text-overflow protection */
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* GLOBAL: every flex / grid child must allow shrink so ellipsis can kick in. */
+.dashboard-root .dashboard,
+.dashboard-root .dashboard__main,
+.dashboard-root .dashboard__main-scroll,
+.dashboard-root main,
+.dashboard-root aside,
+.dashboard-root section,
+.dashboard-root header,
+.dashboard-root .right-panel {
+  min-width: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Single-line ellipsis everywhere it matters.                                  */
 .dashboard-root .pipeline-card__role,
 .dashboard-root .pipeline-card__company,
+.dashboard-root .pipeline-card__date,
+.dashboard-root .pipeline-card__match,
 .dashboard-root .stat-card__label,
+.dashboard-root .stat-card__value,
+.dashboard-root .stat-card__trend,
 .dashboard-root .application-row__role,
 .dashboard-root .application-row__company,
+.dashboard-root .application-row__cell,
+.dashboard-root .applications-row__next,
 .dashboard-root .job-list-item__role,
 .dashboard-root .job-list-item__company,
+.dashboard-root .job-list-item__salary,
+.dashboard-root .job-list-item__posted,
 .dashboard-root .cv-variant-row__name,
-.dashboard-root .prep-qb-table__question,
+.dashboard-root .cv-variant-row__role,
+.dashboard-root .cv-variant-row__date,
 .dashboard-root .activity-item__title,
 .dashboard-root .next-up__title,
+.dashboard-root .next-up__company,
 .dashboard-root .settings-profile__name,
 .dashboard-root .settings-profile__email,
+.dashboard-root .settings-integration__name,
+.dashboard-root .settings-integration__model,
 .dashboard-root .topbar__breadcrumb-item,
-.dashboard-root .sidebar__user-name {
+.dashboard-root .sidebar__user-name,
+.dashboard-root .sidebar__user-badge,
+.dashboard-root .sidebar__nav-item span,
+.dashboard-root .home-mode-name,
+.dashboard-root .interview-progress__role,
+.dashboard-root .interview-progress__company,
+.dashboard-root .recent-activity-item__title,
+.dashboard-root .recent-activity-item__time,
+.dashboard-root .cp-bubble__name,
+.dashboard-root .cp-config__item-label,
+.dashboard-root .cp-config__item-value,
+.dashboard-root .cp-model-selector__name,
+.dashboard-root .cp-summary-card__title,
+.dashboard-root .cp-summary-card__subtitle,
+.dashboard-root .prep-track-dropdown__value,
+.dashboard-root .prep-mock__title,
+.dashboard-root .filter-chip__value,
+.dashboard-root .billing-info__row,
+.dashboard-root .toast__title,
+.dashboard-root .ds-modal__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Multi-line clamp on prose/descriptions. */
+.dashboard-root .ai-summary__body,
+.dashboard-root .ai-next-step__text,
+.dashboard-root .home-mode-desc,
+.dashboard-root .next-up__role-summary,
+.dashboard-root .recent-activity-item__subtitle,
+.dashboard-root .settings-card__description,
+.dashboard-root .danger-zone__description,
+.dashboard-root .prep-qb-table__question,
+.dashboard-root .cp-bubble__text,
+.dashboard-root .toast__description {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* AI summaries can show up to 5 lines (longer prose). */
+.dashboard-root .ai-summary__body,
+.dashboard-root .cp-answer-card__text {
+  -webkit-line-clamp: 5;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Component-level dimension constraints.                                      */
+
+/* Sidebar — hard width so long names ellipsis in the user block. */
+.dashboard-root .sidebar__user-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+/* Pipeline cards — fixed inner padding + flex wrap allowed for long titles. */
+.dashboard-root .pipeline-card {
+  min-width: 0;
+}
+.dashboard-root .pipeline-card__top,
+.dashboard-root .pipeline-card__bottom {
+  min-width: 0;
+}
+
+/* Stat cards — value can wrap if the trend is huge but label/trend ellipsis. */
+.dashboard-root .stat-card {
+  min-width: 0;
+  overflow: hidden;
+}
+.dashboard-root .stat-card__text {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Application table — let cells shrink + ellipsis. */
+.dashboard-root .application-row {
+  min-width: 0;
+}
+.dashboard-root .application-row > * {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Application detail — long company text. */
+.dashboard-root .app-detail__company,
+.dashboard-root .app-detail__role {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
 }
 
-/* Multi-line clamp for descriptions/AI bullets */
-.dashboard-root .ai-summary__body,
-.dashboard-root .ai-next-step__text,
-.dashboard-root .home-mode-desc {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+/* Job list item — flex children must allow shrink. */
+.dashboard-root .job-list-item {
+  min-width: 0;
+}
+.dashboard-root .job-list-item__main,
+.dashboard-root .job-list-item__text {
+  min-width: 0;
   overflow: hidden;
 }
 
-/* ── Sidebar collapse on narrower windows ────────────────────────────────── */
+/* Job detail — long company description wraps cleanly. */
+.dashboard-root .job-detail__about,
+.dashboard-root .job-detail__company-name,
+.dashboard-root .job-detail__role {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Notifications panel — long titles + descriptions wrap. */
+.dashboard-root .notification-item__title,
+.dashboard-root .notification-item__description {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Modal body — never overflow horizontally; long text wraps. */
+.dashboard-root .ds-modal__body {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Toast — wider items wrap and clamp; never push others off-screen. */
+.dashboard-root .toast {
+  max-width: 360px;
+  min-width: 0;
+}
+
+/* Settings cards — values can wrap, labels stay tight. */
+.dashboard-root .settings-card {
+  min-width: 0;
+  overflow: hidden;
+}
+.dashboard-root .settings-input,
+.dashboard-root .settings-select {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Copilot panel — every section header + transcripts respect their box. */
+.dashboard-root .cp-embedded-panel,
+.dashboard-root .cp-panel-header,
+.dashboard-root .cp-panel-header__brand,
+.dashboard-root .cp-bubble,
+.dashboard-root .cp-bubble__body,
+.dashboard-root .cp-config__item-left,
+.dashboard-root .cp-config__item-right,
+.dashboard-root .cp-model-bar,
+.dashboard-root .cp-model-bar__right {
+  min-width: 0;
+}
+.dashboard-root .cp-model-selector {
+  min-width: 0;
+  max-width: 240px;
+}
+
+/* Prep — questions / drills / chat bubbles wrap inside their lane. */
+.dashboard-root .prep-question-bank,
+.dashboard-root .prep-mock,
+.dashboard-root .prep-progress,
+.dashboard-root .prep-bubble,
+.dashboard-root .prep-bubble__content,
+.dashboard-root .prep-grid > * {
+  min-width: 0;
+}
+.dashboard-root .prep-bubble__text {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Filter chips — value text ellipsis if user picks a long option. */
+.dashboard-root .filter-chip {
+  min-width: 0;
+  max-width: 200px;
+}
+.dashboard-root .filter-chip__col {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Toggle row layouts — labels can ellipsis, controls stay aligned. */
+.dashboard-root .pref-item__text,
+.dashboard-root .integration-row__text {
+  min-width: 0;
+  overflow: hidden;
+}
+.dashboard-root .pref-item__title,
+.dashboard-root .pref-item__subtitle,
+.dashboard-root .integration-row__name,
+.dashboard-root .integration-row__model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Today's plan tasks — task title ellipsis, duration stays right. */
+.dashboard-root .plan-task__title,
+.dashboard-root .today-task__title,
+.dashboard-root .today-task__subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Layout breakpoints.                                                          */
+
+/* Sidebar narrows + main panels narrow */
 @media (max-width: 1100px) {
   .dashboard-root .dashboard {
     grid-template-columns: 200px 1fr 300px !important;
@@ -58,8 +288,21 @@
   .dashboard-root .dashboard.dashboard--settings {
     grid-template-columns: 200px 1fr !important;
   }
+
+  /* Tighten paddings */
+  .dashboard-root .applications,
+  .dashboard-root .jobs,
+  .dashboard-root .cv-page,
+  .dashboard-root .prep-page,
+  .dashboard-root .settings-page,
+  .dashboard-root .copilot-page,
+  .dashboard-root .dashboard__greeting {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
 }
 
+/* Sidebar collapses to icons + right panels hide */
 @media (max-width: 960px) {
   .dashboard-root .dashboard,
   .dashboard-root .dashboard.dashboard--full,
@@ -69,6 +312,9 @@
   .dashboard-root .dashboard.dashboard--copilot,
   .dashboard-root .dashboard.dashboard--settings {
     grid-template-columns: 64px 1fr !important;
+    grid-template-areas:
+      "sidebar topbar"
+      "sidebar main" !important;
   }
   .dashboard-root .right-panel {
     display: none !important;
@@ -85,9 +331,12 @@
     justify-content: center;
     padding: 9px 8px;
   }
+  .dashboard-root .sidebar__user {
+    justify-content: center;
+  }
 }
 
-/* ── Pipeline columns wrap on narrow screens ─────────────────────────────── */
+/* Pipeline scrolls horizontally on narrow screens */
 @media (max-width: 1280px) {
   .dashboard-root .pipeline__columns {
     overflow-x: auto;
@@ -97,7 +346,7 @@
   }
 }
 
-/* ── Settings grid collapses ─────────────────────────────────────────────── */
+/* Settings grid collapses */
 @media (max-width: 1100px) {
   .dashboard-root .settings-grid {
     grid-template-columns: 200px 1fr !important;
@@ -116,29 +365,38 @@
   }
 }
 
-/* ── Prep grid collapses ─────────────────────────────────────────────────── */
+/* Prep / Copilot grids stack vertically */
 @media (max-width: 1280px) {
   .dashboard-root .prep-grid {
     grid-template-columns: 1fr !important;
     gap: 12px !important;
   }
-}
-
-/* ── Copilot page grid collapses ─────────────────────────────────────────── */
-@media (max-width: 1280px) {
   .dashboard-root .copilot-page__grid {
     grid-template-columns: 1fr !important;
   }
 }
 
-/* ── Jobs split (master/detail) collapses on narrow ──────────────────────── */
+/* Jobs split master/detail stacks */
 @media (max-width: 1100px) {
   .dashboard-root .jobs__split {
     grid-template-columns: 1fr !important;
   }
 }
 
-/* ── Better focus rings for accessibility ────────────────────────────────── */
+/* Stats row wraps to 2-col then 1-col */
+@media (max-width: 900px) {
+  .dashboard-root .stats-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+@media (max-width: 600px) {
+  .dashboard-root .stats-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Accessibility: focus rings on interactive elements.                         */
 .dashboard-root button:focus-visible,
 .dashboard-root a:focus-visible,
 .dashboard-root [role="button"]:focus-visible {
@@ -147,4 +405,10 @@
   border-radius: inherit;
 }
 
-/* Selects, inputs, textareas already have focus styles — keep them. */
+/* Long words / URLs in any prose container should never overflow. */
+.dashboard-root p,
+.dashboard-root li,
+.dashboard-root td {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
