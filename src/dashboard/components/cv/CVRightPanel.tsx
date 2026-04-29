@@ -18,7 +18,7 @@ export default function CVRightPanel() {
   const [previewOpen, setPreviewOpen] = useState(false);
 
   function exportPdf() {
-    const fname = `${(selectedCv?.name ?? 'cv').replace(/\s+/g, '-')}.pdf.txt`;
+    const fname = `${(selectedCv?.name ?? 'cv').replace(/\s+/g, '-')}.pdf`;
     downloadStub(fname, `Stub export for ${selectedCv?.name ?? 'CV'}`);
     toast.success('CV exported as PDF');
   }
