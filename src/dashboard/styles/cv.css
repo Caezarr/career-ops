@@ -1059,3 +1059,172 @@
   background: var(--indigo-text);
   border-color: var(--indigo-text);
 }
+
+/* ── ATS analysis result (live Claude output) ─────────────────────────────── */
+.dashboard-root .ats-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 10px;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.dashboard-root .ats-setup {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 16px;
+  background: var(--indigo-soft);
+  border-radius: 12px;
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  color: var(--text-1);
+}
+.dashboard-root .ats-setup svg { color: var(--indigo); flex-shrink: 0; margin-top: 2px; }
+.dashboard-root .ats-setup h3 { font-size: 15px; font-weight: 700; margin: 0 0 6px; }
+.dashboard-root .ats-setup p { font-size: 13px; line-height: 1.5; color: var(--text-2); margin: 0 0 6px; }
+.dashboard-root .ats-setup__hint { color: var(--text-3); font-size: 12px; }
+
+.dashboard-root .ats-result {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dashboard-root .ats-result__scores {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.dashboard-root .ats-result__score {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  min-width: 0;
+}
+.dashboard-root .ats-result__score-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .ats-result__score-hint {
+  font-size: 12.5px;
+  color: var(--text-2);
+  margin-top: 2px;
+}
+
+.dashboard-root .ats-result__cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.dashboard-root .ats-result__col { min-width: 0; }
+.dashboard-root .ats-result__h {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .ats-result__h svg { color: var(--indigo); }
+
+.dashboard-root .ats-result__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dashboard-root .ats-result__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.5;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.dashboard-root .ats-result__list--good li svg { color: var(--green); flex-shrink: 0; margin-top: 3px; }
+.dashboard-root .ats-result__list--bad  li svg { color: var(--red);   flex-shrink: 0; margin-top: 3px; }
+
+.dashboard-root .ats-result__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dashboard-root .ats-result__chip {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dashboard-root .ats-result__edits {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dashboard-root .ats-result__edit {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.dashboard-root .ats-result__edit-tag {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: 6px;
+  align-self: flex-start;
+  text-align: center;
+}
+.dashboard-root .ats-result__edit-tag--add    { background: var(--green-soft); color: var(--green); }
+.dashboard-root .ats-result__edit-tag--reword { background: var(--indigo-soft); color: var(--indigo-text); }
+.dashboard-root .ats-result__edit-tag--remove { background: var(--red-soft); color: var(--red); }
+.dashboard-root .ats-result__edit-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dashboard-root .ats-result__edit-original {
+  font-size: 12.5px;
+  color: var(--text-2);
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.5);
+  word-break: break-word;
+}
+.dashboard-root .ats-result__edit-suggested {
+  font-size: 13px;
+  color: var(--text-1);
+  font-weight: 500;
+  word-break: break-word;
+}
+.dashboard-root .ats-result__edit-rationale {
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: italic;
+  word-break: break-word;
+}

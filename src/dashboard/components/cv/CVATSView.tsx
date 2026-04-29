@@ -43,6 +43,7 @@ export default function CVATSView() {
       <AnalyzeMatchModal
         open={analyzeOpen}
         onClose={() => setAnalyzeOpen(false)}
+        jdText={jd}
         onApply={() => toast.success('Suggestions applied')}
       />
     </section>

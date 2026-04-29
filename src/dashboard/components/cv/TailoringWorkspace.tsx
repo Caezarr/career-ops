@@ -134,6 +134,8 @@ export default function TailoringWorkspace() {
       <AnalyzeMatchModal
         open={analyzeOpen}
         onClose={() => setAnalyzeOpen(false)}
+        cvId={baseCv?.id}
+        jdText={tailoringTarget.role}
         onApply={() => toast.success('Suggestions applied')}
       />
 
