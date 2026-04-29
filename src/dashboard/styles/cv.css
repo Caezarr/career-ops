@@ -15,6 +15,11 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  /* Constrain to the grid row so the inner panel can scroll independently
+     instead of pushing buttons below the viewport. */
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
 }
 
 /* Page container */

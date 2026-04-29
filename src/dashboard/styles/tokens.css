@@ -133,7 +133,10 @@
 .dashboard-root .right-panel {
   background: var(--bg-soft);
   padding: 24px;
-  height: 100vh;
+  /* Fill its grid row (100vh minus 64px topbar) and scroll internally so
+     bottom CTAs remain reachable when content overflows. */
+  min-height: 0;
+  height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
