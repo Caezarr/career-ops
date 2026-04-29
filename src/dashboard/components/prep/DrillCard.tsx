@@ -3,6 +3,7 @@ import type { DrillData, DrillCategory } from '../../data/prep';
 
 interface DrillCardProps {
   drill: DrillData;
+  onStart?: () => void;
 }
 
 const ICON_MAP: Record<
@@ -14,7 +15,7 @@ const ICON_MAP: Record<
   Case: { Icon: Puzzle, tone: 'orange' },
 };
 
-export default function DrillCard({ drill }: DrillCardProps) {
+export default function DrillCard({ drill, onStart }: DrillCardProps) {
   const { Icon, tone } = ICON_MAP[drill.category];
   return (
     <article className="prep-drill-card">
@@ -34,7 +35,9 @@ export default function DrillCard({ drill }: DrillCardProps) {
         <span>{drill.minutes} min</span>
       </div>
 
-      <button type="button" className="prep-drill-card__start">Start</button>
+      <button type="button" className="prep-drill-card__start" onClick={onStart}>
+        Start
+      </button>
     </article>
   );
 }
