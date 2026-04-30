@@ -78,7 +78,10 @@ export default function Sidebar() {
           );
         })}
 
-        <div className="sidebar__nav-divider" />
+        {/* Flex spacer pushes the bottomNav (Settings) down to sit just
+             above the user menu — visually pairing them as the
+             "account-area" of the sidebar. */}
+        <div className="sidebar__nav-spacer" aria-hidden="true" />
 
         {bottomNav.map((item) => {
           const Icon = item.icon;

@@ -15,6 +15,13 @@ import { createPreferencesSlice, type PreferencesSlice } from "./slices/preferen
 import { createIntegrationsSlice, type IntegrationsSlice } from "./slices/integrations";
 import { createUiSlice, type UiSlice } from "./slices/ui";
 import { createAnalyzerSlice, type AnalyzerSlice } from "./slices/analyzer";
+import { createAudioSlice, type AudioSlice } from "./slices/audio";
+import { createAppearanceSlice, type AppearanceSlice } from "./slices/appearance";
+import {
+  createNotificationPrefsSlice,
+  type NotificationPrefsSlice,
+} from "./slices/notificationPrefs";
+import { createBillingSlice, type BillingSlice } from "./slices/billing";
 
 export type AppStore = UserSlice &
   NotificationsSlice &
@@ -26,7 +33,11 @@ export type AppStore = UserSlice &
   PreferencesSlice &
   IntegrationsSlice &
   UiSlice &
-  AnalyzerSlice;
+  AnalyzerSlice &
+  AudioSlice &
+  AppearanceSlice &
+  NotificationPrefsSlice &
+  BillingSlice;
 
 const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUserSlice(...(a as Parameters<typeof createUserSlice>)),
@@ -40,6 +51,10 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createIntegrationsSlice(...(a as Parameters<typeof createIntegrationsSlice>)),
   ...createUiSlice(...(a as Parameters<typeof createUiSlice>)),
   ...createAnalyzerSlice(...(a as Parameters<typeof createAnalyzerSlice>)),
+  ...createAudioSlice(...(a as Parameters<typeof createAudioSlice>)),
+  ...createAppearanceSlice(...(a as Parameters<typeof createAppearanceSlice>)),
+  ...createNotificationPrefsSlice(...(a as Parameters<typeof createNotificationPrefsSlice>)),
+  ...createBillingSlice(...(a as Parameters<typeof createBillingSlice>)),
 });
 
 export const useAppStore = create<AppStore>()(
@@ -67,6 +82,13 @@ export const useAppStore = create<AppStore>()(
       prepWeekDots: state.prepWeekDots,
       preferences: state.preferences,
       integrations: state.integrations,
+      audioInputId: state.audioInputId,
+      audioOutputId: state.audioOutputId,
+      theme: state.theme,
+      notificationPrefs: state.notificationPrefs,
+      plan: state.plan,
+      paymentIntentId: state.paymentIntentId,
+      sprintEndsAt: state.sprintEndsAt,
     }),
   }),
 );

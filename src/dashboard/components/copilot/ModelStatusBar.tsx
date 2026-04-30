@@ -10,11 +10,13 @@ import {
 } from '../../primitives';
 import { useNavigation } from '../../navigation';
 
+// Models we actually call. Claude Sonnet 3.7 was removed — Career OS does
+// not target deprecated models. Keep this list in sync with the providers
+// listed in the Settings → API Keys card.
 const MODEL_OPTIONS = [
   'Claude Sonnet 4.5',
   'Claude Opus 4.1',
   'Claude Haiku 4.5',
-  'Claude Sonnet 3.7',
   'GPT-4o',
 ];
 

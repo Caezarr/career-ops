@@ -29,23 +29,51 @@
   margin: 6px 0 0;
 }
 
-/* ── 3-column grid layout ─────────────────────────────────────────────────── */
-.dashboard-root .settings-grid {
+/* ── Tab-routed shell layout ─────────────────────────────────────────────────
+   The legacy 3-column grid was replaced with a sidebar + single-column tab
+   panel (max 760px). One tab visible at a time — the SettingsNav drives it
+   via settingsTab in the store. */
+.dashboard-root .settings-shell {
   display: grid;
-  grid-template-columns: 200px minmax(380px, 1fr) minmax(380px, 1fr);
-  grid-template-rows: auto auto auto;
-  gap: 16px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
   margin-top: 24px;
   align-items: start;
 }
 
-.dashboard-root .settings-nav          { grid-column: 1; grid-row: 1 / 3; }
-.dashboard-root .settings-profile      { grid-column: 2; grid-row: 1; }
-.dashboard-root .settings-integrations { grid-column: 3; grid-row: 1; }
-.dashboard-root .settings-security     { grid-column: 2; grid-row: 2; }
-.dashboard-root .settings-preferences  { grid-column: 3; grid-row: 2; }
-.dashboard-root .settings-billing      { grid-column: 1 / 3; grid-row: 3; }
-.dashboard-root .settings-danger       { grid-column: 3; grid-row: 3; }
+.dashboard-root .settings-panel {
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashboard-root .settings-panel__header {
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 4px;
+}
+
+.dashboard-root .settings-panel__title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.dashboard-root .settings-panel__hint {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.dashboard-root .settings-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
 /* ── Generic card ─────────────────────────────────────────────────────────── */
 .dashboard-root .settings-card {
@@ -156,6 +184,20 @@
 .dashboard-root .settings-nav__icon {
   flex: 0 0 auto;
   color: currentColor;
+}
+
+/* "Beta" chip displayed inline next to a nav label. Sits at the right
+   edge so it doesn't shift the label baseline. */
+.dashboard-root .settings-nav__chip {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 1px 6px;
+  border-radius: 999px;
 }
 
 /* ── Profile card ─────────────────────────────────────────────────────────── */
@@ -423,7 +465,6 @@
   width: 40px;
   height: 40px;
   border-radius: 9px;
-  border: 1px solid;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -431,6 +472,19 @@
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
+  overflow: hidden;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+}
+
+/* Letter-fallback variant inherits brand color via inline style. The base
+   rule above gives a neutral surface for the real <img> case. */
+.dashboard-root .settings-integration-row__logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+  display: block;
 }
 
 .dashboard-root .settings-integration-row__letter {
@@ -467,21 +521,12 @@
   flex: 0 0 auto;
 }
 
-.dashboard-root .settings-integrations__view-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--indigo-text);
-  margin-top: 16px;
-  background: transparent;
-  padding: 0;
-  transition: opacity 120ms ease-out;
-}
-
-.dashboard-root .settings-integrations__view-all:hover {
-  opacity: 0.8;
+/* Section lede shown above the list of providers. */
+.dashboard-root .settings-integrations__lede {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin: -8px 0 16px;
 }
 
 /* ── Preferences card ─────────────────────────────────────────────────────── */
@@ -526,6 +571,12 @@
   min-width: 0;
 }
 
+.dashboard-root .settings-pref__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .dashboard-root .settings-pref__title {
   font-size: 13px;
   font-weight: 600;
@@ -538,6 +589,401 @@
   color: var(--text-2);
   line-height: 1.4;
   margin-top: 2px;
+}
+
+.dashboard-root .settings-pref__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+  line-height: 1.4;
+}
+
+/* Coming-soon variant: dim the icon/text and disable pointer interaction
+   on the toggle (the component itself short-circuits onChange). */
+.dashboard-root .settings-pref--soon .settings-pref__icon,
+.dashboard-root .settings-pref--soon .settings-pref__title,
+.dashboard-root .settings-pref--soon .settings-pref__subtitle {
+  opacity: 0.55;
+}
+.dashboard-root .settings-pref--soon .set-toggle {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Notifications card: chime tester row at the bottom. */
+.dashboard-root .settings-notif__test {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-soft);
+}
+.dashboard-root .settings-notif__test-hint {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+/* ── Billing card (scalable) ────────────────────────────────────────────── */
+.dashboard-root .settings-billing__tagline {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.45;
+  margin: 4px 0 0;
+}
+
+.dashboard-root .settings-billing__usage-block {
+  margin-top: 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-soft);
+}
+.dashboard-root .settings-billing__usage-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.dashboard-root .settings-billing__usage-note {
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.dashboard-root .settings-billing__usage-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.dashboard-root .settings-billing__usage-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.dashboard-root .settings-billing__usage-label {
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dashboard-root .settings-billing__usage-count {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-root .settings-billing__usage-count--over {
+  color: var(--red);
+  font-weight: 700;
+}
+.dashboard-root .settings-billing__usage-sep {
+  color: var(--text-3);
+  margin: 0 2px;
+}
+.dashboard-root .settings-billing__usage-limit {
+  color: var(--text-3);
+}
+.dashboard-root .settings-billing__usage-track {
+  height: 6px;
+  background: var(--bg-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dashboard-root .settings-billing__usage-fill {
+  height: 100%;
+  background: var(--accent, var(--indigo));
+  border-radius: inherit;
+  transition: width 220ms ease-out;
+}
+.dashboard-root .settings-billing__usage-fill--over {
+  background: var(--red);
+}
+/* Override usage-grid to a 1-2 layout for the new rows. */
+.dashboard-root .settings-billing__usage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 24px;
+}
+
+/* ── Plan comparison strip — Free / Sprint / Sprint Pro ──────────────── */
+.dashboard-root .settings-billing__plans {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+.dashboard-root .settings-billing__plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+  align-items: stretch;
+}
+.dashboard-root .settings-billing__plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+.dashboard-root .settings-billing__plan-card--current {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 1px var(--indigo) inset;
+}
+.dashboard-root .settings-billing__plan-card--featured:not(.settings-billing__plan-card--current) {
+  /* Sprint Pro gets a subtle accent ring even when not the current plan
+     so the eye lands there. The "Best value" badge reinforces it. */
+  border-color: var(--purple);
+  box-shadow: 0 0 0 1px var(--purple) inset;
+}
+.dashboard-root .settings-billing__plan-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dashboard-root .settings-billing__plan-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dashboard-root .settings-billing__plan-card-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--indigo-text);
+  background: var(--indigo-soft);
+  padding: 1px 7px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
+.dashboard-root .settings-billing__plan-card-badge--accent {
+  color: var(--purple);
+  background: var(--purple-soft);
+}
+.dashboard-root .settings-billing__plan-card-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+.dashboard-root .settings-billing__plan-card-price-suffix {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  letter-spacing: 0;
+}
+.dashboard-root .settings-billing__plan-card-breakdown {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .settings-billing__plan-card-tagline {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.dashboard-root .settings-billing__plan-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.4;
+  flex: 1;
+}
+.dashboard-root .settings-billing__plan-perks li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.dashboard-root .settings-billing__plan-perks svg {
+  color: var(--green);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.dashboard-root .settings-billing__plan-card-note {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* ── Danger zone modal ───────────────────────────────────────────────── */
+.dashboard-root .settings-danger-modal__list {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dashboard-root .settings-danger-modal__hint {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin: 6px 0 12px;
+}
+.dashboard-root .settings-danger-modal__spin {
+  animation: settings-danger-spin 1s linear infinite;
+}
+@keyframes settings-danger-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Feedback (beta) — card + modal share these classes ───────────────── */
+.dashboard-root .settings-feedback__beta-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+.dashboard-root .settings-feedback__lede {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: -8px 0 16px;
+}
+
+.dashboard-root .settings-feedback__severity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.dashboard-root .settings-feedback__sev-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  border-radius: 8px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.dashboard-root .settings-feedback__sev-btn:hover {
+  background: var(--bg-soft);
+  color: var(--text-1);
+}
+.dashboard-root .settings-feedback__sev-btn--active {
+  color: var(--text-1);
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 1px var(--indigo) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--crash.settings-feedback__sev-btn--active {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px var(--red) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--bug.settings-feedback__sev-btn--active {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 1px var(--orange) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--idea.settings-feedback__sev-btn--active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--praise.settings-feedback__sev-btn--active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green) inset;
+}
+
+.dashboard-root .settings-feedback__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dashboard-root .settings-feedback__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .settings-feedback__field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.dashboard-root .settings-feedback__textarea {
+  font-family: inherit;
+  font-size: 12.5px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.dashboard-root .settings-feedback__diag {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+}
+.dashboard-root .settings-feedback__diag-title {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.dashboard-root .settings-feedback__diag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.dashboard-root .settings-feedback__diag-list strong {
+  color: var(--text-1);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.dashboard-root .settings-feedback__diag-code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.dashboard-root .settings-feedback__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 /* ── Toggle (reusable) ────────────────────────────────────────────────────── */
@@ -912,3 +1358,189 @@
   font-family: ui-monospace, SFMono-Regular, "Menlo", "Monaco", monospace;
   white-space: pre-wrap;
 }
+
+/* ── Audio settings card ─────────────────────────────────────────────────── */
+.dashboard-root .settings-audio__lede {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin: -8px 0 16px;
+}
+
+.dashboard-root .settings-audio__perm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--orange-soft, rgba(254, 215, 170, 0.5));
+  border: 1px solid var(--orange, #f59e0b);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--text-1);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.dashboard-root .settings-audio__perm > svg { color: var(--orange, #f59e0b); flex: 0 0 auto; }
+.dashboard-root .settings-audio__perm > div { flex: 1; min-width: 220px; }
+.dashboard-root .settings-audio__perm strong { font-weight: 600; }
+
+.dashboard-root .settings-audio__error {
+  padding: 10px 12px;
+  background: var(--red-soft, rgba(254, 226, 226, 0.6));
+  border: 1px solid var(--red, #ef4444);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--red-text, #b91c1c);
+  margin-bottom: 16px;
+}
+
+.dashboard-root .settings-audio__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dashboard-root .settings-audio__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .settings-audio__field-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  letter-spacing: 0.01em;
+}
+.dashboard-root .settings-audio__field-hint {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+  font-style: italic;
+}
+.dashboard-root .settings-audio__select {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.dashboard-root .settings-audio__test {
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dashboard-root .settings-audio__test-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.dashboard-root .settings-audio__test-label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dashboard-root .settings-audio__test-actions {
+  display: flex;
+  gap: 8px;
+}
+.dashboard-root .settings-audio__test-hint {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* 20-segment LED meter */
+.dashboard-root .settings-audio-meter {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  height: 18px;
+  align-items: stretch;
+}
+.dashboard-root .settings-audio-meter__seg {
+  flex: 1;
+  border-radius: 2px;
+  background: var(--bg, #fff);
+  border: 1px solid var(--border-soft);
+  opacity: 0.55;
+  transition: opacity 60ms linear, background 60ms linear, border-color 60ms linear;
+}
+.dashboard-root .settings-audio-meter__seg--lit {
+  opacity: 1;
+  border-color: transparent;
+}
+.dashboard-root .settings-audio-meter__seg--cool.settings-audio-meter__seg--lit {
+  background: var(--green, #10b981);
+}
+.dashboard-root .settings-audio-meter__seg--mid.settings-audio-meter__seg--lit {
+  background: var(--orange, #f59e0b);
+}
+.dashboard-root .settings-audio-meter__seg--hot.settings-audio-meter__seg--lit {
+  background: var(--red, #ef4444);
+}
+.dashboard-root .settings-audio-meter--error {
+  font-size: 12px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* ── Appearance settings card ────────────────────────────────────────────── */
+.dashboard-root .settings-appearance__lede {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin: -8px 0 16px;
+}
+.dashboard-root .settings-appearance__row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.dashboard-root .settings-appearance__row:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+.dashboard-root .settings-appearance__label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+/* Segmented theme control */
+.dashboard-root .settings-appearance__seg {
+  display: inline-flex;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  padding: 3px;
+  border-radius: 9px;
+  gap: 2px;
+  justify-self: start;
+}
+.dashboard-root .settings-appearance__seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  padding: 6px 12px;
+  border-radius: 7px;
+  transition: background 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+.dashboard-root .settings-appearance__seg-btn:hover {
+  color: var(--text-1);
+}
+.dashboard-root .settings-appearance__seg-btn--active,
+.dashboard-root .settings-appearance__seg-btn--active:hover {
+  background: var(--bg);
+  color: var(--text-1);
+  box-shadow: var(--shadow-card);
+}
+

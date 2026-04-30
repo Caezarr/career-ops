@@ -14,6 +14,7 @@
     "core:event:default",
     "core:webview:default",
     "global-shortcut:default",
-    "shell:default"
+    "shell:default",
+    "autostart:default"
   ]
 }

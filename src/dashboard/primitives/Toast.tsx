@@ -11,6 +11,8 @@ import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import clsx from "clsx";
 import { resolvePortalRoot } from "./portal";
+import { useAppStore } from "../store";
+import { playNotificationDing } from "../lib/notificationSound";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -88,6 +90,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         action: opts.action,
         closing: false,
       };
+      // Play the notification chime when the user has it enabled. We
+      // read the flag imperatively so toasts emitted from inside other
+      // hooks don't have to subscribe to the slice — and so the sound
+      // setting can be flipped without re-rendering the provider.
+      if (useAppStore.getState().notificationPrefs.sound) {
+        // Errors / warnings get a slightly louder cue than info success.
+        const vol =
+          inst.type === "error" || inst.type === "warning" ? 1 : 0.7;
+        playNotificationDing(vol);
+      }
       setToasts((cur) => {
         const next = [...cur, inst];
         if (next.length > MAX_TOASTS) {

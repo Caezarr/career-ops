@@ -9,6 +9,8 @@ import Settings from "./pages/Settings";
 import { NavigationProvider, useNavigation } from "./navigation";
 import { useAppStore } from "./store";
 import { CommandPalette, ConfirmProvider, ToastProvider } from "./primitives";
+import { useApplyAppearance } from "./hooks/useApplyAppearance";
+import { useAutostart } from "./hooks/useAutostart";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
 import "./styles/topbar.css";
@@ -48,10 +50,16 @@ function PageRouter() {
 }
 
 function GlobalKeyboardShortcuts() {
+  // Gate the entire handler on the "Keyboard shortcuts" preference toggle.
+  // When the user opts out (Settings → Notifications → Keyboard shortcuts),
+  // we register no listener at all — power users who'd rather use vim-mode
+  // in their terminal aren't fighting cmd+k.
+  const enabled = useAppStore((s) => s.preferences.keyboardShortcuts);
   const setCommandPaletteOpen = useAppStore((s) => s.setCommandPaletteOpen);
   const toggleCommandPalette = useAppStore((s) => s.toggleCommandPalette);
 
   useEffect(() => {
+    if (!enabled) return;
     function onKey(e: KeyboardEvent) {
       const isMeta = e.metaKey || e.ctrlKey;
       if (isMeta && e.key.toLowerCase() === "k") {
@@ -68,7 +76,7 @@ function GlobalKeyboardShortcuts() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleCommandPalette, setCommandPaletteOpen]);
+  }, [enabled, toggleCommandPalette, setCommandPaletteOpen]);
 
   return null;
 }
@@ -79,12 +87,29 @@ function CommandPaletteHost() {
   return <CommandPalette open={open} onClose={() => setOpen(false)} />;
 }
 
+/** Tiny zero-render component whose only job is to run useApplyAppearance
+ *  inside the store-aware tree, mirroring the GlobalKeyboardShortcuts
+ *  pattern. Keeps DashboardApp itself dumb. */
+function AppearanceApplier() {
+  useApplyAppearance();
+  return null;
+}
+
+/** Same pattern for the OS LaunchAgent reconciler — keeps the macOS
+ *  start-on-login state in sync with the preference flag. */
+function AutostartApplier() {
+  useAutostart();
+  return null;
+}
+
 export function DashboardApp() {
   return (
     <div className="dashboard-root">
       <NavigationProvider>
         <ToastProvider>
           <ConfirmProvider>
+            <AppearanceApplier />
+            <AutostartApplier />
             <GlobalKeyboardShortcuts />
             <PageRouter />
             <CommandPaletteHost />

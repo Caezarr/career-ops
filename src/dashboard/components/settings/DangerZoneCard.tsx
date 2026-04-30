@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import {
   Modal,
   ModalBody,
@@ -7,21 +7,52 @@ import {
   ModalHeader,
   useToast,
 } from '../../primitives';
+import { deleteAccount } from '../../lib/account';
 
+/**
+ * Account-deletion flow. The Settings → Billing tab is the natural
+ * home for it — destructive account-level action.
+ *
+ * Two-step: confirm intent → type DELETE → execute. Once we ship auth
+ * + a /api/me endpoint, deleteAccount() will hit the server first, but
+ * the UI flow stays identical.
+ */
 export default function DangerZoneCard() {
   const toast = useToast();
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [confirmText, setConfirmText] = useState('');
+  const [working, setWorking] = useState(false);
 
   useEffect(() => {
-    if (step === 0) setConfirmText('');
+    if (step === 0) {
+      setConfirmText('');
+      setWorking(false);
+    }
   }, [step]);
 
   function start() {
     setStep(1);
   }
   function close() {
+    if (working) return; // don't dismiss mid-deletion
     setStep(0);
+  }
+
+  async function executeDelete() {
+    setWorking(true);
+    try {
+      await deleteAccount();
+      // We won't actually reach this branch because deleteAccount() reloads
+      // the window. The toast is here for the rare case where reload is
+      // blocked (e.g. dev tools open with "preserve log").
+      toast.success('Account data deleted', 'You will see a fresh state on next launch.');
+    } catch (e) {
+      setWorking(false);
+      toast.error(
+        'Could not delete account data',
+        (e as Error).message ?? 'Try again, or contact support.',
+      );
+    }
   }
 
   return (
@@ -38,26 +69,37 @@ export default function DangerZoneCard() {
             Danger zone
           </h2>
           <p className="settings-danger__copy">
-            Permanently delete your account and all of your data. This action cannot be undone.
+            Permanently delete your account and all of its data — CVs,
+            applications, prep history, ATS analyses, and preferences.
+            This action cannot be undone.
           </p>
         </div>
       </div>
       <button type="button" className="settings-danger__btn" onClick={start}>
-        Delete account
+        <Trash2 size={14} />
+        <span>Delete account</span>
       </button>
 
       <Modal open={step !== 0} onClose={close} size="sm" ariaLabel="Delete account">
         {step === 1 && (
           <>
             <ModalHeader
-              title="Are you sure?"
-              subtitle="This will delete your CVs, applications, prep history and all account data."
+              title="Delete your Career OS account?"
+              subtitle="Everything below will be erased."
               onClose={close}
             />
             <ModalBody>
-              <p style={{ fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                You won't be able to recover anything. We strongly recommend exporting your
-                data first.
+              <ul className="settings-danger-modal__list">
+                <li>All saved CVs and optimized variants</li>
+                <li>Every cached ATS analysis</li>
+                <li>Applications, prep sessions, tasks, and history</li>
+                <li>Profile, contact details, and the career narrative</li>
+                <li>API keys, audio devices, and appearance preferences</li>
+              </ul>
+              <p className="settings-danger-modal__hint">
+                Career OS is local-first today, so this deletes the data
+                on this device. When account sync is enabled, your remote
+                account will be deleted too — there is no recovery.
               </p>
             </ModalBody>
             <ModalFooter>
@@ -78,33 +120,50 @@ export default function DangerZoneCard() {
           <>
             <ModalHeader
               title="Type DELETE to confirm"
-              subtitle="Final step before we permanently delete your account."
+              subtitle="This is the last step before we erase your data."
               onClose={close}
             />
             <ModalBody>
+              <p className="settings-danger-modal__hint" style={{ marginTop: 0 }}>
+                Type the word <strong>DELETE</strong> below — case-sensitive — to enable the
+                final button.
+              </p>
               <input
                 type="text"
                 className="ds-shared-input"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
-                placeholder="Type DELETE here"
+                placeholder="DELETE"
                 autoFocus
+                disabled={working}
               />
             </ModalBody>
             <ModalFooter>
-              <button type="button" className="ds-btn ds-btn--secondary" onClick={close}>
+              <button
+                type="button"
+                className="ds-btn ds-btn--secondary"
+                onClick={close}
+                disabled={working}
+              >
                 Cancel
               </button>
               <button
                 type="button"
                 className="ds-btn ds-btn--danger"
-                disabled={confirmText !== 'DELETE'}
-                onClick={() => {
-                  toast.warning('Account deletion is disabled in the MVP');
-                  close();
-                }}
+                disabled={confirmText !== 'DELETE' || working}
+                onClick={executeDelete}
               >
-                Delete account
+                {working ? (
+                  <>
+                    <Loader2 size={14} className="settings-danger-modal__spin" />
+                    <span style={{ marginLeft: 6 }}>Deleting…</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} />
+                    <span style={{ marginLeft: 6 }}>Delete everything</span>
+                  </>
+                )}
               </button>
             </ModalFooter>
           </>

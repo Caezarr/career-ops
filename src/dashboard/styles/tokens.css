@@ -1,10 +1,17 @@
-/* ── Dashboard light-mode design tokens ──────────────────────────────────── */
-/* Scoped to .dashboard-root so they don't leak into the Copilot overlay,
-   which uses its own dark tokens on :root in src/styles.css. */
+/* ── Dashboard design tokens (light + dark) ───────────────────────────────────
+   Scoped to .dashboard-root so they don't leak into the Copilot overlay,
+   which has its own dark tokens on :root in src/styles.css.
+
+   Theme is applied by useApplyAppearance() via [data-theme="dark"] /
+   [data-theme="light"] on <html>. "system" lets the media query below
+   decide. Accent is swapped via [data-accent] on <html>. Font-size
+   density goes on .dashboard-root via the [data-density] attribute.
+   ────────────────────────────────────────────────────────────────────────── */
 
 .dashboard-root {
-  /* Colors */
+  /* ── Light tokens (default) ───────────────────────────────────────────── */
   --bg:           #ffffff;
+  --bg-1:         #ffffff;
   --bg-soft:      #f8f9fc;
   --bg-hover:     #f3f4f8;
   --border:       #ececf2;
@@ -14,10 +21,18 @@
   --text-2:       #64748b;
   --text-3:       #94a3b8;
 
+  /* Accent palette — picked by [data-accent] on <html>. The base values
+     stay indigo so existing styles work with no override. */
+  --accent:       #6366f1;
+  --accent-soft:  #eef0ff;
+  --accent-text:  #4f46e5;
+
   --indigo:       #6366f1;
   --indigo-soft:  #eef0ff;
   --indigo-text:  #4f46e5;
   --indigo-100:   #ede9fe;
+  --violet:       #6366f1;
+  --violet-soft:  rgba(99, 102, 241, 0.12);
 
   --green:        #10b981;
   --green-soft:   #ecfdf5;
@@ -25,6 +40,7 @@
   --orange-soft:  #fef3c7;
   --red:          #ef4444;
   --red-soft:     #fef2f2;
+  --red-text:     #b91c1c;
   --blue:         #3b82f6;
   --blue-soft:    #eff6ff;
   --purple:       #8b5cf6;
@@ -55,6 +71,69 @@
   /* Take full window space when the dashboard window mounts it */
   height: 100%;
   width: 100%;
+}
+
+/* ── Dark theme overrides ─────────────────────────────────────────────────
+   [data-theme="dark"] is set on <html> by useApplyAppearance(). We only
+   override the surface/text/border tokens — brand colours stay the same so
+   the same accent reads correctly on both surfaces. Soft variants get a
+   bumped opacity so they don't disappear against dark bg. */
+:where(html[data-theme="dark"]) .dashboard-root {
+  --bg:           #0b0f1a;
+  --bg-1:         #0f1422;
+  --bg-soft:      #131826;
+  --bg-hover:     #1a2030;
+  --border:       #1f2638;
+  --border-soft:  #18203044;
+
+  --text-1:       #e7ecf5;
+  --text-2:       #9aa6bd;
+  --text-3:       #6b7691;
+
+  --indigo-soft:  rgba(99, 102, 241, 0.18);
+  --green-soft:   rgba(16, 185, 129, 0.16);
+  --orange-soft:  rgba(245, 158, 11, 0.16);
+  --red-soft:     rgba(239, 68, 68, 0.16);
+  --red-text:     #fca5a5;
+  --blue-soft:    rgba(59, 130, 246, 0.16);
+  --purple-soft:  rgba(139, 92, 246, 0.18);
+  --violet-soft:  rgba(99, 102, 241, 0.22);
+
+  --shadow-card:  0 1px 2px rgba(0,0,0,0.45), 0 1px 0 rgba(0,0,0,0.4);
+  --shadow-elev:  0 6px 24px rgba(0,0,0,0.5);
+
+  color-scheme: dark;
+}
+
+/* "System" theme: when the user picks system, useApplyAppearance() removes
+   the data-theme attribute and we fall back to prefers-color-scheme. */
+@media (prefers-color-scheme: dark) {
+  :where(html:not([data-theme])) .dashboard-root {
+    --bg:           #0b0f1a;
+    --bg-1:         #0f1422;
+    --bg-soft:      #131826;
+    --bg-hover:     #1a2030;
+    --border:       #1f2638;
+    --border-soft:  #18203044;
+
+    --text-1:       #e7ecf5;
+    --text-2:       #9aa6bd;
+    --text-3:       #6b7691;
+
+    --indigo-soft:  rgba(99, 102, 241, 0.18);
+    --green-soft:   rgba(16, 185, 129, 0.16);
+    --orange-soft:  rgba(245, 158, 11, 0.16);
+    --red-soft:     rgba(239, 68, 68, 0.16);
+    --red-text:     #fca5a5;
+    --blue-soft:    rgba(59, 130, 246, 0.16);
+    --purple-soft:  rgba(139, 92, 246, 0.18);
+    --violet-soft:  rgba(99, 102, 241, 0.22);
+
+    --shadow-card:  0 1px 2px rgba(0,0,0,0.45), 0 1px 0 rgba(0,0,0,0.4);
+    --shadow-elev:  0 6px 24px rgba(0,0,0,0.5);
+
+    color-scheme: dark;
+  }
 }
 
 /* Reset for dashboard subtree only — Copilot has its own reset on `*` */
