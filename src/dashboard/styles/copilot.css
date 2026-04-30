@@ -275,6 +275,13 @@
   color: var(--orange);
 }
 
+/* Dimmed-flame variant when the user has zero streak — keeps the
+   icon visible but signals "no fire yet". */
+.dashboard-root .cp-streak-flame--cold {
+  color: var(--text-3);
+  opacity: 0.7;
+}
+
 .dashboard-root .cp-streak-number {
   font-size: 28px;
   font-weight: 700;
@@ -921,6 +928,11 @@
   display: inline-block;
 }
 
+/* Configuration row marked as not-yet-set — orange dot to flag the gap. */
+.dashboard-root .cp-config__item-status-dot--off {
+  background: var(--orange);
+}
+
 .dashboard-root .cp-config__item-value {
   font-size: 12px;
   color: var(--text-2);
@@ -929,3 +941,516 @@
 .dashboard-root .cp-config__item-chevron {
   color: var(--text-3);
 }
+
+/* ── Real-state additions: status dots, bubbles, panel CTA ──────────────── */
+
+/* Status dots used by CopilotPanelHeader. Reuses the existing
+   listening-dot and rec-dot patterns. */
+.dashboard-root .cp-recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.18);
+  animation: cp-dot-pulse 1.4s ease-in-out infinite;
+}
+.dashboard-root .cp-thinking-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.18);
+  animation: cp-dot-pulse 1.6s ease-in-out infinite;
+}
+.dashboard-root .cp-ready-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18);
+}
+.dashboard-root .cp-error-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+}
+@keyframes cp-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* Recruiter / system bubble variants */
+.dashboard-root .cp-bubble--recruiter .cp-bubble__avatar {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+.dashboard-root .cp-bubble--system {
+  justify-content: center;
+}
+.dashboard-root .cp-bubble__system {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-style: italic;
+  padding: 4px 10px;
+  background: var(--bg-soft);
+  border-radius: 999px;
+}
+.dashboard-root .cp-bubble--live {
+  /* Subtle highlight for the in-flight transcript bubble — small ring
+     plus a tiny live dot in the meta row. */
+}
+.dashboard-root .cp-bubble--live .cp-bubble__avatar {
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+.dashboard-root .cp-bubble__live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-left: 4px;
+  animation: cp-dot-pulse 1.2s ease-in-out infinite;
+}
+
+/* Empty states for the transcript + recent activity */
+.dashboard-root .cp-live-transcript__empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  padding: 16px 4px;
+}
+.dashboard-root .cp-recent-activity__empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  padding: 12px 4px;
+}
+
+/* Empty + cursor variants on the answer card */
+.dashboard-root .cp-answer__card--empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-3);
+  font-size: 13px;
+  padding: 14px 16px;
+  background: var(--bg-soft);
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+}
+.dashboard-root .cp-answer__empty-text {
+  flex: 1;
+  min-width: 0;
+}
+.dashboard-root .cp-answer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.dashboard-root .cp-answer__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .cp-answer__copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: transparent;
+  transition: background 120ms ease, color 120ms ease;
+}
+.dashboard-root .cp-answer__copy:hover {
+  background: var(--bg-soft);
+  color: var(--text-1);
+}
+.dashboard-root .cp-answer__copy--copied {
+  color: var(--green);
+}
+.dashboard-root .cp-answer__ts {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 1px 6px;
+  border-radius: 6px;
+  margin: 0 2px;
+}
+
+/* ── Embedded panel: Start CTA + key-missing + error block ─────────── */
+.dashboard-root .cp-embedded-panel__cta {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.dashboard-root .cp-embedded-panel__keymissing {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--orange-soft);
+  border: 1px solid var(--orange);
+  border-radius: 10px;
+  font-size: 12.5px;
+  color: var(--text-1);
+}
+.dashboard-root .cp-embedded-panel__keymissing > svg {
+  color: var(--orange);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.dashboard-root .cp-embedded-panel__keymissing strong {
+  display: block;
+  font-weight: 600;
+}
+.dashboard-root .cp-embedded-panel__keymissing p {
+  margin: 4px 0 8px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.dashboard-root .cp-embedded-panel__start {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--indigo);
+  transition: filter 120ms ease;
+}
+.dashboard-root .cp-embedded-panel__start:hover {
+  filter: brightness(1.05);
+}
+.dashboard-root .cp-embedded-panel__shortcut {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.85);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.dashboard-root .cp-embedded-panel__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin: 10px 14px 0;
+  font-size: 12px;
+  color: var(--red-text, #b91c1c);
+  background: var(--red-soft);
+  border: 1px solid var(--red);
+  border-radius: 8px;
+}
+.dashboard-root .cp-embedded-panel__error > svg {
+  color: var(--red);
+  flex: 0 0 auto;
+}
+
+/* Generic primary / danger button variants for the in-page CTA */
+.dashboard-root .cp-btn--primary {
+  background: var(--indigo);
+  border: 1px solid var(--indigo);
+  color: #ffffff;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.dashboard-root .cp-btn--primary:hover {
+  filter: brightness(1.05);
+}
+.dashboard-root .cp-btn--danger {
+  background: var(--red);
+  border: 1px solid var(--red);
+  color: #ffffff;
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.dashboard-root .cp-btn--danger:hover {
+  filter: brightness(1.05);
+}
+
+.dashboard-root .cp-session-bar__icon {
+  color: var(--text-3);
+}
+
+/* ── Copilot context picker (job + CV) ─────────────────────────────── */
+.dashboard-root .cp-context-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  margin-bottom: 14px;
+}
+.dashboard-root .cp-context-picker__lede {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+.dashboard-root .cp-context-picker__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .cp-context-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--text-1);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.dashboard-root .cp-context-picker__row:hover {
+  border-color: var(--indigo-soft);
+}
+.dashboard-root .cp-context-picker__row > svg:first-child {
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+.dashboard-root .cp-context-picker__row-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  width: 28px;
+  flex: 0 0 auto;
+}
+.dashboard-root .cp-context-picker__row-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.dashboard-root .cp-context-picker__row-value--muted {
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .cp-context-picker__row-chev {
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+.dashboard-root .cp-context-picker__warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--orange);
+  background: var(--orange-soft);
+  border-radius: 6px;
+  padding: 6px 8px;
+  line-height: 1.4;
+}
+.dashboard-root .cp-context-picker__warn > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+/* Clickable Recent Activity row — base item already styled, just a
+   hover and pointer affordance when rendered as <button>. */
+.dashboard-root .cp-activity-item--clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+.dashboard-root .cp-activity-item--clickable:hover {
+  background: var(--bg-soft);
+}
+
+/* ── Session detail modal ─────────────────────────────────────────── */
+.dashboard-root .cp-detail__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.dashboard-root .cp-detail__meta-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.dashboard-root .cp-detail__meta-cell > svg {
+  color: var(--text-3);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.dashboard-root .cp-detail__meta-cell > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dashboard-root .cp-detail__meta-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .cp-detail__meta-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-1);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-root .cp-detail__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.dashboard-root .cp-detail__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.dashboard-root .cp-detail__system {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--bg-soft);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-style: italic;
+}
+.dashboard-root .cp-detail__bubble {
+  background: var(--purple-soft);
+  border-left: 2px solid var(--purple);
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 95%;
+}
+.dashboard-root .cp-detail__bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.dashboard-root .cp-detail__bubble-meta > svg:first-child {
+  color: var(--purple);
+}
+.dashboard-root .cp-detail__bubble-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dashboard-root .cp-detail__bubble-time {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  margin-left: auto;
+}
+.dashboard-root .cp-detail__bubble-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-detail__answer {
+  background: var(--indigo-soft);
+  border-left: 2px solid var(--indigo);
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 95%;
+  align-self: flex-end;
+}
+.dashboard-root .cp-detail__answer-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.dashboard-root .cp-detail__answer-meta > svg:first-child {
+  color: var(--indigo);
+}
+.dashboard-root .cp-detail__answer-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--indigo-text);
+}
+.dashboard-root .cp-detail__answer-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: transparent;
+  margin-left: 6px;
+}
+.dashboard-root .cp-detail__answer-copy:hover {
+  background: var(--bg);
+  color: var(--text-1);
+}
+.dashboard-root .cp-detail__answer-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-1);
+  white-space: pre-wrap;
+}
+

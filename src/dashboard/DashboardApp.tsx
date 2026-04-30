@@ -11,6 +11,7 @@ import { useAppStore } from "./store";
 import { CommandPalette, ConfirmProvider, ToastProvider } from "./primitives";
 import { useApplyAppearance } from "./hooks/useApplyAppearance";
 import { useAutostart } from "./hooks/useAutostart";
+import { useCopilotEventBridge } from "./hooks/useCopilotSession";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
 import "./styles/topbar.css";
@@ -102,6 +103,16 @@ function AutostartApplier() {
   return null;
 }
 
+/** Mount the Copilot Tauri event listeners ONCE per dashboard window so
+ *  status / transcript / answer-token / error events flow into the
+ *  store regardless of which page the user is on. The Copilot page
+ *  components subscribe to the slice — they never register their own
+ *  listeners (that would duplicate every event). */
+function CopilotEventBridge() {
+  useCopilotEventBridge();
+  return null;
+}
+
 export function DashboardApp() {
   return (
     <div className="dashboard-root">
@@ -110,6 +121,7 @@ export function DashboardApp() {
           <ConfirmProvider>
             <AppearanceApplier />
             <AutostartApplier />
+            <CopilotEventBridge />
             <GlobalKeyboardShortcuts />
             <PageRouter />
             <CommandPaletteHost />

@@ -30,3 +30,60 @@ export function readClaudeModel(): string | null {
     return null;
   }
 }
+
+/** Shape we read out of `ic-config`. Mirrors the overlay's `Config`
+ *  so a future migration to a real keychain doesn't break either side.
+ *  Every field is optional because the overlay tolerates missing keys
+ *  and we want the same behaviour here. */
+export interface CopilotConfigSnapshot {
+  anthropicKey: string;
+  assemblyaiKey: string;
+  openaiKey: string;
+  model: string;
+  audioDevice: string;
+  loopbackDevice: string;
+  persona: 'finance' | 'tech-ai' | 'consulting';
+  cv: string;
+  jd: string;
+}
+
+const DEFAULT_SNAPSHOT: CopilotConfigSnapshot = {
+  anthropicKey: '',
+  assemblyaiKey: '',
+  openaiKey: '',
+  model: '',
+  audioDevice: '',
+  loopbackDevice: '',
+  persona: 'finance',
+  cv: '',
+  jd: '',
+};
+
+/** Read the entire copilot config blob in one go. Used by
+ *  useCopilotSession() when it builds a CaptureConfig. */
+export function readCopilotConfig(): CopilotConfigSnapshot {
+  if (typeof window === 'undefined') return DEFAULT_SNAPSHOT;
+  try {
+    const raw = window.localStorage.getItem('ic-config');
+    if (!raw) return DEFAULT_SNAPSHOT;
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const pick = (k: string): string => {
+      const v = parsed[k];
+      return typeof v === 'string' ? v : '';
+    };
+    const persona = (parsed.persona as CopilotConfigSnapshot['persona']) ?? 'finance';
+    return {
+      anthropicKey: pick('anthropic_key'),
+      assemblyaiKey: pick('assemblyai_key'),
+      openaiKey: pick('openai_key'),
+      model: pick('model'),
+      audioDevice: pick('audio_device'),
+      loopbackDevice: pick('loopback_device'),
+      persona,
+      cv: pick('cv'),
+      jd: pick('jd'),
+    };
+  } catch {
+    return DEFAULT_SNAPSHOT;
+  }
+}

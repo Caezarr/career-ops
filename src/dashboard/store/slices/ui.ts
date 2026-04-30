@@ -72,6 +72,15 @@ export interface UiSlice {
    *  becomes unreadable, wider hides the main column. */
   cvPreviewPanelWidth: number;
   setCvPreviewPanelWidth: (w: number) => void;
+
+  /** Job + CV chosen for the NEXT Copilot session. The picker on the
+   *  Copilot page writes here; the actual session record snapshots
+   *  these values on Start so changing them mid-session doesn't
+   *  rewrite the linkage. */
+  copilotPickerJobId: string | null;
+  copilotPickerCvId: string | null;
+  setCopilotPickerJobId: (id: string | null) => void;
+  setCopilotPickerCvId: (id: string | null) => void;
 }
 
 export const createUiSlice: StateCreator<UiSlice> = (set) => ({
@@ -114,4 +123,9 @@ export const createUiSlice: StateCreator<UiSlice> = (set) => ({
   cvPreviewPanelWidth: 580,
   setCvPreviewPanelWidth: (w) =>
     set({ cvPreviewPanelWidth: Math.max(380, Math.min(900, Math.round(w))) }),
+
+  copilotPickerJobId: null,
+  copilotPickerCvId: null,
+  setCopilotPickerJobId: (copilotPickerJobId) => set({ copilotPickerJobId }),
+  setCopilotPickerCvId: (copilotPickerCvId) => set({ copilotPickerCvId }),
 });

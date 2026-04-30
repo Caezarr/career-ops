@@ -22,6 +22,10 @@ import {
   type NotificationPrefsSlice,
 } from "./slices/notificationPrefs";
 import { createBillingSlice, type BillingSlice } from "./slices/billing";
+import {
+  createCopilotSessionsSlice,
+  type CopilotSessionsSlice,
+} from "./slices/copilotSessions";
 
 export type AppStore = UserSlice &
   NotificationsSlice &
@@ -37,7 +41,8 @@ export type AppStore = UserSlice &
   AudioSlice &
   AppearanceSlice &
   NotificationPrefsSlice &
-  BillingSlice;
+  BillingSlice &
+  CopilotSessionsSlice;
 
 const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUserSlice(...(a as Parameters<typeof createUserSlice>)),
@@ -55,6 +60,7 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createAppearanceSlice(...(a as Parameters<typeof createAppearanceSlice>)),
   ...createNotificationPrefsSlice(...(a as Parameters<typeof createNotificationPrefsSlice>)),
   ...createBillingSlice(...(a as Parameters<typeof createBillingSlice>)),
+  ...createCopilotSessionsSlice(...(a as Parameters<typeof createCopilotSessionsSlice>)),
 });
 
 export const useAppStore = create<AppStore>()(
@@ -89,6 +95,14 @@ export const useAppStore = create<AppStore>()(
       plan: state.plan,
       paymentIntentId: state.paymentIntentId,
       sprintEndsAt: state.sprintEndsAt,
+      // Persist Copilot session history so the user can review past
+      // interviews. We DO NOT persist pendingTranscript / pendingAnswer
+      // / activeSessionId / copilotStatus — those are runtime-only and
+      // a reload should drop the user back to idle with the latest
+      // session marked ended.
+      copilotSessions: state.copilotSessions,
+      copilotPickerJobId: state.copilotPickerJobId,
+      copilotPickerCvId: state.copilotPickerCvId,
     }),
   }),
 );
