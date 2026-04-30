@@ -196,16 +196,17 @@
      Match | Next step | Actions. Tightened so all 8 fit on the
      standard 1280px MacBook (sidebar 220 + right panel 340 leaves
      ~720px for the table). Next step takes the remaining flex so
-     it never gets clipped. */
+     it never gets clipped. Actions = 76px = 2×28px icon buttons +
+     4px gap + 16px padding so the dots don't kiss the next column. */
   grid-template-columns:
-    minmax(120px, 1.3fr)   /* Company */
-    minmax(140px, 1.5fr)   /* Role */
-    90px                    /* Stage */
-    80px                    /* Applied */
-    80px                    /* Last activity */
-    56px                    /* Match */
+    minmax(118px, 1.3fr)   /* Company */
+    minmax(136px, 1.5fr)   /* Role */
+    88px                    /* Stage */
+    76px                    /* Applied */
+    76px                    /* Last activity */
+    54px                    /* Match */
     minmax(110px, 1fr)      /* Next step */
-    60px;                   /* Actions */
+    76px;                   /* Actions */
   gap: 10px;
   align-items: center;
 }
