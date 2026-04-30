@@ -64,14 +64,20 @@ function convertApplication(raw: typeof legacyApplications[number]): Application
   const workMode = isDetailMatch ? mockApplicationDetail.workMode : undefined;
   const recruiter = isDetailMatch ? mockApplicationDetail.recruiter : undefined;
 
+  // Synthesise the two timestamps with a small offset — applied 0-30
+  // days ago, last activity 0-N days more recent. Lets seed sorts
+  // produce sensible orderings out of the box.
+  const appliedAt = Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000;
+  const lastActivityAt = appliedAt + Math.floor(Math.random() * 5) * 24 * 60 * 60 * 1000;
   return {
     id: raw.id,
     jobId,
     cvId: undefined,
     stage,
     appliedDate: raw.appliedDate,
-    appliedAt: Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000,
+    appliedAt,
     lastActivity: raw.lastActivity,
+    lastActivityAt,
     match: raw.match,
     nextStep: raw.nextStep,
     archived: stage === "rejected",
@@ -170,6 +176,7 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
       appliedDate: formatDate(now),
       appliedAt: now.getTime(),
       lastActivity: "Just now",
+      lastActivityAt: now.getTime(),
       match: input.match ?? 0,
       nextStep: "Send follow-up",
       archived: false,
@@ -203,6 +210,7 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
               ...a,
               stage,
               lastActivity: "Just now",
+              lastActivityAt: Date.now(),
               // Move-to-rejected auto-archives so the row drops out of
               // the active pipeline. Move-FROM-rejected unarchives so
               // a re-engaged opportunity becomes visible again. Other
@@ -231,7 +239,14 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
   updateApplicationNotes: (id, notes) =>
     set((state) => ({
       applications: state.applications.map((a) =>
-        a.id === id ? { ...a, notes } : a,
+        a.id === id
+          ? {
+              ...a,
+              notes,
+              lastActivity: "Just now",
+              lastActivityAt: Date.now(),
+            }
+          : a,
       ),
     })),
 
@@ -274,6 +289,7 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
               // freshly-edited row and the user gets visual
               // confirmation of the save.
               lastActivity: 'Just now',
+              lastActivityAt: Date.now(),
             }
           : a,
       ),
