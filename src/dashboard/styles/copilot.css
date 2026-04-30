@@ -921,6 +921,11 @@
   display: inline-block;
 }
 
+/* Configuration row marked as not-yet-set — orange dot to flag the gap. */
+.dashboard-root .cp-config__item-status-dot--off {
+  background: var(--orange);
+}
+
 .dashboard-root .cp-config__item-value {
   font-size: 12px;
   color: var(--text-2);
