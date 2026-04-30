@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { FolderOpen, ArrowRight } from 'lucide-react';
+import { FolderOpen, Play } from 'lucide-react';
 import DetailHeader from './DetailHeader';
 import DetailMeta from './DetailMeta';
 import ApplicationMaterials from './ApplicationMaterials';
 import ApplicationTimeline from './ApplicationTimeline';
 import AINextStepsCard from './AINextStepsCard';
+import ApplicationCopilotSessions from './ApplicationCopilotSessions';
 import { useAppStore } from '../../store';
 import { useNavigation } from '../../navigation';
 import { DocumentsModal, MaterialUploadModal } from '../shared';
@@ -19,6 +20,8 @@ export default function ApplicationDetail() {
   const job = useAppStore((s) =>
     application ? s.jobs.find((j) => j.id === application.jobId) ?? null : null,
   );
+  const setPickerJobId = useAppStore((s) => s.setCopilotPickerJobId);
+  const setPickerCvId = useAppStore((s) => s.setCopilotPickerCvId);
 
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -65,6 +68,14 @@ export default function ApplicationDetail() {
         job={job ? { company: job.company, role: job.role, jdText: job.jdText } : null}
       />
 
+      {/* Tied Copilot history — surfaces past mock interviews / pitches
+           for this exact job, with one-click "Start session" that
+           pre-sets the picker and jumps to the Copilot page. */}
+      <ApplicationCopilotSessions
+        jobId={application.jobId}
+        cvId={application.cvId}
+      />
+
       <div className="app-detail__actions">
         <button
           type="button"
@@ -77,10 +88,19 @@ export default function ApplicationDetail() {
         <button
           type="button"
           className="app-detail__btn app-detail__btn--primary"
-          onClick={() => navigate('prep')}
+          onClick={() => {
+            // Pre-set the Copilot picker so the page lands on this
+            // job + CV as the active context. The "Prep" page is
+            // about practice questions; the Copilot is what the
+            // user actually wants to fire when prepping a
+            // specific application.
+            setPickerJobId(application.jobId);
+            if (application.cvId) setPickerCvId(application.cvId);
+            navigate('copilot');
+          }}
         >
-          <span>Prepare now</span>
-          <ArrowRight size={16} strokeWidth={2.2} />
+          <Play size={14} strokeWidth={2} fill="currentColor" />
+          <span>Open Copilot for this role</span>
         </button>
       </div>
 

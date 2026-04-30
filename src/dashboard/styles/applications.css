@@ -857,6 +857,136 @@
   to   { transform: rotate(360deg); }
 }
 
+/* ── Tied Copilot sessions panel inside ApplicationDetail ──────── */
+.dashboard-root .app-copilot-sessions {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dashboard-root .app-copilot-sessions__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dashboard-root .app-copilot-sessions__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .app-copilot-sessions__title-icon {
+  color: var(--purple);
+}
+.dashboard-root .app-copilot-sessions__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dashboard-root .app-copilot-sessions__start {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--purple);
+  background: var(--purple-soft);
+  border: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.dashboard-root .app-copilot-sessions__start:hover {
+  filter: brightness(0.96);
+}
+
+.dashboard-root .app-copilot-sessions__empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  background: var(--bg-soft);
+  padding: 8px 10px;
+  border-radius: 8px;
+  line-height: 1.45;
+  font-style: italic;
+}
+.dashboard-root .app-copilot-sessions__empty > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.dashboard-root .app-copilot-sessions__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dashboard-root .app-copilot-sessions__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+  font: inherit;
+  color: inherit;
+}
+.dashboard-root .app-copilot-sessions__row:hover {
+  background: var(--bg-soft);
+}
+.dashboard-root .app-copilot-sessions__row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-root .app-copilot-sessions__row-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .app-copilot-sessions__live {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: var(--green-soft);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.dashboard-root .app-copilot-sessions__row-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.dashboard-root .app-copilot-sessions__row-time {
+  font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.dashboard-root .app-copilot-sessions__row-chev {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
 /* Action buttons */
 .dashboard-root .app-detail__actions {
   display: flex;
