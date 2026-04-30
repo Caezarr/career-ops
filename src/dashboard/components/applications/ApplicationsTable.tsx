@@ -5,12 +5,16 @@ import { useAppStore } from '../../store';
 import { filterAndSortApplications } from './filterUtils';
 import { NotesDrawer } from '../shared';
 
+// 7-column header — "Last activity" was dropped as a visible column
+// because it was a non-sortable string ("2 days ago") that overflowed
+// the grid width on standard viewports. The sort option still works
+// (it reads lastActivityAt under the hood); users just don't see the
+// noisy column.
 const HEADERS = [
   'Company',
   'Role',
   'Stage',
   'Applied',
-  'Last activity',
   'Match',
   'Next step',
   'Actions',

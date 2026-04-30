@@ -118,9 +118,6 @@ export default function ApplicationRow({
       <div className="applications__cell applications__cell--muted" role="cell">
         {app.appliedDate}
       </div>
-      <div className="applications__cell applications__cell--muted" role="cell">
-        {app.lastActivity}
-      </div>
       <div className="applications__cell" role="cell">
         <MatchPill match={app.match} />
       </div>

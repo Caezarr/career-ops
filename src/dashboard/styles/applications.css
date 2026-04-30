@@ -192,21 +192,20 @@
 
 .dashboard-root .applications__row {
   display: grid;
-  /* 8 columns: Company | Role | Stage | Applied | Last activity |
-     Match | Next step | Actions. Tightened so all 8 fit on the
-     standard 1280px MacBook (sidebar 220 + right panel 340 leaves
-     ~720px for the table). Next step takes the remaining flex so
-     it never gets clipped. Actions = 76px = 2×28px icon buttons +
-     4px gap + 16px padding so the dots don't kiss the next column. */
+  /* 7 columns: Company | Role | Stage | Applied | Match | Next step |
+     Actions. "Last activity" was dropped as a visible column because
+     it forced a horizontal overflow on 1280px viewports (220 sidebar
+     + 340 right panel + table margins leave ~656px). Min total now
+     fits comfortably with breathing room before Actions, so the
+     comment + ⋮ icons stay clearly inside their cell. */
   grid-template-columns:
-    minmax(118px, 1.3fr)   /* Company */
-    minmax(136px, 1.5fr)   /* Role */
-    88px                    /* Stage */
-    76px                    /* Applied */
-    76px                    /* Last activity */
-    54px                    /* Match */
+    minmax(120px, 1.4fr)   /* Company */
+    minmax(140px, 1.5fr)   /* Role */
+    86px                    /* Stage */
+    74px                    /* Applied */
+    52px                    /* Match */
     minmax(110px, 1fr)      /* Next step */
-    76px;                   /* Actions */
+    78px;                   /* Actions */
   gap: 10px;
   align-items: center;
 }
