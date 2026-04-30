@@ -10,6 +10,11 @@
 
 .dashboard-root .right-panel--applications {
   padding: 0; /* internal section handles its own padding */
+  /* Lock the panel — no horizontal drag or scroll. The grid column
+     is fixed-width (340px) so we just clip anything that tries to
+     escape left/right. */
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* Page container */
@@ -178,20 +183,30 @@
 .dashboard-root .applications__table {
   display: flex;
   flex-direction: column;
+  /* Safety net: on viewports too narrow to fit the 8-column grid, let
+     the table scroll horizontally rather than silently clipping the
+     trailing columns (Next step, Actions). Mostly a no-op since the
+     grid is tuned for ~720px content width. */
+  overflow-x: auto;
 }
 
 .dashboard-root .applications__row {
   display: grid;
+  /* 7 columns: Company | Role | Stage | Applied | Match | Next step |
+     Actions. "Last activity" was dropped as a visible column because
+     it forced a horizontal overflow on 1280px viewports (220 sidebar
+     + 340 right panel + table margins leave ~656px). Min total now
+     fits comfortably with breathing room before Actions, so the
+     comment + ⋮ icons stay clearly inside their cell. */
   grid-template-columns:
-    minmax(140px, 1.4fr)
-    minmax(160px, 1.6fr)
-    100px
-    90px
-    100px
-    70px
-    130px
-    80px;
-  gap: 16px;
+    minmax(120px, 1.4fr)   /* Company */
+    minmax(140px, 1.5fr)   /* Role */
+    86px                    /* Stage */
+    74px                    /* Applied */
+    52px                    /* Match */
+    minmax(110px, 1fr)      /* Next step */
+    78px;                   /* Actions */
+  gap: 10px;
   align-items: center;
 }
 
@@ -282,6 +297,23 @@
 
 .dashboard-root .applications__next-step-link:hover {
   text-decoration: underline;
+}
+
+/* Inline editor variant — appears in place when the user clicks the
+   next-step link. Save on blur / Enter, revert on Escape. */
+.dashboard-root .applications__next-step-input {
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-1);
+  background: var(--bg);
+  border: 1px solid var(--indigo);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: 100%;
+  outline: none;
+}
+.dashboard-root .applications__next-step-input::placeholder {
+  color: var(--text-3);
 }
 
 .dashboard-root .applications__cell--actions {
@@ -499,6 +531,96 @@
 .dashboard-root .app-detail__meta-icon {
   color: var(--text-3);
   flex-shrink: 0;
+}
+
+/* Editable meta variants — display ⇄ inline editor. */
+.dashboard-root .app-detail__meta-item--editable {
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.dashboard-root .app-detail__meta-item--editable:hover {
+  background: var(--bg-soft);
+}
+.dashboard-root .app-detail__meta-item--editable:hover .app-detail__meta-pencil {
+  opacity: 1;
+}
+.dashboard-root .app-detail__meta-pencil {
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.dashboard-root .app-detail__meta-item--empty {
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .app-detail__meta-item--readonly {
+  padding: 4px 8px;
+}
+.dashboard-root .app-detail__meta-item--editing {
+  background: var(--bg-soft);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--indigo);
+}
+.dashboard-root .app-detail__meta-input {
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: inherit;
+  color: var(--text-1);
+  min-width: 120px;
+  width: 100%;
+}
+.dashboard-root .app-detail__meta-textarea {
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-1);
+  resize: vertical;
+  width: 100%;
+  min-width: 240px;
+}
+.dashboard-root .app-detail__meta-item--cover {
+  flex-basis: 100%;
+}
+.dashboard-root .app-detail__meta-item--link {
+  padding: 4px 8px;
+}
+.dashboard-root .app-detail__meta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--indigo-text);
+  font: inherit;
+}
+.dashboard-root .app-detail__meta-link:hover {
+  text-decoration: underline;
+}
+.dashboard-root .app-detail__meta-pencil-btn {
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-3);
+  border-radius: 4px;
+  transition: background 120ms ease, color 120ms ease;
+}
+.dashboard-root .app-detail__meta-pencil-btn:hover {
+  background: var(--bg-soft);
+  color: var(--text-1);
 }
 
 /* Section heading */
@@ -743,11 +865,272 @@
   flex-shrink: 0;
 }
 
-/* Action buttons */
+/* Empty state — generate CTA + key warning + error block. */
+.dashboard-root .ai-next-steps__empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.dashboard-root .ai-next-steps__empty-text {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.dashboard-root .ai-next-steps__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--orange);
+  background: var(--orange-soft);
+  border: 1px solid var(--orange);
+  padding: 8px 10px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+.dashboard-root .ai-next-steps__notice > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.dashboard-root .ai-next-steps__error {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--red-text, #b91c1c);
+  background: var(--red-soft);
+  border: 1px solid var(--red);
+  padding: 8px 10px;
+  border-radius: 8px;
+  line-height: 1.4;
+  margin-top: 8px;
+}
+.dashboard-root .ai-next-steps__error > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--red);
+}
+.dashboard-root .ai-next-steps__generate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--indigo);
+  color: #ffffff;
+  border: 1px solid var(--indigo);
+  padding: 9px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 120ms ease, opacity 120ms ease;
+}
+.dashboard-root .ai-next-steps__generate:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.dashboard-root .ai-next-steps__generate:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* "Regenerate" link in the populated header */
+.dashboard-root .ai-next-steps__regen {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--indigo-text);
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  margin-left: auto;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.dashboard-root .ai-next-steps__regen:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.1);
+}
+.dashboard-root .ai-next-steps__regen:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dashboard-root .ai-next-steps__item--hover {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  transition: background 120ms ease, color 120ms ease;
+}
+.dashboard-root .ai-next-steps__item--hover:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--text-1);
+}
+
+.dashboard-root .ai-next-steps__spin {
+  animation: ai-next-steps-spin 1s linear infinite;
+}
+@keyframes ai-next-steps-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Tied Copilot sessions panel inside ApplicationDetail ──────── */
+.dashboard-root .app-copilot-sessions {
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 14px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dashboard-root .app-copilot-sessions__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dashboard-root .app-copilot-sessions__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .app-copilot-sessions__title-icon {
+  color: var(--purple);
+}
+.dashboard-root .app-copilot-sessions__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dashboard-root .app-copilot-sessions__start {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--purple);
+  background: var(--purple-soft);
+  border: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter 120ms ease;
+}
+.dashboard-root .app-copilot-sessions__start:hover {
+  filter: brightness(0.96);
+}
+
+.dashboard-root .app-copilot-sessions__empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  background: var(--bg-soft);
+  padding: 8px 10px;
+  border-radius: 8px;
+  line-height: 1.45;
+  font-style: italic;
+}
+.dashboard-root .app-copilot-sessions__empty > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.dashboard-root .app-copilot-sessions__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dashboard-root .app-copilot-sessions__row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease;
+  font: inherit;
+  color: inherit;
+}
+.dashboard-root .app-copilot-sessions__row:hover {
+  background: var(--bg-soft);
+}
+.dashboard-root .app-copilot-sessions__row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-root .app-copilot-sessions__row-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .app-copilot-sessions__live {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--green);
+  background: var(--green-soft);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.dashboard-root .app-copilot-sessions__row-meta {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.dashboard-root .app-copilot-sessions__row-time {
+  font-size: 11px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+}
+.dashboard-root .app-copilot-sessions__row-chev {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+/* Action buttons — stuck to the bottom of the panel so the user
+   never has to scroll the detail content to find them. Stack
+   vertically because the right panel is only 340px wide and the
+   primary CTA "Open Copilot for this role" doesn't fit alongside
+   "Open documents" without ellipsing. */
 .dashboard-root .app-detail__actions {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  /* Soft fade-in from the panel background so the buttons read as
+     "floating" above the scrollable content rather than hard-cut. */
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    var(--bg-soft) 12px,
+    var(--bg-soft) 100%
+  );
+  padding: 16px 0 0;
+  z-index: 1;
 }
 
 .dashboard-root .app-detail__btn {
@@ -755,15 +1138,15 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 18px;
+  padding: 11px 18px;
   border-radius: 10px;
   font-size: 13px;
   white-space: nowrap;
+  width: 100%;
   transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .dashboard-root .app-detail__btn--ghost {
-  flex: 1;
   background: var(--bg);
   color: var(--text-1);
   border: 1px solid var(--border);
@@ -775,12 +1158,10 @@
 }
 
 .dashboard-root .app-detail__btn--primary {
-  flex: 2;
   background: var(--indigo);
   color: #ffffff;
   border: 1px solid var(--indigo);
   font-weight: 600;
-  padding: 12px 22px;
 }
 
 .dashboard-root .app-detail__btn--primary:hover {

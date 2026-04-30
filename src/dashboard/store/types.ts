@@ -117,6 +117,11 @@ export interface Application {
   appliedDate: string;
   appliedAt: number;
   lastActivity: string;
+  /** Unix ms of the last user-facing edit (stage change, notes, next
+   *  step rename, etc.). Backs the "Last activity" sort so "recent"
+   *  is actually different from "Date applied". Optional for legacy
+   *  seeded apps that pre-date the field. */
+  lastActivityAt?: number;
   match: number;
   nextStep: string;
   archived: boolean;
@@ -124,6 +129,10 @@ export interface Application {
   salary?: string;
   workMode?: string;
   recruiter?: string;
+  /** URL of the original job posting (LinkedIn, careers page…). */
+  sourceUrl?: string;
+  /** Cover-letter draft attached to this application. */
+  coverLetter?: string;
   materials: ApplicationMaterial[];
   timeline: TimelineEvent[];
   aiNextSteps: string[];

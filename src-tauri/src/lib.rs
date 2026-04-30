@@ -625,6 +625,58 @@ async fn analyze_cv_ats(
     Ok(analysis)
 }
 
+// ── AI: Application "next steps" generator ───────────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateNextStepsInput {
+    pub company: String,
+    pub role: String,
+    pub stage: String,
+    pub jd_text: Option<String>,
+    pub cv_text: Option<String>,
+    pub anthropic_key: String,
+    pub model: Option<String>,
+}
+
+/// Generate 3-5 concrete next-step actions for a job application.
+///
+/// Tailored to the application's current stage; pulls in the JD + CV
+/// when available so steps reference real specifics. Surfaces only
+/// `Vec<String>` to the frontend — the slice action persists them on
+/// the application record.
+#[tauri::command]
+async fn generate_application_next_steps(
+    input: GenerateNextStepsInput,
+) -> Result<Vec<String>, ai::AiError> {
+    if input.anthropic_key.trim().is_empty() {
+        return Err(ai::AiError::KeyMissing);
+    }
+
+    let cfg = ai::AiConfig::new(input.anthropic_key, input.model);
+    let user_msg = ai::prompts::next_steps::build_user_message(
+        &input.company,
+        &input.role,
+        &input.stage,
+        input.jd_text.as_deref(),
+        input.cv_text.as_deref(),
+    );
+
+    let resp: ai::prompts::next_steps::NextStepsResponse =
+        ai::anthropic::ask_structured(
+            &cfg,
+            ai::prompts::next_steps::NEXT_STEPS_SYSTEM,
+            &user_msg,
+            "next_steps",
+            "Produce 3-5 concrete actionable next steps for the application.",
+            ai::prompts::next_steps::tool_schema(),
+            800,
+        )
+        .await?;
+
+    Ok(resp.steps)
+}
+
 // ── AI: CV optimization (LaTeX → PDF) ─────────────────────────────────────────
 
 #[derive(Debug, serde::Serialize)]
@@ -948,7 +1000,9 @@ pub fn run() {
             analyze_cv_ats,
             // AI: CV optimization (LaTeX → PDF)
             generate_optimized_cv,
-            detect_latex_compilers
+            detect_latex_compilers,
+            // AI: Application next steps
+            generate_application_next_steps
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
