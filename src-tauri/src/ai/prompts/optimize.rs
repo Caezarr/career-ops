@@ -66,20 +66,36 @@ Mandatory rules — no exceptions:
 You will fail if the output is not directly compilable by pdflatex.";
 
 /// Build the user message containing all the substrate Claude needs.
-/// We pass the analysis as JSON so the model can reason about each suggestion
-/// individually.
+/// `refinement_instructions` carries free-form notes the user typed in the
+/// 'Customize this run' box — appended to the message under a clearly
+/// labelled tag so Claude treats them as targeted edits, not new rules.
 pub fn build_user_message(
     cv_text: &str,
     jd_text: &str,
     analysis_json: &str,
     profile_block: &str,
+    refinement_instructions: Option<&str>,
 ) -> String {
+    let refinement_block = match refinement_instructions {
+        Some(r) if !r.trim().is_empty() => format!(
+            "\n\n<refinement_instructions>\n\
+             The user has explicit refinements for THIS run. Apply them on top of the rules above.\n\
+             They override the default behaviour where they conflict, but never break the hard \
+             constraints (one page, language match, ATS-friendly headers, no fabrications):\n\n\
+             {notes}\n\
+             </refinement_instructions>",
+            notes = r.trim(),
+        ),
+        _ => String::new(),
+    };
+
     format!(
         "<candidate_profile>\n{profile}\n</candidate_profile>\n\n\
          <source_cv>\n{cv}\n</source_cv>\n\n\
          <job_description>\n{jd}\n</job_description>\n\n\
          <latest_ats_analysis>\n{analysis}\n</latest_ats_analysis>\n\n\
-         <template_reference>\n{template}\n</template_reference>\n\n\
+         <template_reference>\n{template}\n</template_reference>\
+         {refinement}\n\n\
          Now write the optimized .tex file. Output only the LaTeX source — \
          no markdown, no commentary, no explanation.",
         profile = profile_block.trim(),
@@ -87,5 +103,6 @@ pub fn build_user_message(
         jd = jd_text.trim(),
         analysis = analysis_json.trim(),
         template = TEMPLATE_REFERENCE.trim(),
+        refinement = refinement_block,
     )
 }

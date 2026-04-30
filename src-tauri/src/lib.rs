@@ -649,6 +649,10 @@ pub struct GenerateOptimizedCvInput {
     /// We pass it as a string so the command signature stays simple.
     pub analysis_json: String,
     pub profile_block: String,
+    /// Optional free-form notes the user added on this run only ('shorten the
+    /// summary', 'drop the leadership section', etc.). Appended to the prompt
+    /// under <refinement_instructions/>.
+    pub refinement_instructions: Option<String>,
     pub anthropic_key: String,
     pub model: Option<String>,
 }
@@ -675,6 +679,7 @@ async fn generate_optimized_cv(
         &input.jd_text,
         &input.analysis_json,
         &input.profile_block,
+        input.refinement_instructions.as_deref(),
     );
     let mut tex_source = ai::anthropic::ask_completion(
         &cfg,

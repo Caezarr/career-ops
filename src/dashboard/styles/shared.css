@@ -365,3 +365,66 @@
   color: var(--text-2);
   word-break: break-all;
 }
+
+/* ── Refinement textarea (iterate on generation) ─────────────────────────── */
+.dashboard-root .ds-optimized-refinement {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  margin-top: 8px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+.dashboard-root .ds-optimized-refinement__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dashboard-root .ds-optimized-refinement__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: 0.02em;
+}
+.dashboard-root .ds-optimized-refinement__hint {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.dashboard-root .ds-optimized-refinement__textarea {
+  width: 100%;
+  min-height: 84px;
+  resize: vertical;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-1);
+  background: var(--bg-1);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  line-height: 1.5;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.dashboard-root .ds-optimized-refinement__textarea:focus-visible {
+  outline: none;
+  border-color: var(--violet);
+  box-shadow: 0 0 0 2px var(--violet-soft);
+}
+.dashboard-root .ds-optimized-refinement__textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.dashboard-root .ds-optimized-refinement__applied {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  padding: 4px 0 0;
+}
+.dashboard-root .ds-optimized-refinement__applied em {
+  font-style: italic;
+  color: var(--text-2);
+}

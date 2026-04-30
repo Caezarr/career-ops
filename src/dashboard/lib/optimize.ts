@@ -22,21 +22,32 @@ export interface GenerateOptimizedCvArgs {
   user: User;
   anthropicKey: string;
   model?: string | null;
+  /** Free-form notes the user can add for THIS run only (e.g. 'shorten the
+   *  summary', 'drop the leadership section', 'lead with the AI experience'). */
+  refinementInstructions?: string | null;
 }
 
-/** Build the LaTeX-friendly contact block fed to Claude. Keeps secret-less. */
+/** Build the LaTeX-friendly contact block fed to Claude. Includes the
+ *  free-form profile.md narrative when present so Claude has rich context
+ *  about the candidate (background, anecdotes, what they care about). */
 export function buildProfileBlock(user: User): string {
-  const lines: string[] = [];
-  if (user.name) lines.push(`Name: ${user.name}`);
-  if (user.email) lines.push(`Email: ${user.email}`);
-  if (user.phone) lines.push(`Phone: ${user.phone}`);
-  if (user.linkedin) lines.push(`LinkedIn: ${user.linkedin}`);
-  if (user.github) lines.push(`GitHub: ${user.github}`);
-  if (user.portfolio) lines.push(`Portfolio: ${user.portfolio}`);
-  if (user.location) lines.push(`Location: ${user.location}`);
-  if (user.targetRole) lines.push(`Target role: ${user.targetRole}`);
-  if (user.targetCompany) lines.push(`Target company: ${user.targetCompany}`);
-  return lines.join('\n');
+  const contactLines: string[] = [];
+  if (user.name) contactLines.push(`Name: ${user.name}`);
+  if (user.email) contactLines.push(`Email: ${user.email}`);
+  if (user.phone) contactLines.push(`Phone: ${user.phone}`);
+  if (user.linkedin) contactLines.push(`LinkedIn: ${user.linkedin}`);
+  if (user.github) contactLines.push(`GitHub: ${user.github}`);
+  if (user.portfolio) contactLines.push(`Portfolio: ${user.portfolio}`);
+  if (user.location) contactLines.push(`Location: ${user.location}`);
+  if (user.targetRole) contactLines.push(`Target role: ${user.targetRole}`);
+  if (user.targetCompany) contactLines.push(`Target company: ${user.targetCompany}`);
+
+  const md = (user.profileMarkdown ?? '').trim();
+  if (!md) return contactLines.join('\n');
+
+  // Append the markdown narrative under a clear separator so Claude knows
+  // it's softer context (anecdotes / values) vs hard contact facts above.
+  return `${contactLines.join('\n')}\n\n--- Career narrative (markdown) ---\n${md}`;
 }
 
 /** Returns true when the user has provided enough contact info for a clean CV. */
@@ -49,12 +60,14 @@ export async function generateOptimizedCv(
   args: GenerateOptimizedCvArgs,
 ): Promise<OptimizedCvResult> {
   const analysisJson = JSON.stringify(args.analysis ?? {});
+  const refinement = (args.refinementInstructions ?? '').trim();
   return invoke<OptimizedCvResult>('generate_optimized_cv', {
     input: {
       cvText: args.cvText,
       jdText: args.jdText,
       analysisJson,
       profileBlock: buildProfileBlock(args.user),
+      refinementInstructions: refinement || null,
       anthropicKey: args.anthropicKey,
       model: args.model ?? null,
     },

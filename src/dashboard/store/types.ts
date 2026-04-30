@@ -26,6 +26,11 @@ export interface User {
   linkedin?: string;
   github?: string;
   portfolio?: string;
+  /** Free-form Markdown narrative about the user — background, experiences,
+   *  anecdotes, optimisations, what they care about. Fed to Claude alongside
+   *  the structured fields so the CV generator and the Copilot have richer
+   *  context than just bullets in a CV. Think of it as a 'profile.md'. */
+  profileMarkdown?: string;
   /** True once the user has completed (or skipped) the onboarding flow. */
   onboardingComplete?: boolean;
 }

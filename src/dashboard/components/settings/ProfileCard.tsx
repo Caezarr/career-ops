@@ -1,9 +1,31 @@
 import { useEffect, useState } from 'react';
-import { Camera, ChevronDown, MapPin, Phone, Link, Globe } from 'lucide-react';
+import { Camera, ChevronDown, MapPin, Phone, Link, Globe, FileText } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
 import ChangePhotoModal from '../shared/ChangePhotoModal';
 import UserAvatar from '../UserAvatar';
+
+/** Starter content for the user's free-form 'profile.md'. We keep it short
+ *  so the user actually edits it instead of skimming a wall of placeholders. */
+const PROFILE_TEMPLATE = `# Quick story
+2-3 sentences on who you are and what you optimise for. (e.g. "AI engineer
+with 3 years building production LLM systems. Optimise for shipping
+measurable outcomes, not architecture diagrams.")
+
+# Highlights you want every CV to surface
+- Quantified outcome #1 (numbers, scope, role)
+- Quantified outcome #2
+- Quantified outcome #3
+
+# Anecdotes Claude can mine for narrative
+- A failed project + what you learned (great for behavioural questions)
+- A leadership / stakeholder moment with measurable impact
+- Something only you would do — the contrarian decision that paid off
+
+# What you actively don't want on your CV
+- e.g. early internships before 2019
+- e.g. the side project you no longer ship
+`;
 
 export default function ProfileCard() {
   const toast = useToast();
@@ -19,6 +41,7 @@ export default function ProfileCard() {
   const [linkedin, setLinkedin] = useState(user.linkedin ?? '');
   const [github, setGithub] = useState(user.github ?? '');
   const [portfolio, setPortfolio] = useState(user.portfolio ?? '');
+  const [profileMarkdown, setProfileMarkdown] = useState(user.profileMarkdown ?? '');
   const [photoOpen, setPhotoOpen] = useState(false);
 
   // Re-sync if the underlying store changes (e.g. another component edits it).
@@ -32,6 +55,7 @@ export default function ProfileCard() {
     setLinkedin(user.linkedin ?? '');
     setGithub(user.github ?? '');
     setPortfolio(user.portfolio ?? '');
+    setProfileMarkdown(user.profileMarkdown ?? '');
   }, [user]);
 
   const dirty =
@@ -43,7 +67,8 @@ export default function ProfileCard() {
     phone !== (user.phone ?? '') ||
     linkedin !== (user.linkedin ?? '') ||
     github !== (user.github ?? '') ||
-    portfolio !== (user.portfolio ?? '');
+    portfolio !== (user.portfolio ?? '') ||
+    profileMarkdown !== (user.profileMarkdown ?? '');
 
   function discard() {
     setName(user.name);
@@ -55,6 +80,11 @@ export default function ProfileCard() {
     setLinkedin(user.linkedin ?? '');
     setGithub(user.github ?? '');
     setPortfolio(user.portfolio ?? '');
+    setProfileMarkdown(user.profileMarkdown ?? '');
+  }
+
+  function fillProfileTemplate() {
+    setProfileMarkdown(PROFILE_TEMPLATE);
   }
 
   function save() {
@@ -69,6 +99,7 @@ export default function ProfileCard() {
       linkedin: linkedin.trim() || undefined,
       github: github.trim() || undefined,
       portfolio: portfolio.trim() || undefined,
+      profileMarkdown: profileMarkdown.trim() || undefined,
     });
 
     // Reflect the language on the document root so screen-readers / browser
@@ -285,6 +316,45 @@ export default function ProfileCard() {
             />
             <Globe size={16} className="settings-input__icon" />
           </div>
+        </div>
+
+        {/* ── Free-form profile.md narrative ─────────────────────────────── */}
+        <div className="settings-field settings-field--full settings-section-divider">
+          <span className="settings-section-divider__label">Career narrative (profile.md)</span>
+          <span className="settings-section-divider__hint">
+            Free-form Markdown about you — background, experiences, anecdotes,
+            achievements you want every CV and Copilot answer to draw from.
+            Claude reads this on top of the structured fields above.
+          </span>
+        </div>
+
+        <div className="settings-field settings-field--full">
+          <div className="settings-profile__md-toolbar">
+            <span className="settings-profile__md-meta">
+              <FileText size={12} />
+              <span>{profileMarkdown.length.toLocaleString()} chars</span>
+            </span>
+            {!profileMarkdown.trim() && (
+              <button
+                type="button"
+                className="settings-profile__md-template-btn"
+                onClick={fillProfileTemplate}
+              >
+                Load template
+              </button>
+            )}
+          </div>
+          <textarea
+            id="profile-markdown"
+            className="settings-input settings-profile__md-textarea"
+            rows={14}
+            spellCheck={false}
+            placeholder={
+              "# Quick story\n…\n\n# Highlights you want every CV to surface\n- …\n\n# Anecdotes Claude can mine\n- …"
+            }
+            value={profileMarkdown}
+            onChange={(e) => setProfileMarkdown(e.target.value)}
+          />
         </div>
 
         <div className="settings-profile__form-actions">
