@@ -209,18 +209,25 @@ export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
 
   createCV: (input) => {
     const fallback = previewFor(input.roleFocus);
+    const id = uid("cv");
     const cv: CV = {
-      id: uid("cv"),
+      id,
       name: input.name,
       lastEdited: "Just now",
       fileType: "PDF",
       roleFocus: input.roleFocus,
       atsScore: input.atsScore ?? 0,
-      isDefault: false,
+      // The newly added CV becomes the default — replaces any previous one.
+      isDefault: true,
       summary: input.summary ?? fallback.summary,
       parsedText: input.parsedText ?? fallback.parsedText,
     };
-    set((state) => ({ cvs: [cv, ...state.cvs] }));
+    set((state) => ({
+      cvs: [cv, ...state.cvs.map((c) => ({ ...c, isDefault: false }))],
+      defaultCvId: id,
+      // Auto-select it too — what you just imported is what you want to see.
+      selectedCvId: id,
+    }));
     return cv;
   },
 

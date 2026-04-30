@@ -65,6 +65,12 @@ export interface UiSlice {
   atsAnalyzerJd: string;
   setAtsAnalyzerJd: (jd: string) => void;
   clearAtsAnalyzerJd: () => void;
+
+  /** CV right preview panel width in pixels. Persisted so the user's last
+   *  drag stays put across sessions. Hard-clamped to [380, 900] — narrower
+   *  becomes unreadable, wider hides the main column. */
+  cvPreviewPanelWidth: number;
+  setCvPreviewPanelWidth: (w: number) => void;
 }
 
 export const createUiSlice: StateCreator<UiSlice> = (set) => ({
@@ -103,4 +109,8 @@ export const createUiSlice: StateCreator<UiSlice> = (set) => ({
   atsAnalyzerJd: "",
   setAtsAnalyzerJd: (atsAnalyzerJd) => set({ atsAnalyzerJd }),
   clearAtsAnalyzerJd: () => set({ atsAnalyzerJd: "" }),
+
+  cvPreviewPanelWidth: 580,
+  setCvPreviewPanelWidth: (w) =>
+    set({ cvPreviewPanelWidth: Math.max(380, Math.min(900, Math.round(w))) }),
 });

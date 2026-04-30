@@ -3,7 +3,10 @@
 /* Variant: very wide right panel so the preview reads like a real CV PDF.
    Uses minmax so the page still works on narrow Tauri windows. */
 .dashboard-root .dashboard.dashboard--cv {
-  grid-template-columns: 220px minmax(380px, 1fr) minmax(520px, 640px);
+  /* The right preview width is driven by --cv-preview-w (set inline by the
+     CV page from store state) so the user can drag-resize it. Falls back
+     to 580px when the variable is missing. */
+  grid-template-columns: 220px minmax(380px, 1fr) var(--cv-preview-w, 580px);
   grid-template-areas:
     "sidebar topbar topbar"
     "sidebar main    right";
@@ -20,6 +23,7 @@
 
 .dashboard-root .right-panel--cv {
   padding: 20px;
+  padding-left: 26px; /* room for the resize handle on the left edge */
   background: var(--bg-soft);
   display: flex;
   flex-direction: column;
@@ -29,6 +33,44 @@
   min-height: 0;
   height: 100%;
   overflow-y: auto;
+  /* Anchor for the absolute-positioned resize handle. */
+  position: relative;
+}
+
+/* ── Drag handle on the left edge of the CV preview panel ────────────────── */
+.dashboard-root .cv-resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  transition: background 120ms ease;
+}
+.dashboard-root .cv-resize-handle:hover,
+.dashboard-root .cv-resize-handle:focus-visible {
+  background: rgba(99, 102, 241, 0.08);
+  outline: none;
+}
+.dashboard-root .cv-resize-handle__grip {
+  width: 3px;
+  height: 36px;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 120ms ease, height 120ms ease;
+}
+.dashboard-root .cv-resize-handle:hover .cv-resize-handle__grip,
+.dashboard-root .cv-resize-handle:focus-visible .cv-resize-handle__grip,
+.dashboard-root .cv-resize-handle:active .cv-resize-handle__grip {
+  background: var(--indigo);
+  height: 56px;
 }
 
 /* Page container */

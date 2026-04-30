@@ -844,3 +844,71 @@
 .dashboard-root .settings-danger__btn:hover {
   background: rgba(254, 226, 226, 0.6);
 }
+
+/* ── Section divider inside the Profile card (for CV contact block) ──────── */
+.dashboard-root .settings-section-divider {
+  display: flex !important;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+  grid-column: 1 / -1;
+}
+.dashboard-root .settings-section-divider__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .settings-section-divider__hint {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* ── Profile.md narrative editor ─────────────────────────────────────────── */
+.dashboard-root .settings-profile__md-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  min-height: 22px;
+}
+.dashboard-root .settings-profile__md-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: 0.02em;
+}
+.dashboard-root .settings-profile__md-template-btn {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+.dashboard-root .settings-profile__md-template-btn:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+  color: var(--text-1);
+  background: rgba(99, 102, 241, 0.06);
+}
+.dashboard-root .settings-profile__md-textarea {
+  min-height: 280px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, "Menlo", "Monaco", monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+.dashboard-root .settings-profile__md-textarea::placeholder {
+  font-family: ui-monospace, SFMono-Regular, "Menlo", "Monaco", monospace;
+  white-space: pre-wrap;
+}

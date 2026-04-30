@@ -1,0 +1,213 @@
+%-------------------------
+% Resume in LaTeX -- career-ops template
+% Based on Jake Gutierrez / sb2nov resume template
+% License: MIT
+%
+% USAGE: This file is a REFERENCE for Claude. Claude reads this template
+% and generates a complete .tex file with JD-tailored content.
+% Do NOT process placeholders mechanically -- Claude writes the full document.
+%
+% RULES (see modes/pdf.md for full details):
+% - ONE PAGE MAX. Fill the page but never overflow.
+% - Education: Master's only. Include relevant coursework as bullet.
+% - Greenea / Deep-Agency go in Projects, not Experience.
+% - Languages: French (native), English (C1), German (basic). NO Spanish.
+% - Email: gabriel.rance@ensam.eu
+% - Dates: use "Present" (capital P), never "present" or "now".
+% - No "--" in bullets. Write clean sentences.
+% - Include Leadership + Hobbies if space allows.
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+% NOTE: Claude sets letterpaper (US/Canada) or a4paper (rest of world)
+
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+% NOTE: Claude sets english or french based on JD language
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\setlength{\multicolsep}{-3.0pt}
+\setlength{\columnsep}{-1pt}
+\input{glyphtounicode}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Adjust margins
+\addtolength{\oddsidemargin}{-0.6in}
+\addtolength{\evensidemargin}{-0.5in}
+\addtolength{\textwidth}{1.19in}
+\addtolength{\topmargin}{-.7in}
+\addtolength{\textheight}{1.4in}
+
+\urlstyle{same}
+
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+% Sections formatting
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large\bfseries
+}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+% Ensure that generated pdf is machine readable/ATS parsable
+\pdfgentounicode=1
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[1]{
+  \item\small{
+    {#1 \vspace{-2pt}}
+  }
+}
+
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & \textbf{\small #2} \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{1.001\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & \textbf{\small #2}\\
+    \end{tabular*}\vspace{-7pt}
+}
+
+\newcommand{\resumeSubItem}[1]{\resumeItem{#1}\vspace{-4pt}}
+
+\renewcommand\labelitemi{$\vcenter{\hbox{\tiny$\bullet$}}$}
+\renewcommand\labelitemii{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.0in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+%-------------------------------------------
+\begin{document}
+
+% === HEADING ===
+\begin{center}
+    {\Huge \scshape Gabriel Rance} \\ \vspace{1pt}
+    \vspace{3pt}
+    \small \raisebox{-0.1\height}\faPhone\ +33.6.95.34.00.08 ~
+    \href{mailto:gabriel.rance@ensam.eu}{\raisebox{-0.2\height}\faEnvelope\ \underline{gabriel.rance@ensam.eu}} ~
+    \href{https://linkedin.com/in/gabriel-rance}{\raisebox{-0.2\height}\faLinkedin\ \underline{linkedin.com/in/gabriel-rance}} ~
+    \vspace{-8pt}
+\end{center}
+
+
+% === EDUCATION ===
+% Master's ONLY. No BTS, no Lycee, no sub-master diplomas.
+% Include coursework bullet with JD-relevant courses.
+\section{Education}
+  \resumeSubHeadingListStart
+    \resumeSubheading
+      {Arts et Metiers ParisTech}{Sep. 2023 - Sep. 2026}
+      {Master of Engineering in Energy}{Paris, France}
+      \resumeItemListStart
+        \resumeItem{Ranked 6th out of 30 students in final year}
+        \resumeItem{Relevant coursework: AI \& Machine Learning, Python, Calculus, Energy Systems, Project Management}
+      \resumeItemListEnd
+  \resumeSubHeadingListEnd
+
+
+% === EXPERIENCE ===
+% Salaried/apprenticeship roles ONLY. Greenea and Deep-Agency go in Projects.
+% Claude fills with JD-tailored bullets, keyword-injected, reordered by relevance.
+\section{Experience}
+  \resumeSubHeadingListStart
+
+    \resumeSubheading
+      {Wonka}{Mar. 2026 - Present}
+      {AI Consulting and Business Development Intern}{Brussels, Belgium}
+      \resumeItemListStart
+        \resumeItem{Achievement bullet with metrics and JD keywords}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Baudin Chateauneuf / Eau Air Systeme}{Sep. 2023 - Feb. 2026}
+      {Business Manager Apprenticeship}{Lille, France}
+      \resumeItemListStart
+        \resumeItem{Achievement bullet with metrics}
+      \resumeItemListEnd
+
+    \resumeSubheading
+      {Vinci Facilities / Herve Thermique}{Sep. 2015 - Aug. 2023}
+      {HVAC Technician Apprenticeship}{Lille, France}
+      \resumeItemListStart
+        \resumeItem{Achievement bullet}
+      \resumeItemListEnd
+
+  \resumeSubHeadingListEnd
+\vspace{-10pt}
+
+
+% === PROJECTS ===
+% Greenea and Deep-Agency go HERE (entrepreneurial projects).
+% Claude selects top 3-4 most relevant for the JD.
+\section{Projects}
+    \vspace{-5pt}
+    \resumeSubHeadingListStart
+
+      \resumeProjectHeading
+          {\textbf{Project Name} $|$ \emph{Tech stack}}{Dates}
+          \resumeItemListStart
+            \resumeItem{Description with metrics}
+          \resumeItemListEnd
+          \vspace{-10pt}
+
+    \resumeSubHeadingListEnd
+\vspace{0pt}
+
+
+% === LEADERSHIP / EXTRACURRICULAR ===
+% Include if space allows (target: fill the page).
+\section{Leadership / Extracurricular}
+    \resumeSubHeadingListStart
+        \resumeSubheading{Les Montagn'Arts}{Sep. 2024 - Present}{President}{Paris, France}
+            \resumeItemListStart
+                \resumeItem{Lead student mountaineering association, organizing expeditions and outdoor events}
+            \resumeItemListEnd
+        \resumeSubheading{Chiens guides d'aveugles}{Sep. 2007 - Sep. 2017}{Volunteer}{Lille, France}
+            \resumeItemListStart
+                \resumeItem{Fostered and trained 10 guide dogs for visually impaired people over 10 years}
+            \resumeItemListEnd
+    \resumeSubHeadingListEnd
+\vspace{-10pt}
+
+
+% === SKILLS ===
+% Always include Hobbies line.
+\section{Skills}
+ \begin{itemize}[leftmargin=0.0in, label={}]
+    \small{\item{
+     \textbf{Tools \& Technical}{: Python, PyTorch, LLM orchestration, ...tailored to JD} \\
+     \textbf{Languages}{: French (native), English (C1), German (basic)} \\
+     \textbf{Hobbies}{: Ultra-trail running, mountaineering, padel}
+    }}
+ \end{itemize}
+ \vspace{-10pt}
+
+
+% === ATS KEYWORD BLOCK (invisible) ===
+% White text with top 10-15 JD keywords not already in visible text.
+% \textcolor{white}{\tiny keyword1, keyword2, keyword3, ...}
+
+\end{document}
