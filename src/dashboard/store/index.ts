@@ -59,6 +59,7 @@ export const useAppStore = create<AppStore>()(
       // Anthropic credits re-running on every nav / restart.
       atsByCv: state.atsByCv,
       atsAnalyzerJd: state.atsAnalyzerJd,
+      cvPreviewPanelWidth: state.cvPreviewPanelWidth,
       prepSessions: state.prepSessions,
       todaysPlan: state.todaysPlan,
       todaysTasks: state.todaysTasks,

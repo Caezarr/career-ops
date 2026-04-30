@@ -277,7 +277,8 @@
     grid-template-columns: 200px 1fr 320px !important;
   }
   .dashboard-root .dashboard.dashboard--cv {
-    grid-template-columns: 200px minmax(340px, 1fr) minmax(460px, 560px) !important;
+    /* Honour the user's chosen preview width but cap it on narrow windows. */
+    grid-template-columns: 200px minmax(340px, 1fr) min(var(--cv-preview-w, 560px), 560px) !important;
   }
   .dashboard-root .dashboard.dashboard--prep {
     grid-template-columns: 200px 1fr !important;
