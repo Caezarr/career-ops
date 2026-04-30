@@ -275,6 +275,13 @@
   color: var(--orange);
 }
 
+/* Dimmed-flame variant when the user has zero streak — keeps the
+   icon visible but signals "no fire yet". */
+.dashboard-root .cp-streak-flame--cold {
+  color: var(--text-3);
+  opacity: 0.7;
+}
+
 .dashboard-root .cp-streak-number {
   font-size: 28px;
   font-weight: 700;
