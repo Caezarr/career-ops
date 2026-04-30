@@ -3,12 +3,47 @@ import TopBar from '../components/TopBar';
 import SettingsNav from '../components/settings/SettingsNav';
 import ProfileCard from '../components/settings/ProfileCard';
 import IntegrationsCard from '../components/settings/IntegrationsCard';
-import SecurityAccessCard from '../components/settings/SecurityAccessCard';
 import PreferencesCard from '../components/settings/PreferencesCard';
+import AudioSettingsCard from '../components/settings/AudioSettingsCard';
+import AppearanceSettingsCard from '../components/settings/AppearanceSettingsCard';
+import NotificationsSettingsCard from '../components/settings/NotificationsSettingsCard';
 import BillingCard from '../components/settings/BillingCard';
 import DangerZoneCard from '../components/settings/DangerZoneCard';
+import { useAppStore } from '../store';
+
+/** Title + helper copy for each tab. Keeps the page header self-explanatory
+ *  without needing per-card duplication. */
+const TAB_META = {
+  account: {
+    title: 'Account',
+    hint: 'Your identity, contact details, and the career narrative every CV draws from.',
+  },
+  apiKeys: {
+    title: 'API Keys & Integrations',
+    hint: 'Connect Career OS to the AI providers it calls under the hood.',
+  },
+  audio: {
+    title: 'Audio',
+    hint: 'Microphone and speaker selection for the live Copilot session.',
+  },
+  appearance: {
+    title: 'Appearance',
+    hint: 'Theme, density, and accent — applied immediately across the app.',
+  },
+  notifications: {
+    title: 'Notifications',
+    hint: 'Choose what nudges Career OS surfaces and through which channel.',
+  },
+  billing: {
+    title: 'Billing & plan',
+    hint: 'Your current plan, real usage counters, and account-level actions.',
+  },
+} as const;
 
 export default function Settings() {
+  const tab = useAppStore((s) => s.settingsTab);
+  const meta = TAB_META[tab];
+
   return (
     <div className="dashboard dashboard--settings">
       <Sidebar />
@@ -22,14 +57,34 @@ export default function Settings() {
               <p>Manage your account, integrations, and preferences.</p>
             </header>
 
-            <div className="settings-grid">
+            <div className="settings-shell">
               <SettingsNav />
-              <ProfileCard />
-              <IntegrationsCard />
-              <SecurityAccessCard />
-              <PreferencesCard />
-              <BillingCard />
-              <DangerZoneCard />
+
+              <div className="settings-panel" role="tabpanel" aria-labelledby={`settings-tab-${tab}`}>
+                <header className="settings-panel__header">
+                  <h2 className="settings-panel__title">{meta.title}</h2>
+                  <p className="settings-panel__hint">{meta.hint}</p>
+                </header>
+
+                <div className="settings-panel__body">
+                  {tab === 'account' && <ProfileCard />}
+                  {tab === 'apiKeys' && <IntegrationsCard />}
+                  {tab === 'audio' && <AudioSettingsCard />}
+                  {tab === 'appearance' && <AppearanceSettingsCard />}
+                  {tab === 'notifications' && (
+                    <>
+                      <NotificationsSettingsCard />
+                      <PreferencesCard />
+                    </>
+                  )}
+                  {tab === 'billing' && (
+                    <>
+                      <BillingCard />
+                      <DangerZoneCard />
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

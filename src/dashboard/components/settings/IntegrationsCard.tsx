@@ -1,13 +1,10 @@
 import { useState } from 'react';
-import { ArrowRight } from 'lucide-react';
 import IntegrationRow from './IntegrationRow';
 import IntegrationModal from '../shared/IntegrationModal';
 import { useAppStore, type Integration } from '../../store';
-import { useToast } from '../../primitives';
 
 export default function IntegrationsCard() {
   const integrations = useAppStore((s) => s.integrations);
-  const toast = useToast();
   const [active, setActive] = useState<Integration | null>(null);
 
   return (
@@ -16,8 +13,12 @@ export default function IntegrationsCard() {
       aria-labelledby="settings-integrations-title"
     >
       <h2 id="settings-integrations-title" className="settings-card__title">
-        API Keys &amp; Integrations
+        Providers
       </h2>
+      <p className="settings-integrations__lede">
+        Career OS calls these providers under the hood. Click <em>Manage</em>
+        {' '}to view or rotate the API key, or to disconnect.
+      </p>
 
       <div className="settings-integrations__list">
         {integrations.map((integration) => (
@@ -28,15 +29,6 @@ export default function IntegrationsCard() {
           />
         ))}
       </div>
-
-      <button
-        type="button"
-        className="settings-integrations__view-all"
-        onClick={() => toast.info('All integrations coming soon')}
-      >
-        <span>View all integrations</span>
-        <ArrowRight size={14} strokeWidth={2} />
-      </button>
 
       <IntegrationModal
         open={!!active}

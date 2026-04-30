@@ -29,23 +29,51 @@
   margin: 6px 0 0;
 }
 
-/* ── 3-column grid layout ─────────────────────────────────────────────────── */
-.dashboard-root .settings-grid {
+/* ── Tab-routed shell layout ─────────────────────────────────────────────────
+   The legacy 3-column grid was replaced with a sidebar + single-column tab
+   panel (max 760px). One tab visible at a time — the SettingsNav drives it
+   via settingsTab in the store. */
+.dashboard-root .settings-shell {
   display: grid;
-  grid-template-columns: 200px minmax(380px, 1fr) minmax(380px, 1fr);
-  grid-template-rows: auto auto auto;
-  gap: 16px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
   margin-top: 24px;
   align-items: start;
 }
 
-.dashboard-root .settings-nav          { grid-column: 1; grid-row: 1 / 3; }
-.dashboard-root .settings-profile      { grid-column: 2; grid-row: 1; }
-.dashboard-root .settings-integrations { grid-column: 3; grid-row: 1; }
-.dashboard-root .settings-security     { grid-column: 2; grid-row: 2; }
-.dashboard-root .settings-preferences  { grid-column: 3; grid-row: 2; }
-.dashboard-root .settings-billing      { grid-column: 1 / 3; grid-row: 3; }
-.dashboard-root .settings-danger       { grid-column: 3; grid-row: 3; }
+.dashboard-root .settings-panel {
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashboard-root .settings-panel__header {
+  padding: 4px 4px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 4px;
+}
+
+.dashboard-root .settings-panel__title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.dashboard-root .settings-panel__hint {
+  font-size: 13px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: 4px 0 0;
+}
+
+.dashboard-root .settings-panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 
 /* ── Generic card ─────────────────────────────────────────────────────────── */
 .dashboard-root .settings-card {
@@ -423,7 +451,6 @@
   width: 40px;
   height: 40px;
   border-radius: 9px;
-  border: 1px solid;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -431,6 +458,19 @@
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
+  overflow: hidden;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+}
+
+/* Letter-fallback variant inherits brand color via inline style. The base
+   rule above gives a neutral surface for the real <img> case. */
+.dashboard-root .settings-integration-row__logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 6px;
+  display: block;
 }
 
 .dashboard-root .settings-integration-row__letter {
@@ -467,21 +507,12 @@
   flex: 0 0 auto;
 }
 
-.dashboard-root .settings-integrations__view-all {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--indigo-text);
-  margin-top: 16px;
-  background: transparent;
-  padding: 0;
-  transition: opacity 120ms ease-out;
-}
-
-.dashboard-root .settings-integrations__view-all:hover {
-  opacity: 0.8;
+/* Section lede shown above the list of providers. */
+.dashboard-root .settings-integrations__lede {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin: -8px 0 16px;
 }
 
 /* ── Preferences card ─────────────────────────────────────────────────────── */
