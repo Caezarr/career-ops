@@ -1,105 +1,123 @@
-import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, Sun, Moon, Monitor } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../../primitives';
+import { useAppStore } from '../../store';
+import type {
+  AccentChoice,
+  FontSizeChoice,
+  ThemeChoice,
+} from '../../store/slices/appearance';
 
-type Theme = 'Light' | 'Dark' | 'System';
-type FontSize = 'Small' | 'Medium' | 'Large';
+const THEME_OPTIONS: { id: ThemeChoice; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
+  { id: 'light', label: 'Light', Icon: Sun },
+  { id: 'dark', label: 'Dark', Icon: Moon },
+  { id: 'system', label: 'Match system', Icon: Monitor },
+];
 
-interface Accent {
-  id: string;
-  label: string;
-  color: string;
-}
+const FONT_OPTIONS: { id: FontSizeChoice; label: string }[] = [
+  { id: 'small', label: 'Compact' },
+  { id: 'medium', label: 'Comfortable' },
+  { id: 'large', label: 'Spacious' },
+];
 
-const ACCENTS: Accent[] = [
-  { id: 'indigo', label: 'Indigo', color: 'var(--indigo)' },
-  { id: 'purple', label: 'Purple', color: 'var(--purple)' },
-  { id: 'blue', label: 'Blue', color: 'var(--blue)' },
-  { id: 'green', label: 'Green', color: 'var(--green)' },
+const ACCENTS: { id: AccentChoice; label: string; color: string }[] = [
+  { id: 'indigo', label: 'Indigo', color: '#6366f1' },
+  { id: 'purple', label: 'Purple', color: '#8b5cf6' },
+  { id: 'blue', label: 'Blue', color: '#3b82f6' },
+  { id: 'green', label: 'Green', color: '#10b981' },
 ];
 
 export default function AppearanceSettingsCard() {
-  const [theme, setTheme] = useState<Theme>('System');
-  const [fontSize, setFontSize] = useState<FontSize>('Medium');
-  const [accent, setAccent] = useState<string>('indigo');
+  const theme = useAppStore((s) => s.theme);
+  const fontSize = useAppStore((s) => s.fontSize);
+  const accent = useAppStore((s) => s.accent);
+  const setTheme = useAppStore((s) => s.setTheme);
+  const setFontSize = useAppStore((s) => s.setFontSize);
+  const setAccent = useAppStore((s) => s.setAccent);
+
+  const fontLabel = FONT_OPTIONS.find((f) => f.id === fontSize)?.label ?? 'Comfortable';
 
   return (
     <section className="settings-card" aria-labelledby="settings-appearance-title">
       <h2 id="settings-appearance-title" className="settings-card__title">
         Appearance
       </h2>
-      <div style={{ display: 'grid', gap: 16, paddingTop: 4 }}>
-        <div className="ds-shared-row">
-          <span className="ds-shared-label">Theme</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className="ds-shared-select">
-                <span>{theme}</span>
-                <ChevronDown size={14} />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {(['Light', 'Dark', 'System'] as Theme[]).map((t) => (
-                <DropdownMenuItem key={t} onSelect={() => setTheme(t)}>
-                  {t}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+      <p className="settings-appearance__lede">
+        Theme and density are applied immediately across the dashboard.
+      </p>
 
-        <div className="ds-shared-row">
-          <span className="ds-shared-label">Font size</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button type="button" className="ds-shared-select">
-                <span>{fontSize}</span>
-                <ChevronDown size={14} />
+      {/* ── Theme — segmented control ───────────────────────────────── */}
+      <div className="settings-appearance__row">
+        <span className="settings-appearance__label">Theme</span>
+        <div className="settings-appearance__seg" role="radiogroup" aria-label="Theme">
+          {THEME_OPTIONS.map(({ id, label, Icon }) => {
+            const selected = theme === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                className={
+                  'settings-appearance__seg-btn' +
+                  (selected ? ' settings-appearance__seg-btn--active' : '')
+                }
+                onClick={() => setTheme(id)}
+              >
+                <Icon size={14} />
+                <span>{label}</span>
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {(['Small', 'Medium', 'Large'] as FontSize[]).map((f) => (
-                <DropdownMenuItem key={f} onSelect={() => setFontSize(f)}>
-                  {f}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            );
+          })}
         </div>
+      </div>
 
-        <div className="ds-shared-row">
-          <span className="ds-shared-label">Accent color</span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {ACCENTS.map((a) => {
-              const selected = accent === a.id;
-              return (
-                <button
-                  key={a.id}
-                  type="button"
-                  aria-label={a.label}
-                  aria-pressed={selected}
-                  onClick={() => setAccent(a.id)}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    background: a.color,
-                    border: selected
-                      ? '2px solid var(--text-1)'
-                      : '2px solid transparent',
-                    boxShadow: selected ? '0 0 0 3px var(--bg)' : 'none',
-                    cursor: 'pointer',
-                  }}
-                  title={a.label}
-                />
-              );
-            })}
-          </div>
+      {/* ── Density — dropdown ─────────────────────────────────────── */}
+      <div className="settings-appearance__row">
+        <span className="settings-appearance__label">Density</span>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className="ds-shared-select settings-appearance__select">
+              <span>{fontLabel}</span>
+              <ChevronDown size={14} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {FONT_OPTIONS.map((f) => (
+              <DropdownMenuItem key={f.id} onSelect={() => setFontSize(f.id)}>
+                {f.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* ── Accent — color swatches ──────────────────────────────── */}
+      <div className="settings-appearance__row">
+        <span className="settings-appearance__label">Accent</span>
+        <div className="settings-appearance__accents">
+          {ACCENTS.map((a) => {
+            const selected = accent === a.id;
+            return (
+              <button
+                key={a.id}
+                type="button"
+                aria-label={a.label}
+                aria-pressed={selected}
+                title={a.label}
+                onClick={() => setAccent(a.id)}
+                className={
+                  'settings-appearance__swatch' +
+                  (selected ? ' settings-appearance__swatch--active' : '')
+                }
+                style={{ background: a.color }}
+              />
+            );
+          })}
         </div>
       </div>
     </section>

@@ -16,6 +16,7 @@ import { createIntegrationsSlice, type IntegrationsSlice } from "./slices/integr
 import { createUiSlice, type UiSlice } from "./slices/ui";
 import { createAnalyzerSlice, type AnalyzerSlice } from "./slices/analyzer";
 import { createAudioSlice, type AudioSlice } from "./slices/audio";
+import { createAppearanceSlice, type AppearanceSlice } from "./slices/appearance";
 
 export type AppStore = UserSlice &
   NotificationsSlice &
@@ -28,7 +29,8 @@ export type AppStore = UserSlice &
   IntegrationsSlice &
   UiSlice &
   AnalyzerSlice &
-  AudioSlice;
+  AudioSlice &
+  AppearanceSlice;
 
 const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUserSlice(...(a as Parameters<typeof createUserSlice>)),
@@ -43,6 +45,7 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUiSlice(...(a as Parameters<typeof createUiSlice>)),
   ...createAnalyzerSlice(...(a as Parameters<typeof createAnalyzerSlice>)),
   ...createAudioSlice(...(a as Parameters<typeof createAudioSlice>)),
+  ...createAppearanceSlice(...(a as Parameters<typeof createAppearanceSlice>)),
 });
 
 export const useAppStore = create<AppStore>()(
@@ -72,6 +75,9 @@ export const useAppStore = create<AppStore>()(
       integrations: state.integrations,
       audioInputId: state.audioInputId,
       audioOutputId: state.audioOutputId,
+      theme: state.theme,
+      fontSize: state.fontSize,
+      accent: state.accent,
     }),
   }),
 );
