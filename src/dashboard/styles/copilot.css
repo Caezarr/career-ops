@@ -1192,3 +1192,86 @@
   color: var(--text-3);
 }
 
+/* ── Copilot context picker (job + CV) ─────────────────────────────── */
+.dashboard-root .cp-context-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+  margin-bottom: 14px;
+}
+.dashboard-root .cp-context-picker__lede {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+.dashboard-root .cp-context-picker__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .cp-context-picker__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  text-align: left;
+  font-size: 12.5px;
+  color: var(--text-1);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.dashboard-root .cp-context-picker__row:hover {
+  border-color: var(--indigo-soft);
+}
+.dashboard-root .cp-context-picker__row > svg:first-child {
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+.dashboard-root .cp-context-picker__row-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  width: 28px;
+  flex: 0 0 auto;
+}
+.dashboard-root .cp-context-picker__row-value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.dashboard-root .cp-context-picker__row-value--muted {
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .cp-context-picker__row-chev {
+  color: var(--text-3);
+  flex: 0 0 auto;
+}
+.dashboard-root .cp-context-picker__warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--orange);
+  background: var(--orange-soft);
+  border-radius: 6px;
+  padding: 6px 8px;
+  line-height: 1.4;
+}
+.dashboard-root .cp-context-picker__warn > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+

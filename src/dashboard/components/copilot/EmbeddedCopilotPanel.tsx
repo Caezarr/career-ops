@@ -6,6 +6,7 @@ import LiveTranscript from './LiveTranscript';
 import CopilotAnswerCard from './CopilotAnswerCard';
 import ModelStatusBar from './ModelStatusBar';
 import ConfigurationPanel from './ConfigurationPanel';
+import CopilotContextPicker from './CopilotContextPicker';
 import { useAppStore } from '../../store';
 import { useCopilotControls } from '../../hooks/useCopilotSession';
 import { readCopilotConfig } from '../../hooks/useAnthropicKey';
@@ -86,21 +87,23 @@ export default function EmbeddedCopilotPanel() {
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              className="cp-btn cp-btn--primary cp-embedded-panel__start"
-              onClick={() =>
-                void start({
-                  mode,
-                })
-              }
-            >
-              <Play size={14} strokeWidth={2} fill="currentColor" />
-              <span>
-                Start {mode === 'pitch' ? 'pitch session' : 'live session'}
-              </span>
-              <span className="cp-embedded-panel__shortcut">⌘⇧Space</span>
-            </button>
+            <>
+              {/* Linked-context picker — Career OS reads JD + CV from
+                  here when the user clicks Start. Picker state is
+                  persisted so smart defaults survive a reload. */}
+              <CopilotContextPicker />
+              <button
+                type="button"
+                className="cp-btn cp-btn--primary cp-embedded-panel__start"
+                onClick={() => void start({ mode })}
+              >
+                <Play size={14} strokeWidth={2} fill="currentColor" />
+                <span>
+                  Start {mode === 'pitch' ? 'pitch session' : 'live session'}
+                </span>
+                <span className="cp-embedded-panel__shortcut">⌘⇧Space</span>
+              </button>
+            </>
           )}
         </div>
       )}

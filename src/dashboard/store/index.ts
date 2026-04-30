@@ -101,6 +101,8 @@ export const useAppStore = create<AppStore>()(
       // a reload should drop the user back to idle with the latest
       // session marked ended.
       copilotSessions: state.copilotSessions,
+      copilotPickerJobId: state.copilotPickerJobId,
+      copilotPickerCvId: state.copilotPickerCvId,
     }),
   }),
 );

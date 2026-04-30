@@ -50,12 +50,17 @@ export interface CopilotSession {
   /** Set when the user clicks Stop or the session errors out. */
   endedAt: number | null;
   mode: CopilotMode;
-  /** Optional metadata to make sessions browseable. We pull these
-   *  from whatever the user had in focus when they hit Start; they
-   *  can still be edited / annotated after the session. */
+  /** Display metadata — pulled from the linked job at start, and frozen
+   *  on the session record so renaming a job later doesn't rewrite
+   *  history. Both still optional to support sessions started without
+   *  a job context. */
   company?: string;
   role?: string;
+  /** ID of the linked Job (jobs slice). Lets the detail view jump back
+   *  to the original posting. */
   jobId?: string;
+  /** ID of the CV variant fed to Claude as context. */
+  cvId?: string;
   transcript: CopilotTranscriptItem[];
   answers: CopilotAnswerEntry[];
 }
@@ -89,6 +94,7 @@ export interface CopilotSessionsSlice {
     company?: string;
     role?: string;
     jobId?: string;
+    cvId?: string;
   }) => string;
   /** End the active session (sets endedAt and clears activeSessionId). */
   endCopilotSession: () => void;
@@ -130,7 +136,7 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
   pendingAnswer: '',
   copilotError: null,
 
-  startCopilotSession: ({ mode, company, role, jobId }) => {
+  startCopilotSession: ({ mode, company, role, jobId, cvId }) => {
     const id = newId('cs');
     const session: CopilotSession = {
       id,
@@ -140,6 +146,7 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       company,
       role,
       jobId,
+      cvId,
       transcript: [],
       answers: [],
     };
