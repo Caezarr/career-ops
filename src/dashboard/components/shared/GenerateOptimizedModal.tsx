@@ -249,8 +249,8 @@ export default function GenerateOptimizedModal({
                 Customize this run
               </label>
               <span className="ds-optimized-refinement__hint">
-                Anything off? Tell Claude what to change and regenerate — your
-                notes are layered on top of the default rules.
+                Anything off? Tell Career OS what to change and regenerate —
+                your notes are layered on top of the default rules.
               </span>
             </div>
             <textarea

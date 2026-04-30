@@ -17,7 +17,7 @@ measurable outcomes, not architecture diagrams.")
 - Quantified outcome #2
 - Quantified outcome #3
 
-# Anecdotes Claude can mine for narrative
+# Anecdotes Career OS can draw from
 - A failed project + what you learned (great for behavioural questions)
 - A leadership / stakeholder moment with measurable impact
 - Something only you would do — the contrarian decision that paid off
@@ -324,7 +324,7 @@ export default function ProfileCard() {
           <span className="settings-section-divider__hint">
             Free-form Markdown about you — background, experiences, anecdotes,
             achievements you want every CV and Copilot answer to draw from.
-            Claude reads this on top of the structured fields above.
+            Career OS reads this on top of the structured fields above.
           </span>
         </div>
 
@@ -350,7 +350,7 @@ export default function ProfileCard() {
             rows={14}
             spellCheck={false}
             placeholder={
-              "# Quick story\n…\n\n# Highlights you want every CV to surface\n- …\n\n# Anecdotes Claude can mine\n- …"
+              "# Quick story\n…\n\n# Highlights you want every CV to surface\n- …\n\n# Anecdotes Career OS can draw from\n- …"
             }
             value={profileMarkdown}
             onChange={(e) => setProfileMarkdown(e.target.value)}
