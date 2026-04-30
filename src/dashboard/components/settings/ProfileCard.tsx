@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Camera, ChevronDown, MapPin } from 'lucide-react';
+import { Camera, ChevronDown, MapPin, Phone, Link, Globe } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
 import ChangePhotoModal from '../shared/ChangePhotoModal';
@@ -15,6 +15,10 @@ export default function ProfileCard() {
   const [timezone, setTimezone] = useState(user.timezone);
   const [language, setLanguage] = useState(user.language);
   const [location, setLocation] = useState(user.location);
+  const [phone, setPhone] = useState(user.phone ?? '');
+  const [linkedin, setLinkedin] = useState(user.linkedin ?? '');
+  const [github, setGithub] = useState(user.github ?? '');
+  const [portfolio, setPortfolio] = useState(user.portfolio ?? '');
   const [photoOpen, setPhotoOpen] = useState(false);
 
   // Re-sync if the underlying store changes (e.g. another component edits it).
@@ -24,6 +28,10 @@ export default function ProfileCard() {
     setTimezone(user.timezone);
     setLanguage(user.language);
     setLocation(user.location);
+    setPhone(user.phone ?? '');
+    setLinkedin(user.linkedin ?? '');
+    setGithub(user.github ?? '');
+    setPortfolio(user.portfolio ?? '');
   }, [user]);
 
   const dirty =
@@ -31,7 +39,11 @@ export default function ProfileCard() {
     email !== user.email ||
     timezone !== user.timezone ||
     language !== user.language ||
-    location !== user.location;
+    location !== user.location ||
+    phone !== (user.phone ?? '') ||
+    linkedin !== (user.linkedin ?? '') ||
+    github !== (user.github ?? '') ||
+    portfolio !== (user.portfolio ?? '');
 
   function discard() {
     setName(user.name);
@@ -39,11 +51,25 @@ export default function ProfileCard() {
     setTimezone(user.timezone);
     setLanguage(user.language);
     setLocation(user.location);
+    setPhone(user.phone ?? '');
+    setLinkedin(user.linkedin ?? '');
+    setGithub(user.github ?? '');
+    setPortfolio(user.portfolio ?? '');
   }
 
   function save() {
     const langChanged = language !== user.language;
-    updateUser({ name, email, timezone, language, location });
+    updateUser({
+      name,
+      email,
+      timezone,
+      language,
+      location,
+      phone: phone.trim() || undefined,
+      linkedin: linkedin.trim() || undefined,
+      github: github.trim() || undefined,
+      portfolio: portfolio.trim() || undefined,
+    });
 
     // Reflect the language on the document root so screen-readers / browser
     // chrome know — full UI translation will come with proper i18n.
@@ -182,6 +208,82 @@ export default function ProfileCard() {
               onChange={(e) => setLocation(e.target.value)}
             />
             <MapPin size={16} className="settings-input__icon" />
+          </div>
+        </div>
+
+        {/* ── Contact block used by the LaTeX CV header ─────────────────── */}
+        <div className="settings-field settings-field--full settings-section-divider">
+          <span className="settings-section-divider__label">CV contact details</span>
+          <span className="settings-section-divider__hint">
+            Shown in the header of every CV variant we generate.
+          </span>
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-field__label" htmlFor="profile-phone">
+            Phone
+          </label>
+          <div className="settings-input-wrap">
+            <input
+              id="profile-phone"
+              type="tel"
+              className="settings-input settings-input--with-icon"
+              placeholder="+33 6 12 34 56 78"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <Phone size={16} className="settings-input__icon" />
+          </div>
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-field__label" htmlFor="profile-linkedin">
+            LinkedIn
+          </label>
+          <div className="settings-input-wrap">
+            <input
+              id="profile-linkedin"
+              type="url"
+              className="settings-input settings-input--with-icon"
+              placeholder="https://linkedin.com/in/your-handle"
+              value={linkedin}
+              onChange={(e) => setLinkedin(e.target.value)}
+            />
+            <Link size={16} className="settings-input__icon" />
+          </div>
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-field__label" htmlFor="profile-github">
+            GitHub
+          </label>
+          <div className="settings-input-wrap">
+            <input
+              id="profile-github"
+              type="url"
+              className="settings-input settings-input--with-icon"
+              placeholder="https://github.com/your-handle"
+              value={github}
+              onChange={(e) => setGithub(e.target.value)}
+            />
+            <Link size={16} className="settings-input__icon" />
+          </div>
+        </div>
+
+        <div className="settings-field">
+          <label className="settings-field__label" htmlFor="profile-portfolio">
+            Portfolio
+          </label>
+          <div className="settings-input-wrap">
+            <input
+              id="profile-portfolio"
+              type="url"
+              className="settings-input settings-input--with-icon"
+              placeholder="https://your-site.com"
+              value={portfolio}
+              onChange={(e) => setPortfolio(e.target.value)}
+            />
+            <Globe size={16} className="settings-input__icon" />
           </div>
         </div>
 

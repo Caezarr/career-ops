@@ -20,6 +20,14 @@ export interface User {
   avatarUrl?: string;
   targetRole: string;
   targetCompany: string;
+  // ── Optimization-CV contact block (used in the LaTeX header).
+  // All optional — empty fields are simply omitted from the generated CV.
+  phone?: string;
+  linkedin?: string;
+  github?: string;
+  portfolio?: string;
+  /** True once the user has completed (or skipped) the onboarding flow. */
+  onboardingComplete?: boolean;
 }
 
 // ─── Notifications ──────────────────────────────────────────────────────────

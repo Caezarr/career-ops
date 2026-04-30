@@ -844,3 +844,25 @@
 .dashboard-root .settings-danger__btn:hover {
   background: rgba(254, 226, 226, 0.6);
 }
+
+/* ── Section divider inside the Profile card (for CV contact block) ──────── */
+.dashboard-root .settings-section-divider {
+  display: flex !important;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+  grid-column: 1 / -1;
+}
+.dashboard-root .settings-section-divider__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .settings-section-divider__hint {
+  font-size: 12px;
+  color: var(--text-2);
+}

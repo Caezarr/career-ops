@@ -1,6 +1,7 @@
 mod ai;
 mod audio;
 mod db;
+mod latex;
 mod llm;
 mod pdf;
 mod session;
@@ -624,6 +625,124 @@ async fn analyze_cv_ats(
     Ok(analysis)
 }
 
+// ── AI: CV optimization (LaTeX → PDF) ─────────────────────────────────────────
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OptimizedCvResult {
+    /// Path to the generated PDF on disk.
+    pub pdf_path: String,
+    /// Path to the generated LaTeX source (kept so the user can re-edit / re-compile).
+    pub tex_path: String,
+    /// Compiler that produced the PDF (e.g. 'pdflatex (MacTeX)').
+    pub compiler: &'static str,
+    /// LaTeX source string (also returned so the frontend can preview / store).
+    pub tex_source: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GenerateOptimizedCvInput {
+    pub cv_text: String,
+    pub jd_text: String,
+    /// JSON-stringified ATS analysis (suggestions, missing keywords, etc.).
+    /// We pass it as a string so the command signature stays simple.
+    pub analysis_json: String,
+    pub profile_block: String,
+    pub anthropic_key: String,
+    pub model: Option<String>,
+}
+
+/// End-to-end pipeline: prompt Claude → get .tex → compile → return PDF path.
+#[tauri::command]
+async fn generate_optimized_cv(
+    app: tauri::AppHandle,
+    input: GenerateOptimizedCvInput,
+) -> Result<OptimizedCvResult, String> {
+    use crate::latex::pick_compiler;
+
+    if input.cv_text.trim().is_empty() {
+        return Err("CV text is empty — re-upload the source CV first".into());
+    }
+    if input.anthropic_key.trim().is_empty() {
+        return Err("Anthropic API key is empty".into());
+    }
+
+    // 1. Ask Claude for the full .tex source.
+    let cfg = ai::AiConfig::new(input.anthropic_key, input.model);
+    let user_msg = ai::prompts::optimize::build_user_message(
+        &input.cv_text,
+        &input.jd_text,
+        &input.analysis_json,
+        &input.profile_block,
+    );
+    let mut tex_source = ai::anthropic::ask_completion(
+        &cfg,
+        ai::prompts::optimize::OPTIMIZE_SYSTEM,
+        &user_msg,
+        // 8000 tokens covers a single-page CV with margin to spare.
+        8000,
+    )
+    .await
+    .map_err(|e| format!("AI generation failed: {e}"))?;
+
+    // Defensive: strip any accidental markdown fences. The system prompt forbids
+    // them but we belt-and-suspenders the output to keep pdflatex happy.
+    tex_source = strip_markdown_fences(&tex_source).to_string();
+
+    // 2. Resolve the best LaTeX compiler available on the host.
+    let compiler = pick_compiler()
+        .await
+        .map_err(|e| format!("LaTeX compiler unavailable: {e}"))?;
+
+    // 3. Compile to PDF inside the per-app data dir.
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app data dir: {e}"))?;
+    let optims_dir = app_data.join("optimizations");
+
+    let pdf_path = compiler
+        .compile(&tex_source, &optims_dir)
+        .await
+        .map_err(|e| format!("LaTeX compilation failed:\n{e}"))?;
+
+    // 4. Save the .tex alongside so the user can re-edit later.
+    let tex_path = pdf_path.with_extension("tex");
+    tokio::fs::write(&tex_path, tex_source.as_bytes())
+        .await
+        .map_err(|e| format!("save .tex: {e}"))?;
+
+    Ok(OptimizedCvResult {
+        pdf_path: pdf_path.to_string_lossy().into_owned(),
+        tex_path: tex_path.to_string_lossy().into_owned(),
+        compiler: compiler.name(),
+        tex_source,
+    })
+}
+
+/// Surface which LaTeX backends are available on this host so the UI can
+/// show a 'MacTeX missing — install it' banner when nothing's found.
+#[tauri::command]
+async fn detect_latex_compilers() -> Result<latex::CompilerAvailability, String> {
+    Ok(latex::detect_compilers().await)
+}
+
+/// Strip leading / trailing markdown code fences if Claude slipped any in.
+fn strip_markdown_fences(s: &str) -> &str {
+    let trimmed = s.trim();
+    if let Some(rest) = trimmed.strip_prefix("```latex") {
+        return rest.trim_start().trim_end_matches("```").trim();
+    }
+    if let Some(rest) = trimmed.strip_prefix("```tex") {
+        return rest.trim_start().trim_end_matches("```").trim();
+    }
+    if let Some(rest) = trimmed.strip_prefix("```") {
+        return rest.trim_start().trim_end_matches("```").trim();
+    }
+    trimmed
+}
+
 async fn run_pipeline(
     app: tauri::AppHandle,
     state: Arc<Mutex<AppState>>,
@@ -813,7 +932,10 @@ pub fn run() {
             // DB: dashboard aggregate
             db_dashboard_stats,
             // AI: ATS analysis
-            analyze_cv_ats
+            analyze_cv_ats,
+            // AI: CV optimization (LaTeX → PDF)
+            generate_optimized_cv,
+            detect_latex_compilers
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
