@@ -50,9 +50,12 @@ export default function ApplicationDetail() {
         stage={application.stage}
       />
       <DetailMeta
-        salary={application.salary ?? '—'}
-        workMode={application.workMode ?? '—'}
-        recruiter={application.recruiter ?? '—'}
+        applicationId={application.id}
+        salary={application.salary}
+        workMode={application.workMode}
+        recruiter={application.recruiter}
+        sourceUrl={application.sourceUrl}
+        coverLetter={application.coverLetter}
         appliedDate={`Applied ${application.appliedDate}`}
       />
       <ApplicationMaterials

@@ -111,14 +111,16 @@ export default function NewApplicationModal({
       stage,
       company: job.company,
       role: job.role,
+      sourceUrl: sourceUrl.trim() || undefined,
+      coverLetter: coverLetter.trim() || undefined,
+      // Persist the salary string the user typed so the detail panel
+      // can show it (instead of falling back to "—").
+      salary: salaryRange.trim() || undefined,
     });
     setSelectedApplication(app.id);
     toast.success("Application created", `${job.company} · ${job.role}`);
     navigate("applications");
     onClose();
-    // Suppress unused warnings — sourceUrl/coverLetter would be saved server-side.
-    void sourceUrl;
-    void coverLetter;
   }
 
   return (

@@ -108,6 +108,11 @@ export interface ApplicationsSlice {
     company?: string;
     role?: string;
     match?: number;
+    sourceUrl?: string;
+    coverLetter?: string;
+    salary?: string;
+    workMode?: string;
+    recruiter?: string;
   }) => Application;
   updateApplicationStage: (id: string, stage: ApplicationStage) => void;
   updateApplicationNotes: (id: string, notes: string) => void;
@@ -118,6 +123,25 @@ export interface ApplicationsSlice {
    *  record. Called from `generateApplicationNextSteps()` after the
    *  Rust call returns. */
   setApplicationNextSteps: (id: string, steps: string[]) => void;
+  /** Generic patch action for inline editors — salary, workMode,
+   *  recruiter, sourceUrl, coverLetter, nextStep. Persists the
+   *  patch and stamps lastActivity so the table sort reflects the
+   *  edit. */
+  updateApplicationFields: (
+    id: string,
+    patch: Partial<
+      Pick<
+        Application,
+        | 'salary'
+        | 'workMode'
+        | 'recruiter'
+        | 'sourceUrl'
+        | 'coverLetter'
+        | 'nextStep'
+        | 'cvId'
+      >
+    >,
+  ) => void;
 }
 
 export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) => ({
@@ -150,6 +174,11 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
       nextStep: "Send follow-up",
       archived: false,
       notes: "",
+      salary: input.salary,
+      workMode: input.workMode,
+      recruiter: input.recruiter,
+      sourceUrl: input.sourceUrl,
+      coverLetter: input.coverLetter,
       materials: [],
       timeline: [
         {
@@ -222,6 +251,22 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
     set((state) => ({
       applications: state.applications.map((a) =>
         a.id === id ? { ...a, aiNextSteps: steps } : a,
+      ),
+    })),
+
+  updateApplicationFields: (id, patch) =>
+    set((state) => ({
+      applications: state.applications.map((a) =>
+        a.id === id
+          ? {
+              ...a,
+              ...patch,
+              // Stamp lastActivity so "recent" sorts surface the
+              // freshly-edited row and the user gets visual
+              // confirmation of the save.
+              lastActivity: 'Just now',
+            }
+          : a,
       ),
     })),
 });

@@ -124,6 +124,10 @@ export interface Application {
   salary?: string;
   workMode?: string;
   recruiter?: string;
+  /** URL of the original job posting (LinkedIn, careers page…). */
+  sourceUrl?: string;
+  /** Cover-letter draft attached to this application. */
+  coverLetter?: string;
   materials: ApplicationMaterial[];
   timeline: TimelineEvent[];
   aiNextSteps: string[];

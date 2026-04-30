@@ -501,6 +501,96 @@
   flex-shrink: 0;
 }
 
+/* Editable meta variants — display ⇄ inline editor. */
+.dashboard-root .app-detail__meta-item--editable {
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.dashboard-root .app-detail__meta-item--editable:hover {
+  background: var(--bg-soft);
+}
+.dashboard-root .app-detail__meta-item--editable:hover .app-detail__meta-pencil {
+  opacity: 1;
+}
+.dashboard-root .app-detail__meta-pencil {
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.dashboard-root .app-detail__meta-item--empty {
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .app-detail__meta-item--readonly {
+  padding: 4px 8px;
+}
+.dashboard-root .app-detail__meta-item--editing {
+  background: var(--bg-soft);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--indigo);
+}
+.dashboard-root .app-detail__meta-input {
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: inherit;
+  color: var(--text-1);
+  min-width: 120px;
+  width: 100%;
+}
+.dashboard-root .app-detail__meta-textarea {
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-1);
+  resize: vertical;
+  width: 100%;
+  min-width: 240px;
+}
+.dashboard-root .app-detail__meta-item--cover {
+  flex-basis: 100%;
+}
+.dashboard-root .app-detail__meta-item--link {
+  padding: 4px 8px;
+}
+.dashboard-root .app-detail__meta-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: var(--indigo-text);
+  font: inherit;
+}
+.dashboard-root .app-detail__meta-link:hover {
+  text-decoration: underline;
+}
+.dashboard-root .app-detail__meta-pencil-btn {
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  cursor: pointer;
+  color: var(--text-3);
+  border-radius: 4px;
+  transition: background 120ms ease, color 120ms ease;
+}
+.dashboard-root .app-detail__meta-pencil-btn:hover {
+  background: var(--bg-soft);
+  color: var(--text-1);
+}
+
 /* Section heading */
 .dashboard-root .app-detail__section-title {
   font-size: 13px;
