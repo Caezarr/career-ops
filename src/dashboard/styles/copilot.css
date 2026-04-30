@@ -1275,3 +1275,175 @@
   margin-top: 1px;
 }
 
+/* Clickable Recent Activity row — base item already styled, just a
+   hover and pointer affordance when rendered as <button>. */
+.dashboard-root .cp-activity-item--clickable {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  border-radius: 8px;
+  transition: background 120ms ease;
+}
+.dashboard-root .cp-activity-item--clickable:hover {
+  background: var(--bg-soft);
+}
+
+/* ── Session detail modal ─────────────────────────────────────────── */
+.dashboard-root .cp-detail__meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.dashboard-root .cp-detail__meta-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.dashboard-root .cp-detail__meta-cell > svg {
+  color: var(--text-3);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.dashboard-root .cp-detail__meta-cell > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dashboard-root .cp-detail__meta-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .cp-detail__meta-value {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-1);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-root .cp-detail__empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.dashboard-root .cp-detail__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.dashboard-root .cp-detail__system {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--bg-soft);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-style: italic;
+}
+.dashboard-root .cp-detail__bubble {
+  background: var(--purple-soft);
+  border-left: 2px solid var(--purple);
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 95%;
+}
+.dashboard-root .cp-detail__bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.dashboard-root .cp-detail__bubble-meta > svg:first-child {
+  color: var(--purple);
+}
+.dashboard-root .cp-detail__bubble-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dashboard-root .cp-detail__bubble-time {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  margin-left: auto;
+}
+.dashboard-root .cp-detail__bubble-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-1);
+}
+
+.dashboard-root .cp-detail__answer {
+  background: var(--indigo-soft);
+  border-left: 2px solid var(--indigo);
+  padding: 8px 12px;
+  border-radius: 8px;
+  max-width: 95%;
+  align-self: flex-end;
+}
+.dashboard-root .cp-detail__answer-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.dashboard-root .cp-detail__answer-meta > svg:first-child {
+  color: var(--indigo);
+}
+.dashboard-root .cp-detail__answer-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--indigo-text);
+}
+.dashboard-root .cp-detail__answer-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: transparent;
+  margin-left: 6px;
+}
+.dashboard-root .cp-detail__answer-copy:hover {
+  background: var(--bg);
+  color: var(--text-1);
+}
+.dashboard-root .cp-detail__answer-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-1);
+  white-space: pre-wrap;
+}
+

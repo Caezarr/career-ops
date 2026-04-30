@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Mic, Sparkles, Square } from 'lucide-react';
 import { useAppStore } from '../../store';
 import type { CopilotSession } from '../../store/slices/copilotSessions';
+import CopilotSessionDetailModal from './CopilotSessionDetailModal';
 
 function formatRelative(at: number): string {
   const elapsedMs = Date.now() - at;
@@ -45,9 +47,12 @@ function summarise(session: CopilotSession): {
 /** Recent activity surfaces the user's last 5 Copilot sessions, pulled
  *  from the persisted `copilotSessions` slice. The legacy mock-driven
  *  feed (mock interview / AI feedback / resume tailored) has been
- *  replaced by real data — every Start session leaves a row here. */
+ *  replaced by real data — every Start session leaves a row here.
+ *  Rows are clickable and open the detail modal with the full
+ *  transcript + answers timeline. */
 export default function RecentActivity() {
   const sessions = useAppStore((s) => s.copilotSessions);
+  const [openId, setOpenId] = useState<string | null>(null);
   const recent = sessions.slice(0, 5);
 
   return (
@@ -65,7 +70,13 @@ export default function RecentActivity() {
           {recent.map((sess) => {
             const { title, subtitle, Icon, variant } = summarise(sess);
             return (
-              <div className="cp-activity-item" key={sess.id}>
+              <button
+                type="button"
+                className="cp-activity-item cp-activity-item--clickable"
+                key={sess.id}
+                onClick={() => setOpenId(sess.id)}
+                title="Open transcript"
+              >
                 <div className={`cp-activity-icon ${variant}`} aria-hidden="true">
                   <Icon size={16} strokeWidth={2} />
                 </div>
@@ -76,11 +87,17 @@ export default function RecentActivity() {
                 <span className="cp-activity-item__timestamp">
                   {formatRelative(sess.startedAt)}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
       )}
+
+      <CopilotSessionDetailModal
+        open={openId !== null}
+        sessionId={openId}
+        onClose={() => setOpenId(null)}
+      />
     </section>
   );
 }
