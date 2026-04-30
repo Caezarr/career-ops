@@ -1,13 +1,13 @@
 import { open as openPath } from '@tauri-apps/plugin-shell';
-import type { BillingPlan } from '../store/slices/billing';
 
 /**
  * Stripe-side stubs the Settings → Billing card calls into.
  *
- *  Today these open a placeholder URL because we don't have a back-end.
- *  When the real Stripe integration ships, replace each implementation
- *  with the documented call to our future `/api/billing/*` endpoints —
- *  the call-site signatures stay identical so no UI change is needed.
+ *  Today this opens a placeholder URL because we don't have a back-end
+ *  or finalised pricing. When the real Stripe integration ships,
+ *  replace the implementation with the documented call to our future
+ *  `/api/billing/*` endpoints — the call signature stays identical so
+ *  no UI change is needed.
  *
  *  Architecture target:
  *
@@ -18,11 +18,9 @@ import type { BillingPlan } from '../store/slices/billing';
  *    3. Backend returns `{ url }`.
  *    4. Frontend opens `url` via Tauri's shell plugin.
  *
- *  Same pattern for checkout: backend creates a Checkout Session for
- *  the picked plan + cycle, frontend opens the returned URL.
- *
  *  None of this is online yet — everything below short-circuits to a
- *  marketing page with a clear "coming soon" notice. */
+ *  marketing page with a clear "coming soon" notice. Plan checkout +
+ *  comparison have been removed from the UI until pricing is locked. */
 
 /** Replaced once we have a billing back-end. */
 const BILLING_LANDING_URL = 'https://career-os.app/billing';
@@ -30,17 +28,4 @@ const BILLING_LANDING_URL = 'https://career-os.app/billing';
 export async function openCustomerPortal(): Promise<void> {
   // TODO(stripe): POST /api/billing/portal-session → { url }
   await openPath(`${BILLING_LANDING_URL}?intent=manage`);
-}
-
-export async function startCheckout(
-  plan: Exclude<BillingPlan, 'free' | 'enterprise'>,
-  cycle: 'monthly' | 'annual',
-): Promise<void> {
-  // TODO(stripe): POST /api/billing/checkout-session { plan, cycle } → { url }
-  await openPath(`${BILLING_LANDING_URL}?intent=upgrade&plan=${plan}&cycle=${cycle}`);
-}
-
-export async function contactSales(): Promise<void> {
-  // Enterprise — real plan is direct sales, not self-serve checkout.
-  await openPath('https://career-os.app/enterprise');
 }

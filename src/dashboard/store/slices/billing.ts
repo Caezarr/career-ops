@@ -43,30 +43,6 @@ export const PLAN_LIMITS: Record<BillingPlan, PlanLimits> = {
   },
 };
 
-export const PLAN_PRICING: Record<
-  BillingPlan,
-  { monthly: number | null; annual: number | null; label: string; tagline: string }
-> = {
-  free: {
-    monthly: 0,
-    annual: 0,
-    label: 'Free',
-    tagline: 'Local-only, BYO API key. Perfect to test the full pipeline.',
-  },
-  pro: {
-    monthly: 19,
-    annual: 190,
-    label: 'Pro',
-    tagline: 'Higher limits, hosted AI quota, priority support.',
-  },
-  enterprise: {
-    monthly: null,
-    annual: null,
-    label: 'Enterprise',
-    tagline: 'Custom contracts, SSO, audit log. Talk to sales.',
-  },
-};
-
 /** Persisted billing state. Today everyone is on `free` with no
  *  subscription — the back-end will hydrate this from Stripe webhooks
  *  once we wire it up.

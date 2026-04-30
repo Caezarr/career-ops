@@ -136,33 +136,6 @@
   }
 }
 
-/* ── Accent swapping — [data-accent] on <html> ────────────────────────────
-   Only --accent / --accent-soft / --accent-text shift; brand colours like
-   --green and --red are semantic and don't follow the accent. */
-:where(html[data-accent="purple"]) .dashboard-root {
-  --accent:       #8b5cf6;
-  --accent-soft:  rgba(139, 92, 246, 0.16);
-  --accent-text:  #7c3aed;
-}
-:where(html[data-accent="blue"]) .dashboard-root {
-  --accent:       #3b82f6;
-  --accent-soft:  rgba(59, 130, 246, 0.16);
-  --accent-text:  #2563eb;
-}
-:where(html[data-accent="green"]) .dashboard-root {
-  --accent:       #10b981;
-  --accent-soft:  rgba(16, 185, 129, 0.16);
-  --accent-text:  #059669;
-}
-
-/* ── Density / font-size scale — [data-density] on .dashboard-root ────────
-   Scales the root font size; everything specified in rem follows. Pixel
-   values stay fixed (intentional — hit targets shouldn't shrink with
-   density). */
-.dashboard-root[data-density="small"]  { font-size: 13px; }
-.dashboard-root[data-density="medium"] { font-size: 14px; }
-.dashboard-root[data-density="large"]  { font-size: 15.5px; }
-
 /* Reset for dashboard subtree only — Copilot has its own reset on `*` */
 .dashboard-root,
 .dashboard-root * {

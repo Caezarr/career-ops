@@ -85,8 +85,6 @@ export const useAppStore = create<AppStore>()(
       audioInputId: state.audioInputId,
       audioOutputId: state.audioOutputId,
       theme: state.theme,
-      fontSize: state.fontSize,
-      accent: state.accent,
       notificationPrefs: state.notificationPrefs,
       plan: state.plan,
       cycle: state.cycle,

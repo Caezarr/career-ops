@@ -1,34 +1,23 @@
-import { Crown, ExternalLink, Sparkles, Check } from 'lucide-react';
+import { Crown, ExternalLink } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { useBillingUsage, type UsageRow } from '../../hooks/useBillingUsage';
-import {
-  PLAN_PRICING,
-  PLAN_LIMITS,
-  type BillingPlan,
-} from '../../store/slices/billing';
 import { useToast } from '../../primitives';
-import { contactSales, openCustomerPortal, startCheckout } from '../../lib/stripe';
+import { openCustomerPortal } from '../../lib/stripe';
 
-const PLAN_PERKS: Record<BillingPlan, string[]> = {
-  free: [
-    'Bring-your-own Anthropic / OpenAI keys',
-    'Local CV manager + ATS analysis',
-    '3 CV variants, 10 ATS analyses, 5 optimizations',
-    'Live Copilot — 30 min / month',
-  ],
-  pro: [
-    'Hosted AI quota (no API key juggling)',
-    'Unlimited CV variants + applications',
-    '200 ATS analyses, 100 optimizations',
-    '600 Copilot minutes / month',
-    'Priority support',
-  ],
-  enterprise: [
-    'Custom contracts & invoicing',
-    'SSO + audit log',
-    'Unlimited everything',
-    'Dedicated success engineer',
-  ],
+/** Friendly plan label — keeps the data layer's enum stable while we
+ *  display something more readable. Pricing is intentionally NOT shown
+ *  here: it isn't finalised yet, and we'd rather omit it than ship
+ *  numbers that are about to change. */
+const PLAN_LABEL: Record<string, string> = {
+  free: 'Local',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+};
+
+const PLAN_TAGLINE: Record<string, string> = {
+  free: 'You bring your own AI keys; everything stays on this device.',
+  pro: 'Hosted AI quota and higher limits.',
+  enterprise: 'Custom contract — talk to us.',
 };
 
 export default function BillingCard() {
@@ -38,7 +27,6 @@ export default function BillingCard() {
   const usage = useBillingUsage();
   const toast = useToast();
 
-  const pricing = PLAN_PRICING[plan];
   const isPaid = plan !== 'free';
   const renewalDate =
     currentPeriodEnd != null
@@ -55,21 +43,8 @@ export default function BillingCard() {
     } catch {
       toast.info(
         'Billing portal coming soon',
-        'Self-serve plan changes unlock once the Stripe back-end ships.',
+        'Self-serve plan changes unlock once the back-end ships.',
       );
-    }
-  }
-
-  async function handleUpgrade(target: BillingPlan) {
-    try {
-      if (target === 'enterprise') {
-        await contactSales();
-        return;
-      }
-      if (target === 'free') return;
-      await startCheckout(target, cycle);
-    } catch {
-      toast.info('Checkout coming soon', 'Career OS is local-first today — no charges.');
     }
   }
 
@@ -90,14 +65,18 @@ export default function BillingCard() {
             </h2>
             <div className="settings-billing__plan-row">
               <span className="settings-billing__eyebrow">Current plan</span>
-              <span className="settings-billing__plan">{pricing.label}</span>
+              <span className="settings-billing__plan">
+                {PLAN_LABEL[plan] ?? plan}
+              </span>
               {isPaid && (
                 <span className="settings-billing__cycle">
                   {cycle === 'annual' ? 'Annual' : 'Monthly'}
                 </span>
               )}
             </div>
-            <p className="settings-billing__tagline">{pricing.tagline}</p>
+            <p className="settings-billing__tagline">
+              {PLAN_TAGLINE[plan] ?? ''}
+            </p>
           </div>
         </div>
 
@@ -141,83 +120,6 @@ export default function BillingCard() {
           {usage.map((row) => (
             <UsageRowView key={row.id} row={row} />
           ))}
-        </div>
-      </div>
-
-      {/* ── Plan comparison strip (free / pro / enterprise) ───────── */}
-      <div className="settings-billing__plans">
-        <span className="settings-billing__eyebrow">Compare plans</span>
-        <div className="settings-billing__plans-grid">
-          {(Object.keys(PLAN_PRICING) as BillingPlan[]).map((p) => {
-            const isCurrent = p === plan;
-            const pp = PLAN_PRICING[p];
-            const limits = PLAN_LIMITS[p];
-            return (
-              <div
-                key={p}
-                className={
-                  'settings-billing__plan-card' +
-                  (isCurrent ? ' settings-billing__plan-card--current' : '')
-                }
-              >
-                <div className="settings-billing__plan-card-head">
-                  <span className="settings-billing__plan-card-name">
-                    {pp.label}
-                    {isCurrent && (
-                      <span className="settings-billing__plan-card-badge">Current</span>
-                    )}
-                  </span>
-                  <span className="settings-billing__plan-card-price">
-                    {pp.monthly === null
-                      ? 'Custom'
-                      : pp.monthly === 0
-                      ? 'Free'
-                      : `$${cycle === 'annual' ? Math.round((pp.annual ?? 0) / 12) : pp.monthly}/mo`}
-                  </span>
-                </div>
-                <ul className="settings-billing__plan-perks">
-                  {PLAN_PERKS[p].map((perk) => (
-                    <li key={perk}>
-                      <Check size={12} />
-                      <span>{perk}</span>
-                    </li>
-                  ))}
-                </ul>
-                {!isCurrent && (
-                  <button
-                    type="button"
-                    className={
-                      'ds-btn ' +
-                      (p === 'enterprise'
-                        ? 'ds-btn--secondary'
-                        : 'ds-btn--primary')
-                    }
-                    onClick={() => handleUpgrade(p)}
-                    disabled={p === 'free'}
-                  >
-                    {p === 'enterprise' ? (
-                      <>
-                        <ExternalLink size={13} />
-                        <span style={{ marginLeft: 6 }}>Talk to sales</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={13} />
-                        <span style={{ marginLeft: 6 }}>Upgrade</span>
-                      </>
-                    )}
-                  </button>
-                )}
-                {/* Free shows the limits compactly so the card is balanced. */}
-                {p === 'free' && (
-                  <div className="settings-billing__plan-limit-summary">
-                    {limits.cvVariants}× CV ·{' '}
-                    {limits.atsAnalysesLifetime} analyses
-                  </div>
-                )}
-              </div>
-            );
-          })}
         </div>
       </div>
     </section>
