@@ -858,6 +858,14 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        // Autostart plugin — exposes is_enabled / enable / disable to the
+        // frontend so the Settings → Notifications "Start on login" toggle
+        // can install/remove a real macOS LaunchAgent. We register with
+        // None for args; the Settings UI is the only place that flips it.
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             let state = Arc::new(Mutex::new(AppState::default()));
             app.manage(state);

@@ -557,6 +557,12 @@
   min-width: 0;
 }
 
+.dashboard-root .settings-pref__title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .dashboard-root .settings-pref__title {
   font-size: 13px;
   font-weight: 600;
@@ -569,6 +575,33 @@
   color: var(--text-2);
   line-height: 1.4;
   margin-top: 2px;
+}
+
+.dashboard-root .settings-pref__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+  line-height: 1.4;
+}
+
+/* Coming-soon variant: dim the icon/text and disable pointer interaction
+   on the toggle (the component itself short-circuits onChange). */
+.dashboard-root .settings-pref--soon .settings-pref__icon,
+.dashboard-root .settings-pref--soon .settings-pref__title,
+.dashboard-root .settings-pref--soon .settings-pref__subtitle {
+  opacity: 0.55;
+}
+.dashboard-root .settings-pref--soon .set-toggle {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* ── Toggle (reusable) ────────────────────────────────────────────────────── */

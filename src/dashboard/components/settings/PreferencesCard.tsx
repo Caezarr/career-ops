@@ -1,30 +1,55 @@
-import {
-  Keyboard,
-  Power,
-  Mail,
-  Activity,
-  Sparkles,
-} from 'lucide-react';
+import { Keyboard, Power, Mail, Activity, Sparkles } from 'lucide-react';
 import PreferenceItem from './PreferenceItem';
-import { mockPreferences, type PreferenceIcon } from '../../data/settings';
 import { useAppStore } from '../../store';
 import type { Preferences } from '../../store';
 
-const ICONS: Record<PreferenceIcon, React.ComponentType<{ size?: number; strokeWidth?: number }>> = {
-  keyboard: Keyboard,
-  power: Power,
-  mail: Mail,
-  activity: Activity,
-  sparkles: Sparkles,
-};
+/** Each row maps to a key on the `preferences` slice. The `comingSoon`
+ *  flag tells the user we haven't built the back-end yet — keyboard
+ *  shortcuts and start-on-login are wired for real, the rest will land
+ *  once we have a notification service. */
+interface PrefRow {
+  id: keyof Preferences;
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  title: string;
+  subtitle: string;
+  comingSoon?: boolean;
+}
 
-const ID_TO_KEY: Record<string, keyof Preferences> = {
-  kbd: 'keyboardShortcuts',
-  login: 'startOnLogin',
-  email: 'emailNotifications',
-  insights: 'weeklyInsights',
-  ai: 'aiActivitySummaries',
-};
+const ROWS: PrefRow[] = [
+  {
+    id: 'keyboardShortcuts',
+    Icon: Keyboard,
+    title: 'Keyboard shortcuts',
+    subtitle: 'Enable global shortcuts like ⌘K to open the command palette.',
+  },
+  {
+    id: 'startOnLogin',
+    Icon: Power,
+    title: 'Start on login',
+    subtitle: 'Open Career OS automatically when you log in to macOS.',
+  },
+  {
+    id: 'emailNotifications',
+    Icon: Mail,
+    title: 'Email notifications',
+    subtitle: 'Receive important updates by email — needs a notification service.',
+    comingSoon: true,
+  },
+  {
+    id: 'weeklyInsights',
+    Icon: Activity,
+    title: 'Weekly insights',
+    subtitle: 'Summary of your prep activity and pipeline movement once a week.',
+    comingSoon: true,
+  },
+  {
+    id: 'aiActivitySummaries',
+    Icon: Sparkles,
+    title: 'AI activity summaries',
+    subtitle: 'Periodic recap of how Career OS used your AI credits.',
+    comingSoon: true,
+  },
+];
 
 export default function PreferencesCard() {
   const preferences = useAppStore((s) => s.preferences);
@@ -40,20 +65,17 @@ export default function PreferencesCard() {
       </h2>
 
       <div className="settings-preferences__list">
-        {mockPreferences.map((pref) => {
-          const Icon = ICONS[pref.icon];
-          const key = ID_TO_KEY[pref.id];
-          const checked = key ? preferences[key] : pref.enabled;
+        {ROWS.map((row) => {
+          const { id, Icon, title, subtitle, comingSoon } = row;
           return (
             <PreferenceItem
-              key={pref.id}
+              key={id}
               icon={<Icon size={16} strokeWidth={2} />}
-              title={pref.title}
-              subtitle={pref.subtitle}
-              checked={checked}
-              onChange={(next) => {
-                if (key) setPreference(key, next);
-              }}
+              title={title}
+              subtitle={subtitle}
+              checked={preferences[id]}
+              comingSoon={comingSoon}
+              onChange={(next) => setPreference(id, next)}
             />
           );
         })}
