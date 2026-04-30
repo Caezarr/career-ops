@@ -604,6 +604,21 @@
   pointer-events: none;
 }
 
+/* Notifications card: chime tester row at the bottom. */
+.dashboard-root .settings-notif__test {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border-soft);
+}
+.dashboard-root .settings-notif__test-hint {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
 /* ── Toggle (reusable) ────────────────────────────────────────────────────── */
 .dashboard-root .set-toggle {
   position: relative;
