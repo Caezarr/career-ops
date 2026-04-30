@@ -114,6 +114,10 @@ export interface ApplicationsSlice {
   archiveApplication: (id: string) => void;
   unarchiveApplication: (id: string) => void;
   deleteApplication: (id: string) => void;
+  /** Persist Claude-generated next-step strings on the application
+   *  record. Called from `generateApplicationNextSteps()` after the
+   *  Rust call returns. */
+  setApplicationNextSteps: (id: string, steps: string[]) => void;
 }
 
 export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) => ({
@@ -212,5 +216,12 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
       applications: state.applications.filter((a) => a.id !== id),
       selectedApplicationId:
         state.selectedApplicationId === id ? null : state.selectedApplicationId,
+    })),
+
+  setApplicationNextSteps: (id, steps) =>
+    set((state) => ({
+      applications: state.applications.map((a) =>
+        a.id === id ? { ...a, aiNextSteps: steps } : a,
+      ),
     })),
 });

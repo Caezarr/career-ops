@@ -57,7 +57,13 @@ export default function ApplicationDetail() {
         onAdd={() => setUploadOpen(true)}
       />
       <ApplicationTimeline events={application.timeline} />
-      <AINextStepsCard steps={application.aiNextSteps} />
+      <AINextStepsCard
+        application={application}
+        // Job is the source of truth for company / role / JD text. We
+        // pass the slim shape the card needs rather than the whole
+        // Job object to keep the boundary tight.
+        job={job ? { company: job.company, role: job.role, jdText: job.jdText } : null}
+      />
 
       <div className="app-detail__actions">
         <button
