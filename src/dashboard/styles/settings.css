@@ -186,6 +186,20 @@
   color: currentColor;
 }
 
+/* "Beta" chip displayed inline next to a nav label. Sits at the right
+   edge so it doesn't shift the label baseline. */
+.dashboard-root .settings-nav__chip {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
 /* ── Profile card ─────────────────────────────────────────────────────────── */
 .dashboard-root .settings-profile__top {
   display: flex;
@@ -836,6 +850,140 @@
 @keyframes settings-danger-spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* ── Feedback (beta) — card + modal share these classes ───────────────── */
+.dashboard-root .settings-feedback__beta-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+.dashboard-root .settings-feedback__lede {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin: -8px 0 16px;
+}
+
+.dashboard-root .settings-feedback__severity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.dashboard-root .settings-feedback__sev-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  border-radius: 8px;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.dashboard-root .settings-feedback__sev-btn:hover {
+  background: var(--bg-soft);
+  color: var(--text-1);
+}
+.dashboard-root .settings-feedback__sev-btn--active {
+  color: var(--text-1);
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 1px var(--indigo) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--crash.settings-feedback__sev-btn--active {
+  border-color: var(--red);
+  box-shadow: 0 0 0 1px var(--red) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--bug.settings-feedback__sev-btn--active {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 1px var(--orange) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--idea.settings-feedback__sev-btn--active {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue) inset;
+}
+.dashboard-root .settings-feedback__sev-btn--praise.settings-feedback__sev-btn--active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green) inset;
+}
+
+.dashboard-root .settings-feedback__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.dashboard-root .settings-feedback__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .settings-feedback__field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.dashboard-root .settings-feedback__textarea {
+  font-family: inherit;
+  font-size: 12.5px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.dashboard-root .settings-feedback__diag {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+}
+.dashboard-root .settings-feedback__diag-title {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.dashboard-root .settings-feedback__diag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.dashboard-root .settings-feedback__diag-list strong {
+  color: var(--text-1);
+  font-weight: 600;
+  margin-right: 4px;
+}
+.dashboard-root .settings-feedback__diag-code {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.dashboard-root .settings-feedback__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }
 
 /* ── Toggle (reusable) ────────────────────────────────────────────────────── */

@@ -17,13 +17,27 @@
 }
 
 .dashboard-root .sidebar__nav {
+  /* Stretch to fill the space between the logo and the user menu so the
+     spacer below can push the bottom nav (Settings) down to its final
+     resting place. */
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-height: 0;
 }
 
+/* Flex spacer between top nav and bottom nav (Settings). Replaces the
+   old fixed-height divider. */
+.dashboard-root .sidebar__nav-spacer {
+  flex: 1;
+  min-height: 16px;
+}
+
+/* Old divider class — kept as no-op in case any consumer renders it
+   from cached HTML; safe to remove later. */
 .dashboard-root .sidebar__nav-divider {
-  height: 32px;
+  display: none;
 }
 
 .dashboard-root .sidebar__nav-item {

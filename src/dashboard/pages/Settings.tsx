@@ -9,6 +9,7 @@ import AppearanceSettingsCard from '../components/settings/AppearanceSettingsCar
 import NotificationsSettingsCard from '../components/settings/NotificationsSettingsCard';
 import BillingCard from '../components/settings/BillingCard';
 import DangerZoneCard from '../components/settings/DangerZoneCard';
+import FeedbackCard from '../components/settings/FeedbackCard';
 import { useAppStore } from '../store';
 
 /** Title + helper copy for each tab. Keeps the page header self-explanatory
@@ -28,7 +29,7 @@ const TAB_META = {
   },
   appearance: {
     title: 'Appearance',
-    hint: 'Theme, density, and accent — applied immediately across the app.',
+    hint: 'Theme — applied immediately across the app.',
   },
   notifications: {
     title: 'Notifications',
@@ -37,6 +38,10 @@ const TAB_META = {
   billing: {
     title: 'Billing & plan',
     hint: 'Your current plan, real usage counters, and account-level actions.',
+  },
+  feedback: {
+    title: 'Feedback',
+    hint: "Career OS is in beta — tell us what's broken, missing, or working.",
   },
 } as const;
 
@@ -83,6 +88,7 @@ export default function Settings() {
                       <DangerZoneCard />
                     </>
                   )}
+                  {tab === 'feedback' && <FeedbackCard />}
                 </div>
               </div>
             </div>

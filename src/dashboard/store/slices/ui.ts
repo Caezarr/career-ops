@@ -8,7 +8,8 @@ export type SettingsTab =
   | "audio"
   | "appearance"
   | "notifications"
-  | "billing";
+  | "billing"
+  | "feedback";
 
 export type CopilotMode = "qa" | "pitch";
 

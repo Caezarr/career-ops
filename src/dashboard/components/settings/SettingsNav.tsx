@@ -5,6 +5,7 @@ import {
   Palette,
   Bell,
   CreditCard,
+  MessageSquareWarning,
 } from 'lucide-react';
 import { useAppStore, type SettingsTab } from '../../store';
 
@@ -12,6 +13,9 @@ interface NavItem {
   id: SettingsTab;
   label: string;
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  /** Render a small "Beta" chip next to the label — used to make the
+   *  feedback entry visible without screaming. */
+  beta?: boolean;
 }
 
 const items: NavItem[] = [
@@ -21,6 +25,7 @@ const items: NavItem[] = [
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'notifications', label: 'Notifications', icon: Bell },
   { id: 'billing', label: 'Billing', icon: CreditCard },
+  { id: 'feedback', label: 'Feedback', icon: MessageSquareWarning, beta: true },
 ];
 
 export default function SettingsNav() {
@@ -45,6 +50,7 @@ export default function SettingsNav() {
           >
             <Icon size={18} strokeWidth={2} className="settings-nav__icon" />
             <span>{item.label}</span>
+            {item.beta && <span className="settings-nav__chip">Beta</span>}
           </button>
         );
       })}
