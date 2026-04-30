@@ -87,9 +87,8 @@ export const useAppStore = create<AppStore>()(
       theme: state.theme,
       notificationPrefs: state.notificationPrefs,
       plan: state.plan,
-      cycle: state.cycle,
-      subscriptionId: state.subscriptionId,
-      currentPeriodEnd: state.currentPeriodEnd,
+      paymentIntentId: state.paymentIntentId,
+      sprintEndsAt: state.sprintEndsAt,
     }),
   }),
 );

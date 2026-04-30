@@ -67,14 +67,17 @@ export function useBillingUsage(): UsageRow[] {
       hint: 'Open + archived applications in the Applications page.',
     },
     {
-      id: 'copilotMinutesPerMonth',
-      label: 'Copilot minutes (this month)',
+      id: 'copilotMinutesPerSprint',
+      label: plan === 'free' ? 'Copilot minutes (this month)' : 'Copilot minutes (this Sprint)',
       // No live tracker yet — placeholder 0 so the row renders honestly.
       // The Copilot session loop will increment a counter slice once we
       // ship session metering.
       current: 0,
-      limit: limits.copilotMinutesPerMonth,
-      hint: 'Live Copilot session minutes consumed since the start of the month.',
+      limit: limits.copilotMinutesPerSprint,
+      hint:
+        plan === 'free'
+          ? 'Live Copilot session minutes consumed since the start of the month.'
+          : 'Live Copilot session minutes consumed since this Sprint started.',
     },
   ];
 }

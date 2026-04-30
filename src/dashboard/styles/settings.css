@@ -698,6 +698,121 @@
   gap: 14px 24px;
 }
 
+/* ── Plan comparison strip — Free / Sprint / Sprint Pro ──────────────── */
+.dashboard-root .settings-billing__plans {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-soft);
+}
+.dashboard-root .settings-billing__plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+  align-items: stretch;
+}
+.dashboard-root .settings-billing__plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 16px;
+  min-width: 0;
+}
+.dashboard-root .settings-billing__plan-card--current {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 1px var(--indigo) inset;
+}
+.dashboard-root .settings-billing__plan-card--featured:not(.settings-billing__plan-card--current) {
+  /* Sprint Pro gets a subtle accent ring even when not the current plan
+     so the eye lands there. The "Best value" badge reinforces it. */
+  border-color: var(--purple);
+  box-shadow: 0 0 0 1px var(--purple) inset;
+}
+.dashboard-root .settings-billing__plan-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dashboard-root .settings-billing__plan-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dashboard-root .settings-billing__plan-card-badge {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--indigo-text);
+  background: var(--indigo-soft);
+  padding: 1px 7px;
+  border-radius: 999px;
+  line-height: 1.5;
+}
+.dashboard-root .settings-billing__plan-card-badge--accent {
+  color: var(--purple);
+  background: var(--purple-soft);
+}
+.dashboard-root .settings-billing__plan-card-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+.dashboard-root .settings-billing__plan-card-price-suffix {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  letter-spacing: 0;
+}
+.dashboard-root .settings-billing__plan-card-breakdown {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .settings-billing__plan-card-tagline {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.4;
+  margin-top: 2px;
+}
+.dashboard-root .settings-billing__plan-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+  line-height: 1.4;
+  flex: 1;
+}
+.dashboard-root .settings-billing__plan-perks li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.dashboard-root .settings-billing__plan-perks svg {
+  color: var(--green);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.dashboard-root .settings-billing__plan-card-note {
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
 /* ── Danger zone modal ───────────────────────────────────────────────── */
 .dashboard-root .settings-danger-modal__list {
   margin: 0 0 14px;
