@@ -10,6 +10,11 @@
 
 .dashboard-root .right-panel--applications {
   padding: 0; /* internal section handles its own padding */
+  /* Lock the panel — no horizontal drag or scroll. The grid column
+     is fixed-width (340px) so we just clip anything that tries to
+     escape left/right. */
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* Page container */
@@ -178,20 +183,30 @@
 .dashboard-root .applications__table {
   display: flex;
   flex-direction: column;
+  /* Safety net: on viewports too narrow to fit the 8-column grid, let
+     the table scroll horizontally rather than silently clipping the
+     trailing columns (Next step, Actions). Mostly a no-op since the
+     grid is tuned for ~720px content width. */
+  overflow-x: auto;
 }
 
 .dashboard-root .applications__row {
   display: grid;
+  /* 8 columns: Company | Role | Stage | Applied | Last activity |
+     Match | Next step | Actions. Tightened so all 8 fit on the
+     standard 1280px MacBook (sidebar 220 + right panel 340 leaves
+     ~720px for the table). Next step takes the remaining flex so
+     it never gets clipped. */
   grid-template-columns:
-    minmax(140px, 1.4fr)
-    minmax(160px, 1.6fr)
-    100px
-    90px
-    100px
-    70px
-    130px
-    80px;
-  gap: 16px;
+    minmax(120px, 1.3fr)   /* Company */
+    minmax(140px, 1.5fr)   /* Role */
+    90px                    /* Stage */
+    80px                    /* Applied */
+    80px                    /* Last activity */
+    56px                    /* Match */
+    minmax(110px, 1fr)      /* Next step */
+    60px;                   /* Actions */
+  gap: 10px;
   align-items: center;
 }
 
@@ -1094,11 +1109,28 @@
   flex-shrink: 0;
 }
 
-/* Action buttons */
+/* Action buttons — stuck to the bottom of the panel so the user
+   never has to scroll the detail content to find them. Stack
+   vertically because the right panel is only 340px wide and the
+   primary CTA "Open Copilot for this role" doesn't fit alongside
+   "Open documents" without ellipsing. */
 .dashboard-root .app-detail__actions {
   display: flex;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  /* Soft fade-in from the panel background so the buttons read as
+     "floating" above the scrollable content rather than hard-cut. */
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    var(--bg-soft) 12px,
+    var(--bg-soft) 100%
+  );
+  padding: 16px 0 0;
+  z-index: 1;
 }
 
 .dashboard-root .app-detail__btn {
@@ -1106,15 +1138,15 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 18px;
+  padding: 11px 18px;
   border-radius: 10px;
   font-size: 13px;
   white-space: nowrap;
+  width: 100%;
   transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .dashboard-root .app-detail__btn--ghost {
-  flex: 1;
   background: var(--bg);
   color: var(--text-1);
   border: 1px solid var(--border);
@@ -1126,12 +1158,10 @@
 }
 
 .dashboard-root .app-detail__btn--primary {
-  flex: 2;
   background: var(--indigo);
   color: #ffffff;
   border: 1px solid var(--indigo);
   font-weight: 600;
-  padding: 12px 22px;
 }
 
 .dashboard-root .app-detail__btn--primary:hover {

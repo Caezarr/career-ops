@@ -44,6 +44,7 @@ export default function ApplicationRow({
   const updateStage = useAppStore((s) => s.updateApplicationStage);
   const updateApplicationFields = useAppStore((s) => s.updateApplicationFields);
   const archive = useAppStore((s) => s.archiveApplication);
+  const unarchive = useAppStore((s) => s.unarchiveApplication);
   const remove = useAppStore((s) => s.deleteApplication);
   const createApplication = useAppStore((s) => s.createApplication);
 
@@ -195,14 +196,25 @@ export default function ApplicationRow({
             >
               Copy company
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                archive(app.id);
-                toast.success('Archived');
-              }}
-            >
-              Archive
-            </DropdownMenuItem>
+            {app.archived ? (
+              <DropdownMenuItem
+                onSelect={() => {
+                  unarchive(app.id);
+                  toast.success('Restored', 'Application moved back to active.');
+                }}
+              >
+                Restore to active
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem
+                onSelect={() => {
+                  archive(app.id);
+                  toast.success('Archived');
+                }}
+              >
+                Archive
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onSelect={() => {
                 createApplication({

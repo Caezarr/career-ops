@@ -4,10 +4,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../primitives';
 import { useAppStore } from '../../store';
 import type { ApplicationsTab, ApplicationsSort } from '../../store';
+import { ROLE_FAMILIES, familyFor } from './filterUtils';
 
 const TABS: { value: ApplicationsTab; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -15,24 +18,6 @@ const TABS: { value: ApplicationsTab; label: string }[] = [
   { value: 'interviews', label: 'Interviews' },
   { value: 'archived', label: 'Archived' },
 ];
-
-/** Heuristically classify a job's role text into a coarse bucket so
- *  the dropdown stays short. The role filter accepts a substring
- *  match against the job title, so "Strategy" matches "Strategy &
- *  Ops", "VP IBD Strategy", etc. */
-function familyFor(role: string): string | null {
-  const r = role.toLowerCase();
-  if (/(strategy|consult|ops)/i.test(r)) return 'Strategy';
-  if (/(product|pm\b)/i.test(r)) return 'Product';
-  if (/(finance|invest|m&a|equity|banking|ibd|pe\b)/i.test(r)) return 'Finance';
-  if (/(engineer|developer|software|swe|backend|frontend|fullstack)/i.test(r))
-    return 'Engineering';
-  if (/(data|analyst|analytics)/i.test(r)) return 'Data';
-  if (/(design|ux|ui)/i.test(r)) return 'Design';
-  if (/(sales|account|business development|bd\b)/i.test(r)) return 'Sales';
-  if (/(market|growth|content)/i.test(r)) return 'Marketing';
-  return null;
-}
 
 const SORT_OPTIONS: { value: ApplicationsSort; label: string }[] = [
   { value: 'recent', label: 'Last activity' },
@@ -59,26 +44,31 @@ export default function TabFilters() {
   const applications = useAppStore((s) => s.applications);
   const jobs = useAppStore((s) => s.jobs);
 
-  // Derive the role-filter options from the actual jobs the user has
-  // applied to. Always include "All roles" first; everything else is
-  // bucketed via `familyFor` so we don't end up with 25 dropdown
-  // entries for 25 slightly-different role titles. Sort by frequency
-  // so the user's most common track sits near the top.
-  const roleOptions = useMemo(() => {
+  // Always show every known family in the dropdown — users want to
+  // see the full set so they can pre-filter even before they have
+  // applications in that bucket. Each entry shows a small count if
+  // any of the active applications fall into that family. Families
+  // with apps surface first (sorted desc by count); the rest follow
+  // in the canonical ROLE_FAMILIES order.
+  const familyCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const a of applications) {
       if (a.archived) continue;
       const job = jobs.find((j) => j.id === a.jobId);
-      if (!job?.role) continue;
-      const fam = familyFor(job.role);
+      const fam = familyFor(job?.role ?? '');
       if (!fam) continue;
       counts.set(fam, (counts.get(fam) ?? 0) + 1);
     }
-    const sorted = [...counts.entries()]
+    return counts;
+  }, [applications, jobs]);
+
+  const orderedFamilies = useMemo(() => {
+    const withApps = [...familyCounts.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([fam]) => fam);
-    return ['All roles', ...sorted];
-  }, [applications, jobs]);
+    const empty = ROLE_FAMILIES.filter((f) => !familyCounts.has(f));
+    return [...withApps, ...empty];
+  }, [familyCounts]);
 
   return (
     <div className="applications__filters">
@@ -112,11 +102,31 @@ export default function TabFilters() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            {roleOptions.map((opt) => (
-              <DropdownMenuItem key={opt} onSelect={() => setRole(opt)}>
-                {opt}
-              </DropdownMenuItem>
-            ))}
+            <DropdownMenuItem onSelect={() => setRole('All roles')}>
+              All roles
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Families</DropdownMenuLabel>
+            {orderedFamilies.map((fam) => {
+              const n = familyCounts.get(fam) ?? 0;
+              return (
+                <DropdownMenuItem key={fam} onSelect={() => setRole(fam)}>
+                  <span style={{ flex: 1 }}>{fam}</span>
+                  {n > 0 && (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        fontSize: 11,
+                        color: 'var(--text-3)',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {n}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              );
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
 
