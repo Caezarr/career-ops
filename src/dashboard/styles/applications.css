@@ -284,6 +284,23 @@
   text-decoration: underline;
 }
 
+/* Inline editor variant — appears in place when the user clicks the
+   next-step link. Save on blur / Enter, revert on Escape. */
+.dashboard-root .applications__next-step-input {
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-1);
+  background: var(--bg);
+  border: 1px solid var(--indigo);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: 100%;
+  outline: none;
+}
+.dashboard-root .applications__next-step-input::placeholder {
+  color: var(--text-3);
+}
+
 .dashboard-root .applications__cell--actions {
   display: flex;
   gap: 4px;

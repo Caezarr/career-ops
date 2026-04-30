@@ -203,7 +203,16 @@ export const createApplicationsSlice: StateCreator<ApplicationsSlice> = (set) =>
               ...a,
               stage,
               lastActivity: "Just now",
-              archived: stage === "rejected" ? a.archived : a.archived,
+              // Move-to-rejected auto-archives so the row drops out of
+              // the active pipeline. Move-FROM-rejected unarchives so
+              // a re-engaged opportunity becomes visible again. Other
+              // stage changes preserve whatever the user set manually.
+              archived:
+                stage === "rejected"
+                  ? true
+                  : a.stage === "rejected"
+                  ? false
+                  : a.archived,
               timeline: [
                 {
                   id: uid("evt"),
