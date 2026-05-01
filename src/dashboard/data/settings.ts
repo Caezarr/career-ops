@@ -9,12 +9,6 @@ export interface SettingsProfile {
   location: string;
 }
 
-export interface SecurityData {
-  passwordChangedAgo: string;
-  twoFactor: { enabled: boolean };
-  activeSessions: number;
-}
-
 export interface IntegrationData {
   id: string;
   name: string;
@@ -48,12 +42,6 @@ export const mockSettingsProfile: SettingsProfile = {
   timezone: '(GMT+01:00) Paris',
   language: 'English (US)',
   location: 'Paris, France',
-};
-
-export const mockSecurity: SecurityData = {
-  passwordChangedAgo: '28 days ago',
-  twoFactor: { enabled: true },
-  activeSessions: 3,
 };
 
 export const mockIntegrations: IntegrationData[] = [
