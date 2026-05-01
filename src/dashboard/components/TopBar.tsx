@@ -15,6 +15,7 @@ interface BreadcrumbSpec {
 
 const BREADCRUMBS: Record<Page, BreadcrumbSpec> = {
   dashboard: { parts: ['Dashboard', 'Career Intelligence Hub'] },
+  workspace: { parts: ['War Room'] },
   jobs: { parts: ['Jobs'] },
   applications: { parts: ['Applications'] },
   cv: { parts: ['CV'] },

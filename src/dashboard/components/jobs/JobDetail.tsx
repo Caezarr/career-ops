@@ -9,6 +9,7 @@ import {
   Calendar,
   Bookmark,
   ArrowRight,
+  Target,
 } from 'lucide-react';
 import CompanyAvatar from '../CompanyAvatar';
 import InfoTag from './InfoTag';
@@ -17,6 +18,7 @@ import WhyYouMatchCard from './WhyYouMatchCard';
 import AISummaryCard from './AISummaryCard';
 import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
+import { useNavigation } from '../../navigation';
 import { ApplyModal, CompanyModal } from '../shared';
 
 function formatSalary(min: number, max: number, c: string): string {
@@ -28,15 +30,26 @@ function formatSalary(min: number, max: number, c: string): string {
 
 export default function JobDetail() {
   const toast = useToast();
+  const { navigate } = useNavigation();
   const selectedJob = useAppStore((s) => {
     const id = s.selectedJobId;
     return id ? s.jobs.find((j) => j.id === id) ?? null : null;
   });
   const setSelected = useAppStore((s) => s.setSelectedJob);
   const toggleBookmark = useAppStore((s) => s.toggleBookmark);
+  const setWorkspaceJobId = useAppStore((s) => s.setWorkspaceJobId);
 
   const [applyOpen, setApplyOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
+
+  /** Open the Job War Room with this job pre-loaded. The workspace
+   *  reads `workspaceJobId` from the slice so we set it before
+   *  navigating — no URL params, no router context to plumb. */
+  function openWarRoom() {
+    if (!selectedJob) return;
+    setWorkspaceJobId(selectedJob.id);
+    navigate('workspace');
+  }
 
   if (!selectedJob) {
     return (
@@ -160,6 +173,15 @@ export default function JobDetail() {
             fill={job.bookmarked ? 'currentColor' : 'none'}
           />
           <span>{job.bookmarked ? 'Saved' : 'Save'}</span>
+        </button>
+        <button
+          type="button"
+          className="job-detail__war-room"
+          onClick={openWarRoom}
+          title="Open the Job War Room — match analysis, action plan, mock prep"
+        >
+          <Target size={14} />
+          <span>War Room</span>
         </button>
         <button
           type="button"

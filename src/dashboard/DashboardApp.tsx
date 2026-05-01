@@ -5,6 +5,7 @@ import Applications from "./pages/Applications";
 import CV from "./pages/CV";
 import Prep from "./pages/Prep";
 import Copilot from "./pages/Copilot";
+import Workspace from "./pages/Workspace";
 import Settings from "./pages/Settings";
 import { NavigationProvider, useNavigation } from "./navigation";
 import { useAppStore } from "./store";
@@ -24,6 +25,7 @@ import "./styles/applications.css";
 import "./styles/cv.css";
 import "./styles/prep.css";
 import "./styles/copilot.css";
+import "./styles/workspace.css";
 import "./styles/settings.css";
 import "./styles/primitives.css";
 import "./styles/shared.css";
@@ -43,6 +45,8 @@ function PageRouter() {
       return <Prep />;
     case "copilot":
       return <Copilot />;
+    case "workspace":
+      return <Workspace />;
     case "settings":
       return <Settings />;
     default:

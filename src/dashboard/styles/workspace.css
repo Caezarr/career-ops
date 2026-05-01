@@ -1,0 +1,470 @@
+/* ── Job War Room (Workspace) — light mode tokens ─────────────────────────
+   Scoped to .dashboard-root. Adopts the same card/pill conventions as
+   the rest of the dashboard so the workspace doesn't feel like a
+   different app. */
+
+.dashboard-root .workspace {
+  padding: 32px 32px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+}
+
+/* ── Empty state (no job in focus) ──────────────────────────────────── */
+.dashboard-root .workspace--empty {
+  align-items: center;
+  text-align: center;
+  margin-top: 80px;
+  color: var(--text-2);
+}
+.dashboard-root .workspace--empty h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 16px 0 8px;
+}
+.dashboard-root .workspace--empty p {
+  max-width: 520px;
+  line-height: 1.55;
+  margin: 0 0 20px;
+  font-size: 14px;
+}
+.dashboard-root .workspace--empty > svg {
+  color: var(--indigo);
+}
+
+/* ── Hero header ─────────────────────────────────────────────────────── */
+.dashboard-root .workspace__hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+.dashboard-root .workspace__hero-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.dashboard-root .workspace__hero-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dashboard-root .workspace__eyebrow {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+.dashboard-root .workspace__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+}
+.dashboard-root .workspace__hero-meta {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dashboard-root .workspace__hero-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Pills — match score, stage, etc. ──────────────────────────────── */
+.dashboard-root .workspace__pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.dashboard-root .workspace__pill--green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.dashboard-root .workspace__pill--amber {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+.dashboard-root .workspace__pill--red {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.dashboard-root .workspace__pill--neutral {
+  background: var(--bg-soft);
+  color: var(--text-2);
+  border: 1px solid var(--border-soft);
+}
+.dashboard-root .workspace__meta-text {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+.dashboard-root .workspace__cta-primary,
+.dashboard-root .workspace__cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.dashboard-root .workspace__cta-primary {
+  background: var(--indigo);
+  color: #ffffff;
+  border: 1px solid var(--indigo);
+}
+.dashboard-root .workspace__cta-primary:hover {
+  filter: brightness(1.05);
+}
+.dashboard-root .workspace__cta-secondary {
+  background: var(--bg);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+}
+.dashboard-root .workspace__cta-secondary:hover {
+  background: var(--bg-hover);
+}
+.dashboard-root .workspace__cta-block {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.dashboard-root .workspace__inline-cta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--indigo-text);
+  background: transparent;
+  padding: 4px 0;
+  margin-top: 8px;
+}
+.dashboard-root .workspace__inline-cta:hover {
+  text-decoration: underline;
+}
+.dashboard-root .workspace__inline-cta--right {
+  margin-left: auto;
+}
+
+/* ── Preparation meter ───────────────────────────────────────────────── */
+.dashboard-root .workspace__prep {
+  padding: 18px 22px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+}
+.dashboard-root .workspace__prep-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dashboard-root .workspace__prep-label {
+  font-size: 13px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+.dashboard-root .workspace__prep-track {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dashboard-root .workspace__prep-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--indigo) 0%, var(--purple) 100%);
+  transition: width 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+.dashboard-root .workspace__prep-list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+.dashboard-root .workspace__prep-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.dashboard-root .workspace__prep-item > svg {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.dashboard-root .workspace__prep-item--done {
+  color: var(--text-1);
+}
+.dashboard-root .workspace__prep-item--done > svg {
+  color: var(--green);
+}
+
+/* ── Two-column grid for Match + CV / Sessions + Actions ─────────── */
+.dashboard-root .workspace__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+/* ── Generic panel card ──────────────────────────────────────────── */
+.dashboard-root .workspace__panel {
+  padding: 18px 22px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dashboard-root .workspace__panel-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.dashboard-root .workspace__panel-header > svg {
+  color: var(--indigo);
+  flex-shrink: 0;
+}
+.dashboard-root .workspace__panel-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.005em;
+}
+
+.dashboard-root .workspace__sub-eyebrow {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+
+/* ── Match panel (strengths + gaps) ─────────────────────────────── */
+.dashboard-root .workspace__strengths,
+.dashboard-root .workspace__gaps {
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-root .workspace__strengths ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-1);
+  line-height: 1.45;
+}
+.dashboard-root .workspace__strengths li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.dashboard-root .workspace__strengths svg {
+  color: var(--green);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.dashboard-root .workspace__gap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dashboard-root .workspace__gap-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--orange);
+  background: var(--orange-soft);
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+/* ── Recommended CV row ─────────────────────────────────────────── */
+.dashboard-root .workspace__cv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.dashboard-root .workspace__cv-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+.dashboard-root .workspace__cv-sub {
+  font-size: 11.5px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ── Action plan steps ──────────────────────────────────────────── */
+.dashboard-root .workspace__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dashboard-root .workspace__steps li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+.dashboard-root .workspace__step-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Sessions panel ─────────────────────────────────────────────── */
+.dashboard-root .workspace__sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .workspace__sessions li {
+  display: grid;
+  grid-template-columns: 60px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-2);
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--bg-soft);
+}
+.dashboard-root .workspace__session-mode {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-align: center;
+}
+.dashboard-root .workspace__session-meta {
+  color: var(--text-1);
+  font-weight: 500;
+}
+.dashboard-root .workspace__session-date {
+  color: var(--text-3);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ── Quick actions panel ────────────────────────────────────────── */
+.dashboard-root .workspace__quick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dashboard-root .workspace__quick-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-1);
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.dashboard-root .workspace__quick-btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+.dashboard-root .workspace__quick-btn--soon {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+.dashboard-root .workspace__quick-btn > svg {
+  color: var(--indigo);
+  flex-shrink: 0;
+}
+.dashboard-root .workspace__soon-pill {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+
+/* ── Empty inline blocks (no data yet for a panel) ─────────────── */
+.dashboard-root .workspace__empty {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.45;
+  padding: 10px 0;
+}
+.dashboard-root .workspace__empty > svg {
+  color: var(--orange);
+}

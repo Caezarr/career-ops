@@ -103,6 +103,9 @@ export const useAppStore = create<AppStore>()(
       copilotSessions: state.copilotSessions,
       copilotPickerJobId: state.copilotPickerJobId,
       copilotPickerCvId: state.copilotPickerCvId,
+      // Persist the Job War Room focus so the workspace re-opens on
+      // the same opportunity after a reload.
+      workspaceJobId: state.workspaceJobId,
     }),
   }),
 );

@@ -697,6 +697,28 @@
   background: var(--indigo-text);
 }
 
+/* War Room CTA — sits between Save and Apply. Purple-tinted neutral
+   button so the primary Apply CTA still wins the eye. */
+.dashboard-root .job-detail__war-room {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--purple);
+  background: var(--purple-soft);
+  border: 1px solid transparent;
+  transition: filter 120ms ease, border-color 120ms ease;
+  white-space: nowrap;
+}
+.dashboard-root .job-detail__war-room:hover {
+  filter: brightness(0.97);
+  border-color: var(--purple);
+}
+
 /* Company avatar in this page should still feel like a tile */
 .dashboard-root .job-row .company-avatar,
 .dashboard-root .job-detail .company-avatar {
