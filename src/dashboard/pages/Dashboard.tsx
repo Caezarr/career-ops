@@ -4,6 +4,7 @@ import StatsRow from '../components/StatsRow';
 import Pipeline from '../components/Pipeline';
 import TodayTasks from '../components/TodayTasks';
 import InsightCard from '../components/InsightCard';
+import TodaysFocusCard from '../components/TodaysFocusCard';
 import { useAppStore } from '../store';
 
 /** Time-of-day-aware greeting. We bucket the day into morning (4-12),
@@ -48,6 +49,7 @@ export default function Dashboard() {
             <h1 className="greeting__title">{greeting}</h1>
             <p className="greeting__date">{dateLabel}</p>
           </div>
+          <TodaysFocusCard />
           <StatsRow />
           <Pipeline />
         </div>
