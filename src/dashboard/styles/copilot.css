@@ -635,12 +635,6 @@
   color: #ffffff;
 }
 
-.dashboard-root .cp-bubble__avatar-text {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
 .dashboard-root .cp-bubble__avatar-dot {
   position: absolute;
   bottom: 0;

@@ -9,12 +9,6 @@ export interface SettingsProfile {
   location: string;
 }
 
-export interface SecurityData {
-  passwordChangedAgo: string;
-  twoFactor: { enabled: boolean };
-  activeSessions: number;
-}
-
 export interface IntegrationData {
   id: string;
   name: string;
@@ -40,20 +34,6 @@ export interface PreferenceData {
   enabled: boolean;
 }
 
-export interface UsageStat {
-  id: string;
-  title: string;
-  current: number;
-  max: number;
-}
-
-export interface BillingData {
-  plan: string;
-  cycle: string;
-  nextRenewal: string;
-  daysUntilRenewal: number;
-  usage: UsageStat[];
-}
 
 export const mockSettingsProfile: SettingsProfile = {
   name: 'Gabriel Rance',
@@ -62,12 +42,6 @@ export const mockSettingsProfile: SettingsProfile = {
   timezone: '(GMT+01:00) Paris',
   language: 'English (US)',
   location: 'Paris, France',
-};
-
-export const mockSecurity: SecurityData = {
-  passwordChangedAgo: '28 days ago',
-  twoFactor: { enabled: true },
-  activeSessions: 3,
 };
 
 export const mockIntegrations: IntegrationData[] = [
@@ -138,14 +112,7 @@ export const mockPreferences: PreferenceData[] = [
   },
 ];
 
-export const mockBilling: BillingData = {
-  plan: 'Pro',
-  cycle: 'Annual',
-  nextRenewal: 'May 24, 2025',
-  daysUntilRenewal: 28,
-  usage: [
-    { id: 'credits', title: 'AI credits', current: 12450, max: 25000 },
-    { id: 'resume', title: 'Resume analyses', current: 18, max: 50 },
-    { id: 'apps', title: 'Applications tracked', current: 142, max: 250 },
-  ],
-};
+// mockBilling was removed — the BillingCard now reads live data
+// from the billing slice (current plan + Stripe-shaped fields) and
+// the local-usage hook. The BillingData / UsageStat shapes died
+// with it.
