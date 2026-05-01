@@ -50,6 +50,23 @@
   height: 60px;
 }
 
+/* Empty-state placeholder for the sparkline — keeps the card the same
+   height as the populated state so the layout doesn't jump when the
+   user records their first activity. */
+.dashboard-root .insight-card__chart-empty {
+  margin-top: 12px;
+  width: 100%;
+  height: 60px;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+
 .dashboard-root .insight-card__cta {
   display: block;
   width: 100%;
@@ -66,4 +83,11 @@
 
 .dashboard-root .insight-card__cta:hover {
   background: var(--indigo-100);
+}
+
+.dashboard-root .insight-card__cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-soft);
+  color: var(--text-3);
 }
