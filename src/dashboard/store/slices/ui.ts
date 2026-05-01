@@ -1,4 +1,11 @@
 import type { StateCreator } from "zustand";
+// Single source of truth for CopilotMode lives in the session slice
+// (qa vs pitch is metadata on the session, not on the UI tab). We
+// re-export it here so `useAppStore` consumers can keep their
+// existing imports.
+import type { CopilotMode } from "./copilotSessions";
+
+export type { CopilotMode };
 
 export type PipelineSort = "date" | "match";
 
@@ -10,8 +17,6 @@ export type SettingsTab =
   | "notifications"
   | "billing"
   | "feedback";
-
-export type CopilotMode = "qa" | "pitch";
 
 export type PrepInterviewTrack =
   | "Behavioral + Technical"
