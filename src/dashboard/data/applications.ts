@@ -194,48 +194,7 @@ export const mockApplicationDetail: ApplicationDetail = {
   ],
 };
 
-export type StatTrendDirection = 'up' | 'down' | 'none';
-
-export interface ApplicationStat {
-  id: string;
-  label: string;
-  value: string;
-  trend: { value: string; direction: StatTrendDirection };
-  iconKey: 'fileText' | 'users' | 'calendar' | 'checkCircle';
-  iconBg: string; // CSS variable name (without var())
-}
-
-export const mockApplicationStats: ApplicationStat[] = [
-  {
-    id: 'total',
-    label: 'Total applications',
-    value: '28',
-    trend: { value: '6 from last week', direction: 'up' },
-    iconKey: 'fileText',
-    iconBg: '--indigo',
-  },
-  {
-    id: 'inReview',
-    label: 'In review',
-    value: '9',
-    trend: { value: '2 from last week', direction: 'up' },
-    iconKey: 'users',
-    iconBg: '--purple',
-  },
-  {
-    id: 'interviews',
-    label: 'Interviews',
-    value: '5',
-    trend: { value: '1 from last week', direction: 'up' },
-    iconKey: 'calendar',
-    iconBg: '--orange',
-  },
-  {
-    id: 'offers',
-    label: 'Offers',
-    value: '1',
-    trend: { value: 'No change', direction: 'none' },
-    iconKey: 'checkCircle',
-    iconBg: '--green',
-  },
-];
+// mockApplicationStats lived here as fixed copy ("28 total / 9 in
+// review / …"). The Applications page now computes those counters
+// live from the slice, so the export was dropped. The trend
+// direction type remains in StatCard.tsx where it actually belongs.
