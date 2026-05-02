@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   ArrowRight,
   Sparkles,
@@ -11,6 +11,11 @@ import {
   Mail,
   Target,
   TrendingUp,
+  Loader2,
+  MapPin,
+  Euro,
+  Briefcase,
+  Building2,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
@@ -18,6 +23,22 @@ import CompanyAvatar from '../components/CompanyAvatar';
 import { useAppStore } from '../store';
 import { useNavigation } from '../navigation';
 import { useToast } from '../primitives';
+import { runAnalyzer } from '../lib/runAnalyzer';
+import { readAnthropicKey } from '../hooks/useAnthropicKey';
+import { getCvParsedText } from '../store/slices/cvs';
+
+/** First 200 chars of the JD — same window the runAnalyzer uses for
+ *  cache validation. Compared against the cached analysis's
+ *  `jdSnippet` to know whether the existing result is for THIS job
+ *  or for a different one that happened to use the same CV. */
+const JD_SNIPPET_LEN = 200;
+
+function formatSalary(min: number, max: number, c: string): string | null {
+  if (!min) return null;
+  const a = `${c}${Math.round(min / 1000)}k`;
+  if (!max || max === min) return a;
+  return `${a} – ${c}${Math.round(max / 1000)}k`;
+}
 
 /** Number of lifetime "preparation" steps tracked. Tune this when we
  *  add new check-points (mock interview, follow-up sent, etc.). */
@@ -60,17 +81,56 @@ export default function Workspace() {
   const setCopilotPickerJobId = useAppStore((s) => s.setCopilotPickerJobId);
   const setCopilotPickerCvId = useAppStore((s) => s.setCopilotPickerCvId);
   const setSelectedApplication = useAppStore((s) => s.setSelectedApplication);
+  const analyzerRunning = useAppStore((s) => s.analyzerRunning);
 
   // Resolve the linked entities — when no job is set yet, the page
   // shows an empty-state with a CTA to open the Jobs catalogue.
   const job = jobs.find((j) => j.id === workspaceJobId);
   const application = applications.find((a) => a.jobId === workspaceJobId);
   const cv = cvs.find((c) => c.id === (application?.cvId ?? defaultCvId)) ?? cvs[0];
-  const ats = cv ? atsByCv[cv.id] : undefined;
+  const cachedAts = cv ? atsByCv[cv.id] : undefined;
+  // Cache hit only when the cached analysis was run against THIS job's
+  // JD. The runner stamps a 200-char snippet on every result so we can
+  // tell A's cached score apart from B's, even when both used the same
+  // CV. Without a JD on the job we can't validate freshness so we just
+  // surface whatever's cached and trust it.
+  const jdSnippet = (job?.jdText ?? '').slice(0, JD_SNIPPET_LEN);
+  const atsIsForThisJob = !!cachedAts && (!jdSnippet || cachedAts.jdSnippet === jdSnippet);
+  const ats = atsIsForThisJob ? cachedAts : undefined;
   const linkedSessions = useMemo(
     () => copilotSessions.filter((s) => s.jobId === workspaceJobId).slice(0, 3),
     [copilotSessions, workspaceJobId],
   );
+
+  // Auto-trigger ATS analysis on workspace open. Fires when:
+  //  - The user has an Anthropic key (don't even attempt without one)
+  //  - The job has parsable JD text
+  //  - We have a CV with parsed text
+  //  - The cached result (if any) is for a DIFFERENT job's JD
+  //  - The analyzer isn't already running another batch
+  // The ref dedupes the trigger so a re-render between fetch start and
+  // setAtsAnalysis doesn't fire a second call.
+  const lastAnalyzedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!job || !cv) return;
+    if (atsIsForThisJob) return;
+    if (analyzerRunning) return;
+    if (!job.jdText?.trim()) return;
+    const cvText = getCvParsedText(cv).trim();
+    if (!cvText) return;
+    if (!readAnthropicKey()) return;
+    const fingerprint = `${job.id}|${cv.id}|${jdSnippet}`;
+    if (lastAnalyzedRef.current === fingerprint) return;
+    lastAnalyzedRef.current = fingerprint;
+    runAnalyzer({ cvIds: [cv.id], jdText: job.jdText }).catch((e) => {
+      // Non-fatal — the page still renders with the job-native fallback
+      // data. Surface the error so the user knows the auto-run failed.
+      toast.error(
+        'Match analysis failed',
+        e instanceof Error ? e.message : String(e),
+      );
+    });
+  }, [job, cv, atsIsForThisJob, analyzerRunning, jdSnippet, toast]);
 
   // Preparation checklist — 5 atomic milestones we know how to track
   // today. Each row is { label, done, hint, action? } so the meter
@@ -197,8 +257,48 @@ export default function Workspace() {
                     <span className="workspace__pill workspace__pill--neutral">
                       {stageLabel}
                     </span>
+                    {analyzerRunning && !ats && (
+                      <span className="workspace__pill workspace__pill--neutral">
+                        <Loader2
+                          size={11}
+                          strokeWidth={2.2}
+                          style={{ marginRight: 4, animation: 'workspace-spin 1s linear infinite' }}
+                        />
+                        Analyzing match…
+                      </span>
+                    )}
+                  </div>
+                  <div className="workspace__hero-facts">
                     {job.location && (
-                      <span className="workspace__meta-text">{job.location}</span>
+                      <span className="workspace__fact">
+                        <MapPin size={11} strokeWidth={2} />
+                        {job.location}
+                      </span>
+                    )}
+                    {(() => {
+                      const salary = formatSalary(
+                        job.salaryMin,
+                        job.salaryMax,
+                        job.salaryCurrency,
+                      );
+                      return salary ? (
+                        <span className="workspace__fact">
+                          <Euro size={11} strokeWidth={2} />
+                          {salary}
+                        </span>
+                      ) : null;
+                    })()}
+                    {job.workMode && (
+                      <span className="workspace__fact">
+                        <Building2 size={11} strokeWidth={2} />
+                        {job.workMode}
+                      </span>
+                    )}
+                    {job.type && (
+                      <span className="workspace__fact">
+                        <Briefcase size={11} strokeWidth={2} />
+                        {job.type}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -261,6 +361,63 @@ export default function Workspace() {
               </ul>
             </section>
 
+            {/* ── About this role ──────────────────────────────────
+                 Surfaces the data the Job already has (AI summary,
+                 why-you-match bullets, about-the-company facts) so the
+                 page is informative even before any AI analysis runs. */}
+            {(job.aiSummary ||
+              (job.whyYouMatch && job.whyYouMatch.length > 0) ||
+              (job.about && job.about.length > 0)) && (
+              <section className="workspace__panel" aria-label="About this role">
+                <div className="workspace__panel-header">
+                  <Briefcase size={16} strokeWidth={2} />
+                  <h2 className="workspace__panel-title">About this role</h2>
+                </div>
+                {job.aiSummary && (
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: 13,
+                      lineHeight: 1.55,
+                      color: 'var(--text-1)',
+                    }}
+                  >
+                    {job.aiSummary}
+                  </p>
+                )}
+                {job.whyYouMatch && job.whyYouMatch.length > 0 && (
+                  <div className="workspace__strengths">
+                    <span className="workspace__sub-eyebrow">
+                      Highlights from the listing
+                    </span>
+                    <ul>
+                      {job.whyYouMatch.map((reason, i) => (
+                        <li key={i}>
+                          <CheckCircle2 size={12} strokeWidth={2.4} />
+                          <span>{reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {job.about && job.about.length > 0 && (
+                  <div className="workspace__strengths">
+                    <span className="workspace__sub-eyebrow">
+                      About {job.company}
+                    </span>
+                    <ul>
+                      {job.about.map((fact, i) => (
+                        <li key={i}>
+                          <CheckCircle2 size={12} strokeWidth={2.4} />
+                          <span>{fact}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* ── 2-col grid: Match + CV ──────────────────────── */}
             <div className="workspace__grid">
               {/* Why you match */}
@@ -297,19 +454,38 @@ export default function Workspace() {
                       </div>
                     )}
                   </>
+                ) : analyzerRunning ? (
+                  <div className="workspace__empty">
+                    <Loader2
+                      size={14}
+                      strokeWidth={2.2}
+                      style={{ animation: 'workspace-spin 1s linear infinite' }}
+                    />
+                    <span>
+                      Running match analysis against{' '}
+                      {cv?.name ?? 'your CV'}…
+                    </span>
+                  </div>
                 ) : (
                   <div className="workspace__empty">
                     <AlertTriangle size={14} strokeWidth={2} />
                     <span>
-                      No match analysis yet. Run one from the CV → ATS Analyzer
-                      with this JD pasted in.
+                      {!readAnthropicKey()
+                        ? 'Add your Anthropic key in Settings to auto-run the match analysis when you open a War Room.'
+                        : !job.jdText
+                        ? "This job has no parsed JD — paste one in the ATS Analyzer to score the match."
+                        : 'Match analysis is queued — it will run automatically when the analyzer is free.'}
                     </span>
                     <button
                       type="button"
                       className="workspace__inline-cta"
-                      onClick={() => navigate('cv')}
+                      onClick={() =>
+                        navigate(!readAnthropicKey() ? 'settings' : 'cv')
+                      }
                     >
-                      Open ATS Analyzer →
+                      {!readAnthropicKey()
+                        ? 'Open Settings →'
+                        : 'Open ATS Analyzer →'}
                     </button>
                   </div>
                 )}
