@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   Sparkles,
@@ -16,13 +16,16 @@ import {
   Euro,
   Briefcase,
   Building2,
+  Search,
+  Repeat,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import CompanyAvatar from '../components/CompanyAvatar';
 import { useAppStore } from '../store';
 import { useNavigation } from '../navigation';
-import { useToast } from '../primitives';
+import { Modal, ModalBody, ModalHeader, useToast } from '../primitives';
+import type { Job } from '../store';
 import { runAnalyzer } from '../lib/runAnalyzer';
 import { readAnthropicKey } from '../hooks/useAnthropicKey';
 import { getCvParsedText } from '../store/slices/cvs';
@@ -81,7 +84,15 @@ export default function Workspace() {
   const setCopilotPickerJobId = useAppStore((s) => s.setCopilotPickerJobId);
   const setCopilotPickerCvId = useAppStore((s) => s.setCopilotPickerCvId);
   const setSelectedApplication = useAppStore((s) => s.setSelectedApplication);
+  const setWorkspaceJobId = useAppStore((s) => s.setWorkspaceJobId);
   const analyzerRunning = useAppStore((s) => s.analyzerRunning);
+
+  // Switcher modal state — opens from the hero "Switch job" button.
+  // Lets the user jump between opportunities without leaving the
+  // page or losing context (the destination job's data hydrates in
+  // place once setWorkspaceJobId fires).
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [switcherQuery, setSwitcherQuery] = useState('');
 
   // Resolve the linked entities — when no job is set yet, the page
   // shows an empty-state with a CTA to open the Jobs catalogue.
@@ -410,6 +421,22 @@ export default function Workspace() {
               </div>
 
               <div className="workspace__hero-actions">
+                {/* Switch job — opens a searchable modal listing every
+                    opportunity. Always present in the populated hero so
+                    the user can pivot to another job in one click
+                    without navigating away. */}
+                <button
+                  type="button"
+                  className="workspace__cta-secondary"
+                  onClick={() => {
+                    setSwitcherQuery('');
+                    setSwitcherOpen(true);
+                  }}
+                  title="Switch focus to another opportunity"
+                >
+                  <Repeat size={14} strokeWidth={2} />
+                  <span>Switch job</span>
+                </button>
                 <button
                   type="button"
                   className="workspace__cta-secondary"
@@ -783,6 +810,100 @@ export default function Workspace() {
           </div>
         </div>
       </main>
+
+      {/* ── Switch-job modal ──────────────────────────────────
+           Searchable list of every job, ranked by bookmarked
+           first then match score. Selecting one mutates
+           workspaceJobId and closes the modal — the populated
+           War Room re-renders for the new opportunity, the
+           auto-analyzer effect picks it up. */}
+      <Modal
+        open={switcherOpen}
+        onClose={() => setSwitcherOpen(false)}
+        size="md"
+        ariaLabel="Switch job in focus"
+      >
+        <ModalHeader
+          title="Switch to another opportunity"
+          subtitle="The war room re-builds itself for the picked job."
+          onClose={() => setSwitcherOpen(false)}
+        />
+        <ModalBody>
+          <div className="workspace__switcher-search">
+            <Search size={14} strokeWidth={2} />
+            <input
+              type="search"
+              autoFocus
+              value={switcherQuery}
+              onChange={(e) => setSwitcherQuery(e.target.value)}
+              placeholder="Search company or role…"
+              className="workspace__switcher-input"
+            />
+          </div>
+          <div className="workspace__switcher-list">
+            {(() => {
+              const q = switcherQuery.trim().toLowerCase();
+              const filtered: Job[] = jobs
+                .filter((j) => {
+                  if (!q) return true;
+                  return (
+                    j.company.toLowerCase().includes(q) ||
+                    j.role.toLowerCase().includes(q) ||
+                    (j.location ?? '').toLowerCase().includes(q)
+                  );
+                })
+                .sort((a, b) => {
+                  if (!!a.bookmarked !== !!b.bookmarked) return a.bookmarked ? -1 : 1;
+                  return (b.match ?? 0) - (a.match ?? 0);
+                });
+              if (filtered.length === 0) {
+                return (
+                  <div className="workspace__empty" style={{ padding: '20px 4px' }}>
+                    <span>No matching jobs.</span>
+                  </div>
+                );
+              }
+              return filtered.map((j) => {
+                const t = matchTone(j.match ?? 0);
+                const isCurrent = j.id === workspaceJobId;
+                return (
+                  <button
+                    key={j.id}
+                    type="button"
+                    className={
+                      'workspace__switcher-row' +
+                      (isCurrent ? ' workspace__switcher-row--current' : '')
+                    }
+                    onClick={() => {
+                      setWorkspaceJobId(j.id);
+                      setSwitcherOpen(false);
+                    }}
+                    disabled={isCurrent}
+                  >
+                    <CompanyAvatar company={j.company} size={32} />
+                    <div className="workspace__switcher-text">
+                      <div className="workspace__switcher-role">{j.role}</div>
+                      <div className="workspace__switcher-company">
+                        {j.company}
+                        {j.location ? ` · ${j.location}` : ''}
+                      </div>
+                    </div>
+                    {isCurrent ? (
+                      <span className="workspace__pill workspace__pill--neutral">
+                        In focus
+                      </span>
+                    ) : (
+                      <span className={`workspace__pill workspace__pill--${t}`}>
+                        {j.match ?? 0}%
+                      </span>
+                    )}
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </ModalBody>
+      </Modal>
     </div>
   );
 }
