@@ -9,6 +9,7 @@ import {
   Clock,
   ExternalLink,
   Sparkles,
+  Star,
 } from 'lucide-react';
 import { useAppStore } from '../../store';
 import type {
@@ -22,6 +23,7 @@ import {
   rankQuestions,
   statsByQuestionId,
 } from '../../lib/prepBank';
+import { useFocusedJob } from '../../hooks/useAdaptivePrepTrack';
 
 const DIFFICULTY_OPTIONS: { id: QuestionDifficulty; label: string }[] = [
   { id: 'easy', label: 'Easy' },
@@ -43,6 +45,13 @@ export default function QuestionBank() {
   const attempts = useAppStore((s) => s.prepAttempts);
   const recordAttempt = useAppStore((s) => s.recordPrepAttempt);
 
+  // Read the focused job so we can boost questions known at this
+  // company to the top of the visible list. Pure read — the adaptive
+  // hook (mounted in Prep.tsx) handles the side effect of setting
+  // the active track.
+  const { focusedJob } = useFocusedJob();
+  const focusedCompany = focusedJob?.company ?? null;
+
   // Local-only — single-row expansion at a time so the list stays
   // skim-able even at 100+ questions.
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -50,13 +59,27 @@ export default function QuestionBank() {
   const trackForFilter = activeTrack ?? filter.track ?? null;
 
   const visibleQuestions = useMemo(() => {
-    // Compose: bank → track filter → user filter → rank.
+    // Compose: bank → track filter → user filter → rank → company-boost.
     const trackScoped = trackForFilter
       ? bank.filter((q) => q.track === trackForFilter)
       : bank;
     const filtered = filterBank(trackScoped, filter);
-    return rankQuestions(filtered, attempts);
-  }, [bank, trackForFilter, filter, attempts]);
+    const ranked = rankQuestions(filtered, attempts);
+
+    // Company-boost: when a job is in focus, surface questions
+    // explicitly known at that firm to the top — keeps their
+    // relative order otherwise. Stable partition is enough; we don't
+    // need a real sort because rankQuestions has already settled
+    // the within-bucket order.
+    if (!focusedCompany) return ranked;
+    const known: PrepQuestionV2[] = [];
+    const rest: PrepQuestionV2[] = [];
+    for (const q of ranked) {
+      if (q.knownAtCompanies?.includes(focusedCompany)) known.push(q);
+      else rest.push(q);
+    }
+    return [...known, ...rest];
+  }, [bank, trackForFilter, filter, attempts, focusedCompany]);
 
   const topicsForActive = useMemo(
     () => (trackForFilter ? topicsForTrack(trackForFilter) : []),
@@ -220,6 +243,8 @@ export default function QuestionBank() {
           visibleQuestions.map((q) => {
             const isOpen = expandedId === q.id;
             const s = stats.get(q.id);
+            const knownHere =
+              !!focusedCompany && !!q.knownAtCompanies?.includes(focusedCompany);
             return (
               <QuestionRow
                 key={q.id}
@@ -227,6 +252,8 @@ export default function QuestionBank() {
                 expanded={isOpen}
                 attemptCount={s?.attemptCount ?? 0}
                 lastSelfScore={s?.lastSelfScore ?? null}
+                knownAtFocusedCompany={knownHere}
+                focusedCompanyLabel={focusedCompany}
                 onToggle={() => setExpandedId(isOpen ? null : q.id)}
                 onMarkPractised={() =>
                   recordAttempt({ questionId: q.id })
@@ -245,6 +272,12 @@ interface QuestionRowProps {
   expanded: boolean;
   attemptCount: number;
   lastSelfScore: number | null;
+  /** True when the focused job's company is in the question's
+   *  `knownAtCompanies`. Drives the star pill in the row meta. */
+  knownAtFocusedCompany: boolean;
+  /** Display label of the focused company — used for the tooltip on
+   *  the star pill ("Goldman Sachs has asked this question"). */
+  focusedCompanyLabel: string | null;
   onToggle: () => void;
   onMarkPractised: () => void;
 }
@@ -254,13 +287,17 @@ function QuestionRow({
   expanded,
   attemptCount,
   lastSelfScore,
+  knownAtFocusedCompany,
+  focusedCompanyLabel,
   onToggle,
   onMarkPractised,
 }: QuestionRowProps) {
   return (
     <article
       className={
-        'prep-bank__item' + (expanded ? ' prep-bank__item--open' : '')
+        'prep-bank__item' +
+        (expanded ? ' prep-bank__item--open' : '') +
+        (knownAtFocusedCompany ? ' prep-bank__item--boosted' : '')
       }
     >
       <button
@@ -269,7 +306,18 @@ function QuestionRow({
         aria-expanded={expanded}
         onClick={onToggle}
       >
-        <div className="prep-bank__item-q">{question.question}</div>
+        <div className="prep-bank__item-q">
+          {knownAtFocusedCompany && focusedCompanyLabel && (
+            <span
+              className="prep-bank__company-badge"
+              title={`${focusedCompanyLabel} is known to ask this question`}
+            >
+              <Star size={10} strokeWidth={2.4} fill="currentColor" />
+              <span>{focusedCompanyLabel}</span>
+            </span>
+          )}
+          {question.question}
+        </div>
         <div className="prep-bank__item-meta">
           <span
             className={`prep-bank__diff prep-bank__diff--${question.difficulty} prep-bank__diff--static`}

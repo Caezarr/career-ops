@@ -1466,3 +1466,72 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* ── Tailored-for hint in PrepHeader ─────────────────────────────── */
+.dashboard-root .prep-header__tailored {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 5px 11px;
+  background: var(--purple-soft);
+  color: var(--purple);
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.45;
+  flex-wrap: wrap;
+}
+.dashboard-root .prep-header__tailored > svg { flex-shrink: 0; }
+.dashboard-root .prep-header__tailored strong {
+  font-weight: 700;
+  color: var(--text-1);
+}
+.dashboard-root .prep-header__tailored-source {
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .prep-header__tailored-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-2);
+  font-size: 10.5px;
+  font-weight: 500;
+  border: 1px solid var(--border-soft);
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.dashboard-root .prep-header__tailored-clear:hover {
+  color: var(--text-1);
+  border-color: var(--border);
+}
+
+/* ── Company-known badge on boosted question rows ────────────────── */
+.dashboard-root .prep-bank__item--boosted {
+  /* Subtle warm border so the user's eye lands on these first. */
+  border-color: rgba(245, 158, 11, 0.6);
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.18);
+}
+.dashboard-root .prep-bank__item--boosted:hover {
+  border-color: var(--orange);
+}
+.dashboard-root .prep-bank__company-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 7px;
+  margin-right: 8px;
+  background: var(--orange-soft);
+  color: var(--orange);
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+}
+.dashboard-root .prep-bank__company-badge > svg {
+  flex-shrink: 0;
+}

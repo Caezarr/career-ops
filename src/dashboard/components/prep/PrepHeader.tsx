@@ -1,14 +1,33 @@
 import { useRef, useState } from 'react';
-import { Upload, Video } from 'lucide-react';
-import { useAppStore, type PrepQuestion } from '../../store';
+import { Upload, Video, Target, X } from 'lucide-react';
+import { useAppStore, type PrepQuestion, type QuestionTrack } from '../../store';
 import { useToast } from '../../primitives';
 import PracticeModal from '../shared/PracticeModal';
+import { useFocusedJob } from '../../hooks/useAdaptivePrepTrack';
+import { getTrack } from '../../data/prep';
+
+const SOURCE_LABEL: Record<'workspace' | 'selected' | 'application', string> = {
+  workspace: 'War Room focus',
+  selected: 'Selected job',
+  application: 'Most-recent application',
+};
 
 export default function PrepHeader() {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
   const prepQuestions = useAppStore((s) => s.prepQuestions);
   const filter = useAppStore((s) => s.prepCategoryFilter);
+  const setActiveTrack = useAppStore((s) => s.setPrepActiveTrack);
+  const activeTrack = useAppStore((s) => s.prepActiveTrack);
+
+  const { focusedJob, source, inferredTrack } = useFocusedJob();
+  // Show the "Tailored for" hint only when the user is currently
+  // viewing the inferred track — if they manually clicked away from
+  // it, the chip would be misleading.
+  const trackMeta =
+    inferredTrack && activeTrack === inferredTrack
+      ? getTrack(inferredTrack as QuestionTrack)
+      : null;
 
   const [practiceTarget, setPracticeTarget] = useState<PrepQuestion | null>(null);
 
@@ -39,6 +58,32 @@ export default function PrepHeader() {
         <p className="prep-header__subtitle">
           Practice questions, run mock interviews, and improve answer quality with AI feedback.
         </p>
+        {focusedJob && trackMeta && (
+          <div className="prep-header__tailored" role="status">
+            <Target size={12} strokeWidth={2.4} />
+            <span>
+              Tailored for{' '}
+              <strong>
+                {focusedJob.company} · {focusedJob.role}
+              </strong>
+              {' '}— surfacing <strong>{trackMeta.label}</strong> questions
+              {source && (
+                <span className="prep-header__tailored-source">
+                  {' '}({SOURCE_LABEL[source]})
+                </span>
+              )}
+            </span>
+            <button
+              type="button"
+              className="prep-header__tailored-clear"
+              onClick={() => setActiveTrack(null)}
+              title="Show all tracks instead"
+            >
+              <X size={12} strokeWidth={2.4} />
+              <span>All tracks</span>
+            </button>
+          </div>
+        )}
       </div>
       <div className="prep-header__actions">
         <button
