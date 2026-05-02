@@ -1085,3 +1085,384 @@
   color: var(--text-1);
   line-height: 1.5;
 }
+
+/* ── V2 question bank — track tabs · topic chips · search · list ──────────
+   Built to scale to thousands of questions: virtual-scroll friendly
+   layout, single-row inline expand, no popovers / modals so search
+   stays smooth at 10k entries. */
+.dashboard-root .prep-bank {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.dashboard-root .prep-bank__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dashboard-root .prep-bank__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.005em;
+}
+.dashboard-root .prep-bank__count {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Track strip — primary axis. Always-visible-on-mobile via wrap. */
+.dashboard-root .prep-bank__tracks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.dashboard-root .prep-bank__track {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-2);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: var(--bg-soft);
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+.dashboard-root .prep-bank__track:hover {
+  color: var(--text-1);
+  background: var(--bg-hover);
+}
+.dashboard-root .prep-bank__track--active,
+.dashboard-root .prep-bank__track--active:hover {
+  background: var(--indigo-soft);
+  color: var(--indigo-text);
+  border-color: var(--indigo);
+}
+
+/* Topic chips — secondary axis. Wrap freely. */
+.dashboard-root .prep-bank__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dashboard-root .prep-bank__topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dashboard-root .prep-bank__topics-hint {
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .prep-bank__chip {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+.dashboard-root .prep-bank__chip:hover {
+  color: var(--text-1);
+}
+.dashboard-root .prep-bank__chip--active,
+.dashboard-root .prep-bank__chip--active:hover {
+  background: var(--purple-soft);
+  color: var(--purple);
+  border-color: var(--purple);
+}
+
+/* Search + difficulty filters row */
+.dashboard-root .prep-bank__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.dashboard-root .prep-bank__search {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg-soft);
+  transition: border-color 120ms ease;
+}
+.dashboard-root .prep-bank__search:focus-within {
+  border-color: var(--indigo);
+  background: var(--bg);
+}
+.dashboard-root .prep-bank__search > svg {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.dashboard-root .prep-bank__search-input {
+  flex: 1;
+  font-size: 12.5px;
+  color: var(--text-1);
+  background: transparent;
+  outline: none;
+  border: none;
+  font-family: inherit;
+}
+.dashboard-root .prep-bank__search-input::placeholder {
+  color: var(--text-3);
+}
+
+/* Difficulty pills — both as filter buttons (with --active) and
+   inline tags (with --static for no hover). */
+.dashboard-root .prep-bank__difficulties {
+  display: flex;
+  gap: 4px;
+}
+.dashboard-root .prep-bank__diff {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  color: var(--text-3);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.dashboard-root .prep-bank__diff:hover {
+  color: var(--text-1);
+}
+.dashboard-root .prep-bank__diff--easy.prep-bank__diff--active {
+  color: var(--green);
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+.dashboard-root .prep-bank__diff--medium.prep-bank__diff--active {
+  color: var(--orange);
+  background: var(--orange-soft);
+  border-color: var(--orange);
+}
+.dashboard-root .prep-bank__diff--hard.prep-bank__diff--active {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: var(--red);
+}
+.dashboard-root .prep-bank__diff--expert.prep-bank__diff--active {
+  color: var(--purple);
+  background: var(--purple-soft);
+  border-color: var(--purple);
+}
+/* Static (inline) variant for the row meta — same colour palette
+   without hover behaviour. */
+.dashboard-root .prep-bank__diff--static {
+  cursor: default;
+  pointer-events: none;
+}
+.dashboard-root .prep-bank__diff--easy.prep-bank__diff--static    { color: var(--green); background: var(--green-soft); border-color: transparent; }
+.dashboard-root .prep-bank__diff--medium.prep-bank__diff--static  { color: var(--orange); background: var(--orange-soft); border-color: transparent; }
+.dashboard-root .prep-bank__diff--hard.prep-bank__diff--static    { color: var(--red); background: var(--red-soft); border-color: transparent; }
+.dashboard-root .prep-bank__diff--expert.prep-bank__diff--static  { color: var(--purple); background: var(--purple-soft); border-color: transparent; }
+
+.dashboard-root .prep-bank__reset {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--indigo-text);
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: transparent;
+}
+.dashboard-root .prep-bank__reset:hover {
+  background: var(--indigo-soft);
+}
+
+/* ── Question list ────────────────────────────────────────────── */
+.dashboard-root .prep-bank__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dashboard-root .prep-bank__empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 12px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+  justify-content: center;
+}
+
+.dashboard-root .prep-bank__item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  overflow: hidden;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.dashboard-root .prep-bank__item:hover {
+  border-color: var(--indigo);
+}
+.dashboard-root .prep-bank__item--open {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 2px var(--indigo-soft);
+}
+.dashboard-root .prep-bank__item-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+.dashboard-root .prep-bank__item-head:hover {
+  background: var(--bg-hover);
+}
+.dashboard-root .prep-bank__item-q {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.4;
+}
+.dashboard-root .prep-bank__item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.dashboard-root .prep-bank__format {
+  font-size: 10.5px;
+  font-weight: 500;
+  text-transform: capitalize;
+  color: var(--text-3);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-soft);
+}
+.dashboard-root .prep-bank__duration,
+.dashboard-root .prep-bank__attempts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-root .prep-bank__attempts {
+  color: var(--green);
+  font-weight: 500;
+}
+
+/* Expanded body */
+.dashboard-root .prep-bank__item-body {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 12px;
+  background: var(--bg-soft);
+}
+.dashboard-root .prep-bank__sub-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .prep-bank__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.dashboard-root .prep-bank__tag {
+  font-size: 10.5px;
+  color: var(--text-3);
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.dashboard-root .prep-bank__follow ul {
+  list-style: disc;
+  padding-left: 18px;
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+.dashboard-root .prep-bank__companies {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.dashboard-root .prep-bank__companies > svg {
+  color: var(--text-3);
+}
+.dashboard-root .prep-bank__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-style: italic;
+}
+.dashboard-root .prep-bank__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.dashboard-root .prep-bank__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: 8px;
+  transition: filter 120ms ease, background 120ms ease;
+}
+.dashboard-root .prep-bank__btn--secondary {
+  background: var(--bg);
+  color: var(--text-1);
+  border: 1px solid var(--border);
+}
+.dashboard-root .prep-bank__btn--secondary:hover {
+  background: var(--bg-hover);
+}
+.dashboard-root .prep-bank__btn--primary {
+  background: var(--indigo);
+  color: #ffffff;
+  border: 1px solid var(--indigo);
+}
+.dashboard-root .prep-bank__btn--primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.dashboard-root .prep-bank__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

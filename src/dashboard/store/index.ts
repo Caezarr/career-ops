@@ -106,6 +106,13 @@ export const useAppStore = create<AppStore>()(
       // Persist the Job War Room focus so the workspace re-opens on
       // the same opportunity after a reload.
       workspaceJobId: state.workspaceJobId,
+      // Prep V2 — persist the user's filter + active track so a
+      // mid-prep reload lands them back where they were. Attempts
+      // are durable user data; the bank itself is NOT persisted
+      // (it's deterministic seed today, will be DB-hydrated later).
+      prepAttempts: state.prepAttempts,
+      prepBankFilter: state.prepBankFilter,
+      prepActiveTrack: state.prepActiveTrack,
     }),
   }),
 );
