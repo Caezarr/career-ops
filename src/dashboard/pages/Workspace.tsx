@@ -170,29 +170,134 @@ export default function Workspace() {
   const completionPct = Math.round((doneCount / PREPARATION_STEPS) * 100);
 
   // ── Empty state ────────────────────────────────────────────────
+  // No job in focus yet — instead of bouncing the user to the Jobs
+  // page (3 clicks to pick + come back), we show an inline picker:
+  // top matches sorted by score so the user lands on a useful one in
+  // one click. The page stays mounted so the moment they click a
+  // card, the populated War Room renders in place.
   if (!job) {
+    const setWorkspaceJobId = useAppStore.getState().setWorkspaceJobId;
+    const ranked = jobs
+      .slice()
+      .sort((a, b) => {
+        // Bookmarked first; then by match score desc.
+        if (!!a.bookmarked !== !!b.bookmarked) return a.bookmarked ? -1 : 1;
+        return (b.match ?? 0) - (a.match ?? 0);
+      })
+      .slice(0, 9);
+
     return (
       <div className="dashboard">
         <Sidebar />
         <TopBar />
         <main className="dashboard__main">
           <div className="dashboard__main-scroll">
-            <div className="workspace workspace--empty">
-              <Target size={32} strokeWidth={1.6} />
-              <h1>No job in focus yet</h1>
-              <p>
-                Pick an opportunity from your Jobs catalogue and Career OS
-                builds the war room: match analysis, recommended CV, action
-                plan, mock interviews — all in one place.
-              </p>
-              <button
-                type="button"
-                className="workspace__cta-primary"
-                onClick={() => navigate('jobs')}
-              >
-                <span>Browse jobs</span>
-                <ArrowRight size={14} strokeWidth={2.4} />
-              </button>
+            <div className="workspace">
+              <header className="workspace__hero">
+                <div className="workspace__hero-left">
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 12,
+                      background: 'var(--purple-soft)',
+                      color: 'var(--purple)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    aria-hidden="true"
+                  >
+                    <Target size={26} strokeWidth={2} />
+                  </div>
+                  <div className="workspace__hero-text">
+                    <span className="workspace__eyebrow">War Room</span>
+                    <h1 className="workspace__title">Pick a job to focus on</h1>
+                    <p
+                      style={{
+                        margin: '6px 0 0',
+                        fontSize: 13,
+                        color: 'var(--text-2)',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      One click on a card below and Career OS auto-runs the
+                      match analysis, surfaces the recommended CV, and
+                      assembles the action plan.
+                    </p>
+                  </div>
+                </div>
+              </header>
+
+              {ranked.length === 0 ? (
+                <section className="workspace__panel">
+                  <div className="workspace__panel-header">
+                    <Briefcase size={16} strokeWidth={2} />
+                    <h2 className="workspace__panel-title">No jobs yet</h2>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    Add an opportunity from the Jobs catalogue to start a War
+                    Room around it.
+                  </p>
+                  <button
+                    type="button"
+                    className="workspace__cta-primary"
+                    style={{ alignSelf: 'flex-start' }}
+                    onClick={() => navigate('jobs')}
+                  >
+                    <span>Browse jobs</span>
+                    <ArrowRight size={14} strokeWidth={2.4} />
+                  </button>
+                </section>
+              ) : (
+                <section
+                  className="workspace__panel"
+                  aria-label="Pick a job to focus on"
+                >
+                  <div className="workspace__panel-header">
+                    <Sparkles size={16} strokeWidth={2} />
+                    <h2 className="workspace__panel-title">
+                      Top matches in your pipeline
+                    </h2>
+                    <button
+                      type="button"
+                      className="workspace__inline-cta workspace__inline-cta--right"
+                      onClick={() => navigate('jobs')}
+                    >
+                      Browse all jobs →
+                    </button>
+                  </div>
+                  <div className="workspace__job-grid">
+                    {ranked.map((j) => {
+                      const t = matchTone(j.match ?? 0);
+                      return (
+                        <button
+                          key={j.id}
+                          type="button"
+                          className="workspace__job-card"
+                          onClick={() => setWorkspaceJobId(j.id)}
+                        >
+                          <CompanyAvatar company={j.company} size={36} />
+                          <div className="workspace__job-card-text">
+                            <div className="workspace__job-card-role">
+                              {j.role}
+                            </div>
+                            <div className="workspace__job-card-company">
+                              {j.company}
+                              {j.location ? ` · ${j.location}` : ''}
+                            </div>
+                          </div>
+                          <span
+                            className={`workspace__pill workspace__pill--${t}`}
+                          >
+                            {j.match ?? 0}%
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
             </div>
           </div>
         </main>
