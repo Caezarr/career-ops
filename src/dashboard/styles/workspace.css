@@ -1,476 +1,1005 @@
-/* ── Job War Room (Workspace) — light mode tokens ─────────────────────────
-   Scoped to .dashboard-root. Adopts the same card/pill conventions as
-   the rest of the dashboard so the workspace doesn't feel like a
-   different app. */
+/* ── Job War Room — full design-system rewrite ───────────────────────────
+   Layout matches the Qonto · Senior PM mockup:
+     - Page header (breadcrumb-style title + Share/Export/Open Copilot)
+     - Job hero with stage progress
+     - 3-col main grid: left (match · why · gaps · memory),
+                       center (next actions · prep hub · toolkit · timeline),
+                       right (readiness · focus · assistant · notes)
 
-.dashboard-root .workspace {
-  padding: 32px 32px 64px;
+   All scoped to .dashboard-root so we keep the design tokens contract. */
+
+.dashboard-root .war-room {
+  padding: 28px 32px 64px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
+  max-width: 1440px;
+}
+
+.dashboard-root .war-room--empty-shell {
+  /* Empty-state shell uses a tighter layout — no main 3-col grid. */
   max-width: 1200px;
 }
 
-/* ── Empty state (no job in focus) ──────────────────────────────────── */
-.dashboard-root .workspace--empty {
-  align-items: center;
-  text-align: center;
-  margin-top: 80px;
-  color: var(--text-2);
-}
-.dashboard-root .workspace--empty h1 {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text-1);
-  margin: 16px 0 8px;
-}
-.dashboard-root .workspace--empty p {
-  max-width: 520px;
-  line-height: 1.55;
-  margin: 0 0 20px;
-  font-size: 14px;
-}
-.dashboard-root .workspace--empty > svg {
-  color: var(--indigo);
-}
-
-/* ── Hero header ─────────────────────────────────────────────────────── */
-.dashboard-root .workspace__hero {
+/* ── Page header ──────────────────────────────────────────────────── */
+.dashboard-root .war-room__page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 24px;
-  padding: 22px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: var(--shadow-card);
 }
-.dashboard-root .workspace__hero-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  min-width: 0;
-}
-.dashboard-root .workspace__hero-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.dashboard-root .workspace__eyebrow {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  margin-bottom: 4px;
-}
-.dashboard-root .workspace__title {
+.dashboard-root .war-room__page-title h1 {
   margin: 0;
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text-1);
   letter-spacing: -0.01em;
-  line-height: 1.25;
 }
-.dashboard-root .workspace__hero-meta {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.dashboard-root .workspace__hero-actions {
-  display: flex;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-/* Hero facts row — compact location/salary/work-mode/type chips
-   under the pills. Decorative-only icons paired with short labels. */
-.dashboard-root .workspace__hero-facts {
-  margin-top: 6px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 11.5px;
-  color: var(--text-3);
-}
-.dashboard-root .workspace__fact {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-.dashboard-root .workspace__fact > svg {
-  color: var(--text-3);
-  flex-shrink: 0;
-}
-
-/* Spin keyframe used by the inline match-analysis loader. */
-@keyframes workspace-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-/* ── Pills — match score, stage, etc. ──────────────────────────────── */
-.dashboard-root .workspace__pill {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  padding: 3px 10px;
-  border-radius: 999px;
-}
-.dashboard-root .workspace__pill--green {
-  background: var(--green-soft);
-  color: var(--green);
-}
-.dashboard-root .workspace__pill--amber {
-  background: var(--orange-soft);
-  color: var(--orange);
-}
-.dashboard-root .workspace__pill--red {
-  background: var(--red-soft);
-  color: var(--red);
-}
-.dashboard-root .workspace__pill--neutral {
-  background: var(--bg-soft);
+.dashboard-root .war-room__page-title p {
+  margin: 4px 0 0;
+  font-size: 13.5px;
   color: var(--text-2);
-  border: 1px solid var(--border-soft);
 }
-.dashboard-root .workspace__meta-text {
-  font-size: 12px;
-  color: var(--text-3);
+.dashboard-root .war-room__page-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-/* ── Buttons ─────────────────────────────────────────────────────────── */
-.dashboard-root .workspace__cta-primary,
-.dashboard-root .workspace__cta-secondary {
+/* ── Buttons ──────────────────────────────────────────────────────── */
+.dashboard-root .war-room__cta-primary,
+.dashboard-root .war-room__cta-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: 13px;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 12.5px;
   font-weight: 600;
-  border-radius: 10px;
+  border-radius: 9px;
   white-space: nowrap;
   transition: filter 120ms ease, background 120ms ease, border-color 120ms ease;
 }
-.dashboard-root .workspace__cta-primary {
+.dashboard-root .war-room__cta-primary {
   background: var(--indigo);
   color: #ffffff;
   border: 1px solid var(--indigo);
 }
-.dashboard-root .workspace__cta-primary:hover {
+.dashboard-root .war-room__cta-primary:hover {
   filter: brightness(1.05);
 }
-.dashboard-root .workspace__cta-secondary {
+.dashboard-root .war-room__cta-primary--block {
+  width: 100%;
+  padding: 10px 16px;
+}
+.dashboard-root .war-room__cta-secondary {
   background: var(--bg);
   color: var(--text-1);
   border: 1px solid var(--border);
 }
-.dashboard-root .workspace__cta-secondary:hover {
+.dashboard-root .war-room__cta-secondary:hover {
   background: var(--bg-hover);
 }
-.dashboard-root .workspace__cta-block {
-  width: 100%;
-  margin-top: 12px;
+.dashboard-root .war-room__cta-secondary--small {
+  padding: 6px 12px;
+  font-size: 11.5px;
 }
-
-.dashboard-root .workspace__inline-cta {
+.dashboard-root .war-room__inline-cta {
   display: inline-flex;
   align-items: center;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--indigo-text);
   background: transparent;
-  padding: 4px 0;
-  margin-top: 8px;
+  padding: 0;
+  transition: opacity 120ms ease;
 }
-.dashboard-root .workspace__inline-cta:hover {
-  text-decoration: underline;
+.dashboard-root .war-room__inline-cta:hover {
+  opacity: 0.8;
 }
-.dashboard-root .workspace__inline-cta--right {
+.dashboard-root .war-room__inline-cta--right {
   margin-left: auto;
 }
 
-/* ── Preparation meter ───────────────────────────────────────────────── */
-.dashboard-root .workspace__prep {
-  padding: 18px 22px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: var(--shadow-card);
-}
-.dashboard-root .workspace__prep-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.dashboard-root .workspace__prep-label {
-  font-size: 13px;
-  color: var(--text-2);
-  font-weight: 600;
-}
-.dashboard-root .workspace__prep-track {
-  width: 100%;
-  height: 8px;
-  background: var(--bg-soft);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.dashboard-root .workspace__prep-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--indigo) 0%, var(--purple) 100%);
-  transition: width 280ms cubic-bezier(0.2, 0, 0, 1);
-}
-.dashboard-root .workspace__prep-list {
-  list-style: none;
-  margin: 14px 0 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
-}
-.dashboard-root .workspace__prep-item {
-  display: flex;
+/* ── Pills ────────────────────────────────────────────────────────── */
+.dashboard-root .war-room__pill {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  color: var(--text-3);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
-.dashboard-root .workspace__prep-item > svg {
-  color: var(--text-3);
-  flex-shrink: 0;
-}
-.dashboard-root .workspace__prep-item--done {
-  color: var(--text-1);
-}
-.dashboard-root .workspace__prep-item--done > svg {
-  color: var(--green);
+.dashboard-root .war-room__pill--green   { background: var(--green-soft); color: var(--green); }
+.dashboard-root .war-room__pill--amber   { background: var(--orange-soft); color: var(--orange); }
+.dashboard-root .war-room__pill--red     { background: var(--red-soft); color: var(--red); }
+.dashboard-root .war-room__pill--neutral {
+  background: var(--bg-soft);
+  color: var(--text-2);
+  border: 1px solid var(--border-soft);
 }
 
-/* ── Two-column grid for Match + CV / Sessions + Actions ─────────── */
-.dashboard-root .workspace__grid {
+/* ── Hero (job info + stage progress) ─────────────────────────────── */
+.dashboard-root .war-room__hero {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  align-items: stretch;
-}
-
-/* ── Generic panel card ──────────────────────────────────────────── */
-.dashboard-root .workspace__panel {
-  padding: 18px 22px;
+  grid-template-columns: minmax(260px, 1fr) minmax(420px, 1.4fr);
+  gap: 24px;
+  padding: 18px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 14px;
   box-shadow: var(--shadow-card);
+  align-items: center;
+}
+.dashboard-root .war-room__hero-job {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+.dashboard-root .war-room__hero-text {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  min-width: 0;
 }
-.dashboard-root .workspace__panel-header {
+.dashboard-root .war-room__hero-role {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+}
+.dashboard-root .war-room__hero-company {
+  margin-top: 1px;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.dashboard-root .war-room__hero-facts {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 11.5px;
+  color: var(--text-3);
+}
+.dashboard-root .war-room__fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dashboard-root .war-room__fact > svg { color: var(--text-3); flex-shrink: 0; }
+
+.dashboard-root .war-room__interview-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--purple);
+  background: var(--purple-soft);
+  border-radius: 999px;
+  width: max-content;
+}
+.dashboard-root .war-room__hero-secondary-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 14px;
+}
+
+/* Stage progress — 6-step horizontal stepper */
+.dashboard-root .war-room__stage-progress {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  align-items: flex-start;
+  gap: 0;
+  position: relative;
+}
+.dashboard-root .war-room__stage-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+.dashboard-root .war-room__stage-step::after {
+  /* Connecting line between markers — runs from this step's marker
+     centre to the next one. The last step has no successor so
+     :last-child suppresses it. */
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+  z-index: 0;
+}
+.dashboard-root .war-room__stage-step:last-child::after {
+  display: none;
+}
+.dashboard-root .war-room__stage-step--done::after {
+  background: var(--green);
+}
+.dashboard-root .war-room__stage-marker {
+  position: relative;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  border: 2px solid var(--border);
+}
+.dashboard-root .war-room__stage-step--done .war-room__stage-marker {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+}
+.dashboard-root .war-room__stage-step--current .war-room__stage-marker {
+  border-color: var(--indigo);
+  background: var(--indigo-soft);
+}
+.dashboard-root .war-room__stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--indigo);
+}
+.dashboard-root .war-room__stage-empty {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: transparent;
+}
+.dashboard-root .war-room__stage-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.25;
+  white-space: pre-line; /* allow `\n` between two-word labels */
+  letter-spacing: 0.01em;
+}
+.dashboard-root .war-room__stage-step--current .war-room__stage-label {
+  color: var(--text-1);
+  font-weight: 600;
+}
+.dashboard-root .war-room__stage-step--done .war-room__stage-label {
+  color: var(--text-2);
+}
+
+/* ── Main 3-col grid ──────────────────────────────────────────────── */
+.dashboard-root .war-room__grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.6fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+.dashboard-root .war-room__col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ── Generic panel ────────────────────────────────────────────────── */
+.dashboard-root .war-room__panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dashboard-root .war-room__panel-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  justify-content: space-between;
+  gap: 10px;
 }
-.dashboard-root .workspace__panel-header > svg {
-  color: var(--indigo);
-  flex-shrink: 0;
-}
-.dashboard-root .workspace__panel-title {
+.dashboard-root .war-room__panel-title {
   margin: 0;
   font-size: 14px;
   font-weight: 700;
   color: var(--text-1);
   letter-spacing: -0.005em;
 }
-
-.dashboard-root .workspace__sub-eyebrow {
-  display: block;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.dashboard-root .war-room__panel-hint {
+  margin: 0;
+  font-size: 12px;
   color: var(--text-3);
-  margin-bottom: 6px;
+  line-height: 1.5;
+}
+.dashboard-root .war-room__info-icon {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.dashboard-root .war-room__muted {
+  font-size: 12px;
+  color: var(--text-3);
+  margin: 0;
+  line-height: 1.5;
 }
 
-/* ── Match panel (strengths + gaps) ─────────────────────────────── */
-.dashboard-root .workspace__strengths,
-.dashboard-root .workspace__gaps {
+/* ── Match score ──────────────────────────────────────────────────── */
+.dashboard-root .war-room__match { gap: 12px; }
+.dashboard-root .war-room__match-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dashboard-root .war-room__match-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  letter-spacing: 0.01em;
+}
+.dashboard-root .war-room__match-circle {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  margin: 4px auto 0;
+}
+.dashboard-root .war-room__match-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.dashboard-root .war-room__match-center {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
 }
-.dashboard-root .workspace__strengths ul {
+.dashboard-root .war-room__match-pct {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-root .war-room__match-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--green);
+  letter-spacing: 0.01em;
+}
+.dashboard-root .war-room__match-analyzing {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 auto;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.dashboard-root .war-room__spin {
+  animation: war-room-spin 1s linear infinite;
+}
+@keyframes war-room-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Reasons / Gaps ───────────────────────────────────────────────── */
+.dashboard-root .war-room__reason-list,
+.dashboard-root .war-room__gaps-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+.dashboard-root .war-room__reason-list li,
+.dashboard-root .war-room__gaps-list li {
+  display: flex;
+  gap: 7px;
+  align-items: flex-start;
   font-size: 12.5px;
   color: var(--text-1);
   line-height: 1.45;
 }
-.dashboard-root .workspace__strengths li {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-}
-.dashboard-root .workspace__strengths svg {
+.dashboard-root .war-room__reason-list svg {
   color: var(--green);
   flex-shrink: 0;
   margin-top: 2px;
 }
-.dashboard-root .workspace__gap-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.dashboard-root .workspace__gap-chip {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11.5px;
-  font-weight: 500;
+.dashboard-root .war-room__gaps-list svg {
   color: var(--orange);
-  background: var(--orange-soft);
-  padding: 3px 9px;
-  border-radius: 999px;
-}
-
-/* ── Recommended CV row ─────────────────────────────────────────── */
-.dashboard-root .workspace__cv-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-}
-.dashboard-root .workspace__cv-name {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-1);
-  line-height: 1.3;
-}
-.dashboard-root .workspace__cv-sub {
-  font-size: 11.5px;
-  color: var(--text-3);
+  flex-shrink: 0;
   margin-top: 2px;
 }
 
-/* ── Action plan steps ──────────────────────────────────────────── */
-.dashboard-root .workspace__steps {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+/* ── Career memory ────────────────────────────────────────────────── */
+.dashboard-root .war-room__memory-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .war-room__memory-title > svg {
+  color: var(--purple);
+}
+.dashboard-root .war-room__memory-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 4px;
+}
+.dashboard-root .war-room__memory-stat {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 6px;
+  background: var(--bg-soft);
+  border-radius: 10px;
 }
-.dashboard-root .workspace__steps li {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  font-size: 12.5px;
+.dashboard-root .war-room__memory-num {
+  font-size: 22px;
+  font-weight: 800;
   color: var(--text-1);
-  line-height: 1.5;
+  letter-spacing: -0.01em;
 }
-.dashboard-root .workspace__step-num {
-  flex-shrink: 0;
+.dashboard-root .war-room__memory-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-align: center;
+  white-space: pre-line;
+  line-height: 1.2;
+}
+
+/* ── Next best actions ────────────────────────────────────────────── */
+.dashboard-root .war-room__actions-list {
+  display: flex;
+  flex-direction: column;
+}
+.dashboard-root .war-room__action-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.dashboard-root .war-room__action-row:first-child {
+  border-top: none;
+}
+.dashboard-root .war-room__action-dot {
   width: 22px;
   height: 22px;
   border-radius: 50%;
   background: var(--indigo-soft);
   color: var(--indigo-text);
-  font-size: 11px;
-  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
+.dashboard-root .war-room__action-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+.dashboard-root .war-room__action-duration {
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-root .war-room__action-cta {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--indigo-text);
+  background: var(--indigo-soft);
+  padding: 5px 11px;
+  border-radius: 999px;
+  transition: background 120ms ease;
+}
+.dashboard-root .war-room__action-cta:hover {
+  background: var(--indigo-100);
+}
 
-/* ── Sessions panel ─────────────────────────────────────────────── */
-.dashboard-root .workspace__sessions {
+/* ── Interview Prep Hub ───────────────────────────────────────────── */
+.dashboard-root .war-room__prep-hub {
+  background: linear-gradient(180deg, rgba(99,102,241,0.04) 0%, var(--bg) 100%);
+  border-color: var(--indigo-soft);
+}
+.dashboard-root .war-room__prep-tabs {
+  display: flex;
+  gap: 18px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 6px;
+}
+.dashboard-root .war-room__prep-tab {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: 4px 0 8px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -7px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.dashboard-root .war-room__prep-tab:hover { color: var(--text-1); }
+.dashboard-root .war-room__prep-tab--active {
+  color: var(--indigo-text);
+  font-weight: 600;
+  border-bottom-color: var(--indigo);
+}
+.dashboard-root .war-room__prep-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 4px;
+}
+.dashboard-root .war-room__prep-subtitle {
+  margin: 0 0 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.dashboard-root .war-room__prep-questions ol {
   list-style: none;
-  margin: 0;
+  margin: 0 0 8px;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-.dashboard-root .workspace__sessions li {
+.dashboard-root .war-room__prep-questions li {
   display: grid;
-  grid-template-columns: 60px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 18px 1fr auto;
+  gap: 8px;
   align-items: center;
-  font-size: 12px;
-  color: var(--text-2);
-  padding: 8px 10px;
-  border: 1px solid var(--border-soft);
-  border-radius: 8px;
-  background: var(--bg-soft);
-}
-.dashboard-root .workspace__session-mode {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--purple);
-  background: var(--purple-soft);
-  padding: 2px 8px;
-  border-radius: 999px;
-  text-align: center;
-}
-.dashboard-root .workspace__session-meta {
+  font-size: 12.5px;
   color: var(--text-1);
-  font-weight: 500;
+  line-height: 1.4;
 }
-.dashboard-root .workspace__session-date {
+.dashboard-root .war-room__prep-q-idx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-soft);
+  font-size: 10px;
+  font-weight: 700;
   color: var(--text-3);
-  font-size: 11px;
-  white-space: nowrap;
+}
+.dashboard-root .war-room__prep-q {
+  min-width: 0;
+}
+.dashboard-root .war-room__prep-q-level {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.dashboard-root .war-room__prep-q-level--easy {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.dashboard-root .war-room__prep-q-level--med {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+.dashboard-root .war-room__prep-q-level--hard {
+  background: var(--red-soft);
+  color: var(--red);
 }
 
-/* ── Quick actions panel ────────────────────────────────────────── */
-.dashboard-root .workspace__quick {
+.dashboard-root .war-room__prep-pitch-text {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-1);
+  line-height: 1.5;
+  background: var(--bg-soft);
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.dashboard-root .war-room__prep-pitch-meter {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.dashboard-root .war-room__prep-pitch-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.dashboard-root .war-room__prep-progress {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.dashboard-root .workspace__quick-btn {
+
+.dashboard-root .war-room__prep-mock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dashboard-root .war-room__prep-mock-art {
+  background: linear-gradient(135deg, var(--indigo-soft), var(--purple-soft));
+  border-radius: 10px;
+  padding: 18px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  justify-content: center;
+  color: var(--indigo);
+}
+.dashboard-root .war-room__prep-mock-difficulty {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.dashboard-root .war-room__prep-mock-diff-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-1);
   background: var(--bg-soft);
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+}
+
+/* ── Progress row (used in prep hub + readiness) ─────────────────── */
+.dashboard-root .war-room__progress-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dashboard-root .war-room__progress-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.dashboard-root .war-room__progress-row-num {
+  color: var(--text-1);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-root .war-room__progress-track {
+  height: 5px;
+  background: var(--bg-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.dashboard-root .war-room__progress-fill {
+  height: 100%;
+  background: var(--indigo);
+  border-radius: inherit;
+  transition: width 280ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ── Toolkit ──────────────────────────────────────────────────────── */
+.dashboard-root .war-room__toolkit-tabs {
+  display: flex;
+  gap: 14px;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 6px;
+}
+.dashboard-root .war-room__toolkit-tab {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 4px 0 8px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -7px;
+}
+.dashboard-root .war-room__toolkit-tab:hover { color: var(--text-1); }
+.dashboard-root .war-room__toolkit-tab--active {
+  color: var(--indigo-text);
+  font-weight: 600;
+  border-bottom-color: var(--indigo);
+}
+.dashboard-root .war-room__toolkit-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
   border: 1px solid var(--border-soft);
   border-radius: 10px;
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text-1);
-  text-align: left;
-  transition: background 120ms ease, border-color 120ms ease;
+  background: var(--bg-soft);
+  margin-top: 6px;
 }
-.dashboard-root .workspace__quick-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--border);
-}
-.dashboard-root .workspace__quick-btn--soon {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-.dashboard-root .workspace__quick-btn > svg {
-  color: var(--indigo);
+.dashboard-root .war-room__toolkit-icon {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  color: var(--text-2);
 }
-.dashboard-root .workspace__soon-pill {
-  margin-left: auto;
+.dashboard-root .war-room__pdf-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--red);
+  background: var(--red-soft);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.dashboard-root .war-room__toolkit-text {
+  flex: 1;
+  min-width: 0;
+}
+.dashboard-root .war-room__toolkit-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dashboard-root .war-room__toolkit-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+
+/* ── Timeline ─────────────────────────────────────────────────────── */
+.dashboard-root .war-room__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .war-room__timeline-row {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--bg-soft);
+}
+.dashboard-root .war-room__timeline-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--green-soft);
+  color: var(--green);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dashboard-root .war-room__timeline-text {
+  min-width: 0;
+}
+.dashboard-root .war-room__timeline-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+.dashboard-root .war-room__timeline-date {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.dashboard-root .war-room__chev { color: var(--text-3); }
+
+/* ── Interview readiness ──────────────────────────────────────────── */
+.dashboard-root .war-room__readiness-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 14px;
+  align-items: center;
+}
+.dashboard-root .war-room__readiness-circle {
+  position: relative;
+  width: 90px;
+  height: 90px;
+}
+.dashboard-root .war-room__readiness-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.dashboard-root .war-room__readiness-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.dashboard-root .war-room__readiness-pct {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-root .war-room__readiness-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.dashboard-root .war-room__readiness-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dashboard-root .war-room__readiness-list li {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.dashboard-root .war-room__readiness-icon { color: var(--green); }
+.dashboard-root .war-room__readiness-icon--red { color: var(--red); }
+.dashboard-root .war-room__readiness-sub-label { color: var(--text-1); }
+.dashboard-root .war-room__readiness-sub-value {
+  color: var(--green);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.dashboard-root .war-room__readiness-sub-value--red { color: var(--red); }
+
+/* ── Likely interview focus ──────────────────────────────────────── */
+.dashboard-root .war-room__focus-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dashboard-root .war-room__focus-chip {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--purple);
+  background: var(--purple-soft);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.dashboard-root .war-room__focus-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  background: transparent;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+}
+.dashboard-root .war-room__focus-add:disabled { cursor: not-allowed; opacity: 0.7; }
+
+/* ── Live assistant ───────────────────────────────────────────────── */
+.dashboard-root .war-room__assistant-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--bg-soft);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 2px;
+}
+.dashboard-root .war-room__assistant-tab {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background 120ms ease, color 120ms ease;
+}
+.dashboard-root .war-room__assistant-tab--active {
+  background: var(--bg);
+  color: var(--text-1);
+  box-shadow: var(--shadow-card);
+}
+.dashboard-root .war-room__assistant-prompt {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+.dashboard-root .war-room__assistant-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 4px 6px 4px 12px;
+}
+.dashboard-root .war-room__assistant-input input {
+  flex: 1;
+  background: transparent;
+  outline: none;
+  border: none;
+  font-size: 12.5px;
+  color: var(--text-1);
+  font-family: inherit;
+}
+.dashboard-root .war-room__assistant-input input::placeholder { color: var(--text-3); }
+.dashboard-root .war-room__assistant-input button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--indigo);
+  color: #ffffff;
+  transition: filter 120ms ease;
+}
+.dashboard-root .war-room__assistant-input button:hover { filter: brightness(1.05); }
+
+/* ── Notes ────────────────────────────────────────────────────────── */
+.dashboard-root .war-room__notes-row {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-soft);
+}
+.dashboard-root .war-room__notes-row:first-of-type { border-top: none; padding-top: 4px; }
+.dashboard-root .war-room__notes-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--bg-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+}
+.dashboard-root .war-room__notes-text { flex: 1; min-width: 0; }
+.dashboard-root .war-room__notes-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dashboard-root .war-room__notes-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.dashboard-root .war-room__notes-pill {
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -480,31 +1009,39 @@
   padding: 1px 7px;
   border-radius: 999px;
 }
-
-/* ── Empty inline blocks (no data yet for a panel) ─────────────── */
-.dashboard-root .workspace__empty {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12.5px;
-  color: var(--text-3);
-  line-height: 1.45;
-  padding: 10px 0;
+.dashboard-root .war-room__notes-body {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  cursor: pointer;
 }
-.dashboard-root .workspace__empty > svg {
-  color: var(--orange);
+.dashboard-root .war-room__notes-body--muted { color: var(--text-3); cursor: default; }
+.dashboard-root .war-room__notes-body:hover { color: var(--text-1); }
+.dashboard-root .war-room__notes-textarea {
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+  background: var(--bg);
+  color: var(--text-1);
+}
+.dashboard-root .war-room__notes-textarea:focus {
+  outline: none;
+  border-color: var(--indigo);
 }
 
-/* ── Inline job picker (shown when no job is in focus) ──────────────
-   3-up responsive grid of clickable cards. One click sets
-   workspaceJobId and the populated War Room renders in place — no
-   navigation away. */
-.dashboard-root .workspace__job-grid {
+/* ── Inline job picker (empty state) ──────────────────────────────── */
+.dashboard-root .war-room__job-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
-.dashboard-root .workspace__job-card {
+.dashboard-root .war-room__job-card {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -516,16 +1053,13 @@
   cursor: pointer;
   transition: border-color 120ms ease, transform 120ms ease, background 120ms ease;
 }
-.dashboard-root .workspace__job-card:hover {
+.dashboard-root .war-room__job-card:hover {
   border-color: var(--indigo);
   transform: translateY(-1px);
   background: var(--bg-hover);
 }
-.dashboard-root .workspace__job-card-text {
-  flex: 1;
-  min-width: 0;
-}
-.dashboard-root .workspace__job-card-role {
+.dashboard-root .war-room__job-card-text { flex: 1; min-width: 0; }
+.dashboard-root .war-room__job-card-role {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-1);
@@ -534,7 +1068,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dashboard-root .workspace__job-card-company {
+.dashboard-root .war-room__job-card-company {
   font-size: 11.5px;
   color: var(--text-3);
   margin-top: 2px;
@@ -542,17 +1076,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.dashboard-root .war-room__empty-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: 12.5px;
+  color: var(--text-3);
+  border: 1px dashed var(--border-soft);
+  border-radius: 10px;
+}
 
-/* Drop to 2-up on narrow viewports — the right panel may eat half
-   the screen on smaller laptops. */
-@media (max-width: 960px) {
-  .dashboard-root .workspace__job-grid {
+@media (max-width: 1100px) {
+  .dashboard-root .war-room__job-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* ── Switch-job modal ─────────────────────────────────────────────── */
-.dashboard-root .workspace__switcher-search {
+/* ── Switcher modal ───────────────────────────────────────────────── */
+.dashboard-root .war-room__switcher-search {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -563,15 +1105,12 @@
   margin-bottom: 12px;
   transition: border-color 120ms ease;
 }
-.dashboard-root .workspace__switcher-search:focus-within {
+.dashboard-root .war-room__switcher-search:focus-within {
   border-color: var(--indigo);
   background: var(--bg);
 }
-.dashboard-root .workspace__switcher-search > svg {
-  color: var(--text-3);
-  flex-shrink: 0;
-}
-.dashboard-root .workspace__switcher-input {
+.dashboard-root .war-room__switcher-search > svg { color: var(--text-3); flex-shrink: 0; }
+.dashboard-root .war-room__switcher-input {
   flex: 1;
   font-size: 13px;
   color: var(--text-1);
@@ -580,13 +1119,8 @@
   border: none;
   font-family: inherit;
 }
-.dashboard-root .workspace__switcher-input::placeholder {
-  color: var(--text-3);
-}
-
-/* Scrollable list of job rows. Cap the height so the modal stays
-   reasonable even with 50+ jobs in the slice. */
-.dashboard-root .workspace__switcher-list {
+.dashboard-root .war-room__switcher-input::placeholder { color: var(--text-3); }
+.dashboard-root .war-room__switcher-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -594,8 +1128,7 @@
   overflow-y: auto;
   padding: 2px;
 }
-
-.dashboard-root .workspace__switcher-row {
+.dashboard-root .war-room__switcher-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -607,21 +1140,18 @@
   cursor: pointer;
   transition: border-color 120ms ease, background 120ms ease;
 }
-.dashboard-root .workspace__switcher-row:hover:not(:disabled) {
+.dashboard-root .war-room__switcher-row:hover:not(:disabled) {
   border-color: var(--indigo);
   background: var(--bg-hover);
 }
-.dashboard-root .workspace__switcher-row--current {
+.dashboard-root .war-room__switcher-row--current {
   border-color: var(--indigo);
   background: var(--indigo-soft);
   cursor: default;
   opacity: 0.85;
 }
-.dashboard-root .workspace__switcher-text {
-  flex: 1;
-  min-width: 0;
-}
-.dashboard-root .workspace__switcher-role {
+.dashboard-root .war-room__switcher-text { flex: 1; min-width: 0; }
+.dashboard-root .war-room__switcher-role {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-1);
@@ -630,11 +1160,35 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.dashboard-root .workspace__switcher-company {
+.dashboard-root .war-room__switcher-company {
   font-size: 11.5px;
   color: var(--text-3);
   margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Responsive: collapse to 2 cols then 1 col ─────────────────────── */
+@media (max-width: 1280px) {
+  .dashboard-root .war-room__grid {
+    grid-template-columns: minmax(280px, 1fr) minmax(0, 1.4fr);
+  }
+  .dashboard-root .war-room__col--right {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .dashboard-root .war-room__col--right > .war-room__panel {
+    flex: 1 1 240px;
+  }
+}
+@media (max-width: 900px) {
+  .dashboard-root .war-room__grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-root .war-room__col--right { flex-direction: column; flex-wrap: nowrap; }
+  .dashboard-root .war-room__hero {
+    grid-template-columns: 1fr;
+  }
 }

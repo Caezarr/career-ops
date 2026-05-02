@@ -5,71 +5,113 @@ import {
   Mic,
   FileText,
   CheckCircle2,
-  Circle,
   AlertTriangle,
-  PlayCircle,
-  Mail,
-  Target,
-  TrendingUp,
   Loader2,
   MapPin,
   Euro,
   Briefcase,
   Building2,
-  Search,
   Repeat,
+  Search,
+  Share2,
+  Download,
+  Calendar,
+  Mail,
+  Send,
+  Plus,
+  Info,
+  ChevronRight,
+  Play,
 } from 'lucide-react';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import CompanyAvatar from '../components/CompanyAvatar';
 import { useAppStore } from '../store';
+import type { Job, ApplicationStage } from '../store';
 import { useNavigation } from '../navigation';
 import { Modal, ModalBody, ModalHeader, useToast } from '../primitives';
-import type { Job } from '../store';
 import { runAnalyzer } from '../lib/runAnalyzer';
 import { readAnthropicKey } from '../hooks/useAnthropicKey';
 import { getCvParsedText } from '../store/slices/cvs';
 
 /** First 200 chars of the JD — same window the runAnalyzer uses for
- *  cache validation. Compared against the cached analysis's
- *  `jdSnippet` to know whether the existing result is for THIS job
- *  or for a different one that happened to use the same CV. */
+ *  cache validation. */
 const JD_SNIPPET_LEN = 200;
 
-function formatSalary(min: number, max: number, c: string): string | null {
-  if (!min) return null;
-  const a = `${c}${Math.round(min / 1000)}k`;
-  if (!max || max === min) return a;
-  return `${a} – ${c}${Math.round(max / 1000)}k`;
+/** The 6 stages the War Room visualises in its top stepper. We map
+ *  the existing ApplicationStage union plus a synthetic "saved"
+ *  (bookmarked, never applied) and split "interview" into two
+ *  sub-stages (Recruiter Screen → Hiring Manager → Final Round)
+ *  that the user-facing copy demands but the slice doesn't model
+ *  yet. The mapping is best-effort until we add a richer stage
+ *  enum to the slice. */
+type WarRoomStage =
+  | 'saved'
+  | 'applied'
+  | 'recruiter-screen'
+  | 'hiring-manager'
+  | 'final-round'
+  | 'offer';
+
+const STAGES: { id: WarRoomStage; label: string }[] = [
+  { id: 'saved', label: 'Saved' },
+  { id: 'applied', label: 'Applied' },
+  { id: 'recruiter-screen', label: 'Recruiter\nScreen' },
+  { id: 'hiring-manager', label: 'Hiring\nManager' },
+  { id: 'final-round', label: 'Final Round' },
+  { id: 'offer', label: 'Offer' },
+];
+
+/** Map application.stage → WarRoomStage index. We collapse the slice's
+ *  three "interview" sub-stages into Hiring Manager by default — when
+ *  the slice gains finer stages we update this mapping. */
+function stageIndex(
+  appStage: ApplicationStage | null,
+  bookmarked: boolean,
+): number {
+  if (!appStage) return bookmarked ? 0 : -1;
+  switch (appStage) {
+    case 'sourced':
+      return 0;
+    case 'applied':
+      return 1;
+    case 'phone_screen':
+      return 2;
+    case 'interview':
+      return 3;
+    case 'offer':
+      return 5;
+    case 'rejected':
+      return -1;
+    default:
+      return -1;
+  }
 }
 
-/** Number of lifetime "preparation" steps tracked. Tune this when we
- *  add new check-points (mock interview, follow-up sent, etc.). */
-const PREPARATION_STEPS = 5;
-
-/** Heuristic match-score color buckets, mirroring the Pipeline + ATS
- *  card pills so the same number reads consistently across the app. */
 function matchTone(match: number): 'green' | 'amber' | 'red' {
   if (match >= 85) return 'green';
   if (match >= 65) return 'amber';
   return 'red';
 }
 
+function formatSalary(min: number, max: number, c: string): string | null {
+  if (!min) return null;
+  const a = `${c}${Math.round(min / 1000)}k`;
+  if (!max || max === min) return `${a} OTE`;
+  return `${a}–${c}${Math.round(max / 1000)}k OTE`;
+}
+
 /**
- * Job War Room — the unified workspace for a single opportunity.
+ * War Room — the unified workspace for a single opportunity.
  *
- * Pulls everything we already know about a job into one page:
- *   - Match score + status pill (resolves linked application stage)
- *   - Why-you-match summary (uses cached ATS analysis)
- *   - Recommended CV variant (default + optimized links)
- *   - Action plan (AI next steps from the linked application)
- *   - Past Copilot sessions for this job
- *   - Preparation level meter (5 checkpoints)
- *   - Quick actions: start mock interview, open Copilot, draft follow-up
+ * Layout follows the design spec (Qonto · Senior PM mockup):
+ *   - Header: breadcrumb + Share/Export/Open Copilot CTAs
+ *   - Job hero strip + horizontal stage progress
+ *   - 3-column main grid: left (match + why + gaps + career memory),
+ *     center (next actions + interview prep + toolkit + timeline),
+ *     right (interview readiness + focus + live assistant + notes).
  *
- * The page is the "drill-down" of every browse surface — clicking a
- * job from Jobs / Applications / Pipeline lands here so the user sees
- * one ranked view of "what's left to do for this opportunity".
+ * Empty state: inline ranked job picker (no bounce to the catalogue).
  */
 export default function Workspace() {
   const { navigate } = useNavigation();
@@ -86,41 +128,28 @@ export default function Workspace() {
   const setSelectedApplication = useAppStore((s) => s.setSelectedApplication);
   const setWorkspaceJobId = useAppStore((s) => s.setWorkspaceJobId);
   const analyzerRunning = useAppStore((s) => s.analyzerRunning);
+  const updateApplicationNotes = useAppStore((s) => s.updateApplicationNotes);
 
-  // Switcher modal state — opens from the hero "Switch job" button.
-  // Lets the user jump between opportunities without leaving the
-  // page or losing context (the destination job's data hydrates in
-  // place once setWorkspaceJobId fires).
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [switcherQuery, setSwitcherQuery] = useState('');
 
-  // Resolve the linked entities — when no job is set yet, the page
-  // shows an empty-state with a CTA to open the Jobs catalogue.
   const job = jobs.find((j) => j.id === workspaceJobId);
   const application = applications.find((a) => a.jobId === workspaceJobId);
-  const cv = cvs.find((c) => c.id === (application?.cvId ?? defaultCvId)) ?? cvs[0];
+  const cv =
+    cvs.find((c) => c.id === (application?.cvId ?? defaultCvId)) ?? cvs[0];
   const cachedAts = cv ? atsByCv[cv.id] : undefined;
-  // Cache hit only when the cached analysis was run against THIS job's
-  // JD. The runner stamps a 200-char snippet on every result so we can
-  // tell A's cached score apart from B's, even when both used the same
-  // CV. Without a JD on the job we can't validate freshness so we just
-  // surface whatever's cached and trust it.
   const jdSnippet = (job?.jdText ?? '').slice(0, JD_SNIPPET_LEN);
-  const atsIsForThisJob = !!cachedAts && (!jdSnippet || cachedAts.jdSnippet === jdSnippet);
+  const atsIsForThisJob =
+    !!cachedAts && (!jdSnippet || cachedAts.jdSnippet === jdSnippet);
   const ats = atsIsForThisJob ? cachedAts : undefined;
   const linkedSessions = useMemo(
-    () => copilotSessions.filter((s) => s.jobId === workspaceJobId).slice(0, 3),
+    () =>
+      copilotSessions.filter((s) => s.jobId === workspaceJobId).slice(0, 3),
     [copilotSessions, workspaceJobId],
   );
 
-  // Auto-trigger ATS analysis on workspace open. Fires when:
-  //  - The user has an Anthropic key (don't even attempt without one)
-  //  - The job has parsable JD text
-  //  - We have a CV with parsed text
-  //  - The cached result (if any) is for a DIFFERENT job's JD
-  //  - The analyzer isn't already running another batch
-  // The ref dedupes the trigger so a re-render between fetch start and
-  // setAtsAnalysis doesn't fire a second call.
+  // Auto-trigger ATS analysis on workspace open. Same dedupe pattern
+  // as before — fingerprint = jobId|cvId|jdSnippet.
   const lastAnalyzedRef = useRef<string | null>(null);
   useEffect(() => {
     if (!job || !cv) return;
@@ -134,8 +163,6 @@ export default function Workspace() {
     if (lastAnalyzedRef.current === fingerprint) return;
     lastAnalyzedRef.current = fingerprint;
     runAnalyzer({ cvIds: [cv.id], jdText: job.jdText }).catch((e) => {
-      // Non-fatal — the page still renders with the job-native fallback
-      // data. Surface the error so the user knows the auto-run failed.
       toast.error(
         'Match analysis failed',
         e instanceof Error ? e.message : String(e),
@@ -143,172 +170,86 @@ export default function Workspace() {
     });
   }, [job, cv, atsIsForThisJob, analyzerRunning, jdSnippet, toast]);
 
-  // Preparation checklist — 5 atomic milestones we know how to track
-  // today. Each row is { label, done, hint, action? } so the meter
-  // can both render the score AND nudge the user to the next step.
-  const checklist = useMemo(() => {
-    const items: { id: string; label: string; done: boolean }[] = [
-      {
-        id: 'analyzed',
-        label: 'Match analyzed against this CV',
-        done: !!ats,
-      },
-      {
-        id: 'optimized',
-        label: 'CV variant optimized for this role',
-        done: cvs.some((c) => /^optimized for /i.test(c.name) && c.id !== cv?.id) || cv?.atsScore !== undefined && (cv?.atsScore ?? 0) >= 85,
-      },
-      {
-        id: 'applied',
-        label: 'Application submitted',
-        done: !!application,
-      },
-      {
-        id: 'session',
-        label: 'Copilot mock or live session done',
-        done: linkedSessions.length > 0,
-      },
-      {
-        id: 'next-steps',
-        label: 'AI next-step plan generated',
-        done: (application?.aiNextSteps?.length ?? 0) > 0,
-      },
-    ];
-    return items;
-  }, [ats, cvs, cv, application, linkedSessions]);
-
-  const doneCount = checklist.filter((c) => c.done).length;
-  const completionPct = Math.round((doneCount / PREPARATION_STEPS) * 100);
-
-  // ── Empty state ────────────────────────────────────────────────
-  // No job in focus yet — instead of bouncing the user to the Jobs
-  // page (3 clicks to pick + come back), we show an inline picker:
-  // top matches sorted by score so the user lands on a useful one in
-  // one click. The page stays mounted so the moment they click a
-  // card, the populated War Room renders in place.
+  // ── Empty state — inline ranked picker. Identical behaviour to the
+  // previous version: 9 cards, click sets workspaceJobId in place.
   if (!job) {
-    const setWorkspaceJobId = useAppStore.getState().setWorkspaceJobId;
     const ranked = jobs
       .slice()
       .sort((a, b) => {
-        // Bookmarked first; then by match score desc.
         if (!!a.bookmarked !== !!b.bookmarked) return a.bookmarked ? -1 : 1;
         return (b.match ?? 0) - (a.match ?? 0);
       })
       .slice(0, 9);
-
     return (
       <div className="dashboard">
         <Sidebar />
         <TopBar />
         <main className="dashboard__main">
           <div className="dashboard__main-scroll">
-            <div className="workspace">
-              <header className="workspace__hero">
-                <div className="workspace__hero-left">
-                  <div
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 12,
-                      background: 'var(--purple-soft)',
-                      color: 'var(--purple)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    aria-hidden="true"
-                  >
-                    <Target size={26} strokeWidth={2} />
-                  </div>
-                  <div className="workspace__hero-text">
-                    <span className="workspace__eyebrow">War Room</span>
-                    <h1 className="workspace__title">Pick a job to focus on</h1>
-                    <p
-                      style={{
-                        margin: '6px 0 0',
-                        fontSize: 13,
-                        color: 'var(--text-2)',
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      One click on a card below and Career OS auto-runs the
-                      match analysis, surfaces the recommended CV, and
-                      assembles the action plan.
-                    </p>
-                  </div>
+            <div className="war-room war-room--empty-shell">
+              <header className="war-room__page-header">
+                <div className="war-room__page-title">
+                  <h1>War Room</h1>
+                  <p>Everything you need to win this role, in one place.</p>
                 </div>
               </header>
-
-              {ranked.length === 0 ? (
-                <section className="workspace__panel">
-                  <div className="workspace__panel-header">
-                    <Briefcase size={16} strokeWidth={2} />
-                    <h2 className="workspace__panel-title">No jobs yet</h2>
-                  </div>
-                  <p style={{ margin: 0, fontSize: 13, color: 'var(--text-2)', lineHeight: 1.5 }}>
-                    Add an opportunity from the Jobs catalogue to start a War
-                    Room around it.
-                  </p>
+              <section className="war-room__panel">
+                <div className="war-room__panel-header">
+                  <Sparkles size={16} strokeWidth={2} />
+                  <h2 className="war-room__panel-title">
+                    Pick a job to focus on
+                  </h2>
                   <button
                     type="button"
-                    className="workspace__cta-primary"
-                    style={{ alignSelf: 'flex-start' }}
+                    className="war-room__inline-cta war-room__inline-cta--right"
                     onClick={() => navigate('jobs')}
                   >
-                    <span>Browse jobs</span>
-                    <ArrowRight size={14} strokeWidth={2.4} />
+                    Browse all jobs →
                   </button>
-                </section>
-              ) : (
-                <section
-                  className="workspace__panel"
-                  aria-label="Pick a job to focus on"
-                >
-                  <div className="workspace__panel-header">
-                    <Sparkles size={16} strokeWidth={2} />
-                    <h2 className="workspace__panel-title">
-                      Top matches in your pipeline
-                    </h2>
-                    <button
-                      type="button"
-                      className="workspace__inline-cta workspace__inline-cta--right"
-                      onClick={() => navigate('jobs')}
-                    >
-                      Browse all jobs →
-                    </button>
-                  </div>
-                  <div className="workspace__job-grid">
-                    {ranked.map((j) => {
+                </div>
+                <p className="war-room__panel-hint">
+                  One click on a card and Career OS auto-runs the match
+                  analysis, surfaces the recommended CV, and assembles
+                  your action plan.
+                </p>
+                <div className="war-room__job-grid">
+                  {ranked.length === 0 ? (
+                    <div className="war-room__empty-block">
+                      <Briefcase size={18} strokeWidth={1.6} />
+                      <span>
+                        No jobs yet. Browse the catalogue to start tracking
+                        opportunities.
+                      </span>
+                    </div>
+                  ) : (
+                    ranked.map((j) => {
                       const t = matchTone(j.match ?? 0);
                       return (
                         <button
                           key={j.id}
                           type="button"
-                          className="workspace__job-card"
+                          className="war-room__job-card"
                           onClick={() => setWorkspaceJobId(j.id)}
                         >
                           <CompanyAvatar company={j.company} size={36} />
-                          <div className="workspace__job-card-text">
-                            <div className="workspace__job-card-role">
+                          <div className="war-room__job-card-text">
+                            <div className="war-room__job-card-role">
                               {j.role}
                             </div>
-                            <div className="workspace__job-card-company">
+                            <div className="war-room__job-card-company">
                               {j.company}
                               {j.location ? ` · ${j.location}` : ''}
                             </div>
                           </div>
-                          <span
-                            className={`workspace__pill workspace__pill--${t}`}
-                          >
+                          <span className={`war-room__pill war-room__pill--${t}`}>
                             {j.match ?? 0}%
                           </span>
                         </button>
                       );
-                    })}
-                  </div>
-                </section>
-              )}
+                    })
+                  )}
+                </div>
+              </section>
             </div>
           </div>
         </main>
@@ -316,20 +257,20 @@ export default function Workspace() {
     );
   }
 
-  // ── Main render ────────────────────────────────────────────────
-  const tone = matchTone(application?.match ?? job.match ?? 0);
-  const stageLabel =
-    application?.stage === 'interview'
-      ? 'In interviews'
-      : application?.stage === 'phone_screen'
-      ? 'Phone screen booked'
-      : application?.stage === 'offer'
-      ? 'Offer pending'
-      : application?.stage === 'applied'
-      ? 'Applied'
-      : application?.stage === 'rejected'
-      ? 'Closed'
-      : 'Sourced';
+  // ── Populated render ────────────────────────────────────────────
+  const matchScore = ats?.atsScore ?? application?.match ?? job.match ?? 0;
+  const matchScoreLabel =
+    matchScore >= 85
+      ? 'Great match'
+      : matchScore >= 70
+      ? 'Strong match'
+      : matchScore >= 55
+      ? 'Worth pursuing'
+      : 'Stretch target';
+  const tone = matchTone(matchScore);
+
+  const stageIdx = stageIndex(application?.stage ?? null, job.bookmarked);
+  const interviewsInDays = nextInterviewDays(application);
 
   function startCopilotForJob() {
     if (!job) return;
@@ -350,45 +291,106 @@ export default function Workspace() {
     }
   }
 
+  async function handleShare() {
+    const summary = `${job?.company} · ${job?.role} — ${matchScore}% match`;
+    if (!summary) return;
+    try {
+      await navigator.clipboard.writeText(summary);
+      toast.success('Link copied', 'Share-summary copied to your clipboard.');
+    } catch {
+      toast.error("Couldn't copy", 'Clipboard unavailable.');
+    }
+  }
+
+  function handleExport() {
+    if (!job) return;
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          {
+            exportedAt: new Date().toISOString(),
+            job,
+            application,
+            cv: cv?.id,
+            ats,
+            sessions: linkedSessions.map((s) => s.id),
+          },
+          null,
+          2,
+        ),
+      ],
+      { type: 'application/json' },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `war-room-${job.company.replace(/\s+/g, '-').toLowerCase()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Exported', 'Workspace snapshot saved as JSON.');
+  }
+
   return (
     <div className="dashboard">
       <Sidebar />
       <TopBar />
       <main className="dashboard__main">
         <div className="dashboard__main-scroll">
-          <div className="workspace">
-            {/* ── Hero ─────────────────────────────────────────── */}
-            <header className="workspace__hero">
-              <div className="workspace__hero-left">
-                <CompanyAvatar company={job.company} size={56} />
-                <div className="workspace__hero-text">
-                  <span className="workspace__eyebrow">War Room</span>
-                  <h1 className="workspace__title">
-                    {job.company} · {job.role}
-                  </h1>
-                  <div className="workspace__hero-meta">
-                    <span className={`workspace__pill workspace__pill--${tone}`}>
-                      {application?.match ?? job.match ?? 0}% match
-                    </span>
-                    <span className="workspace__pill workspace__pill--neutral">
-                      {stageLabel}
-                    </span>
-                    {analyzerRunning && !ats && (
-                      <span className="workspace__pill workspace__pill--neutral">
-                        <Loader2
-                          size={11}
-                          strokeWidth={2.2}
-                          style={{ marginRight: 4, animation: 'workspace-spin 1s linear infinite' }}
-                        />
-                        Analyzing match…
-                      </span>
-                    )}
-                  </div>
-                  <div className="workspace__hero-facts">
+          <div className="war-room">
+            {/* ── Page header ─────────────────────────────────── */}
+            <header className="war-room__page-header">
+              <div className="war-room__page-title">
+                <h1>War Room</h1>
+                <p>Everything you need to win this role, in one place.</p>
+              </div>
+              <div className="war-room__page-actions">
+                <button
+                  type="button"
+                  className="war-room__cta-secondary"
+                  onClick={handleShare}
+                  title="Copy a one-line summary to share"
+                >
+                  <Share2 size={14} strokeWidth={2} />
+                  <span>Share</span>
+                </button>
+                <button
+                  type="button"
+                  className="war-room__cta-secondary"
+                  onClick={handleExport}
+                  title="Download a JSON snapshot of this workspace"
+                >
+                  <Download size={14} strokeWidth={2} />
+                  <span>Export</span>
+                </button>
+                <button
+                  type="button"
+                  className="war-room__cta-primary"
+                  onClick={startCopilotForJob}
+                >
+                  <Mic size={14} strokeWidth={2} />
+                  <span>Open Copilot</span>
+                </button>
+              </div>
+            </header>
+
+            {/* ── Job hero + stage progress ───────────────────── */}
+            <section className="war-room__hero">
+              <div className="war-room__hero-job">
+                <CompanyAvatar company={job.company} size={64} />
+                <div className="war-room__hero-text">
+                  <h2 className="war-room__hero-role">{job.role}</h2>
+                  <div className="war-room__hero-company">{job.company}</div>
+                  <div className="war-room__hero-facts">
                     {job.location && (
-                      <span className="workspace__fact">
+                      <span className="war-room__fact">
                         <MapPin size={11} strokeWidth={2} />
                         {job.location}
+                      </span>
+                    )}
+                    {job.workMode && (
+                      <span className="war-room__fact">
+                        <Building2 size={11} strokeWidth={2} />
+                        {job.workMode}
                       </span>
                     )}
                     {(() => {
@@ -398,425 +400,129 @@ export default function Workspace() {
                         job.salaryCurrency,
                       );
                       return salary ? (
-                        <span className="workspace__fact">
+                        <span className="war-room__fact">
                           <Euro size={11} strokeWidth={2} />
                           {salary}
                         </span>
                       ) : null;
                     })()}
-                    {job.workMode && (
-                      <span className="workspace__fact">
-                        <Building2 size={11} strokeWidth={2} />
-                        {job.workMode}
-                      </span>
-                    )}
-                    {job.type && (
-                      <span className="workspace__fact">
-                        <Briefcase size={11} strokeWidth={2} />
-                        {job.type}
-                      </span>
-                    )}
                   </div>
-                </div>
-              </div>
-
-              <div className="workspace__hero-actions">
-                {/* Switch job — opens a searchable modal listing every
-                    opportunity. Always present in the populated hero so
-                    the user can pivot to another job in one click
-                    without navigating away. */}
-                <button
-                  type="button"
-                  className="workspace__cta-secondary"
-                  onClick={() => {
-                    setSwitcherQuery('');
-                    setSwitcherOpen(true);
-                  }}
-                  title="Switch focus to another opportunity"
-                >
-                  <Repeat size={14} strokeWidth={2} />
-                  <span>Switch job</span>
-                </button>
-                <button
-                  type="button"
-                  className="workspace__cta-secondary"
-                  onClick={openApplication}
-                >
-                  <FileText size={14} strokeWidth={2} />
-                  <span>{application ? 'View application' : 'Apply'}</span>
-                </button>
-                <button
-                  type="button"
-                  className="workspace__cta-primary"
-                  onClick={startCopilotForJob}
-                >
-                  <Mic size={14} strokeWidth={2} />
-                  <span>Open Copilot</span>
-                </button>
-              </div>
-            </header>
-
-            {/* ── Preparation meter ────────────────────────────── */}
-            <section
-              className="workspace__prep"
-              aria-label="Preparation level"
-            >
-              <div className="workspace__prep-header">
-                <span className="workspace__eyebrow">Preparation</span>
-                <strong className="workspace__prep-label">
-                  {doneCount} of {PREPARATION_STEPS} steps done · {completionPct}%
-                </strong>
-              </div>
-              <div className="workspace__prep-track" aria-hidden="true">
-                <div
-                  className="workspace__prep-fill"
-                  style={{ width: `${completionPct}%` }}
-                />
-              </div>
-              <ul className="workspace__prep-list">
-                {checklist.map((item) => (
-                  <li
-                    key={item.id}
-                    className={
-                      'workspace__prep-item' +
-                      (item.done ? ' workspace__prep-item--done' : '')
-                    }
-                  >
-                    {item.done ? (
-                      <CheckCircle2 size={14} strokeWidth={2.2} />
-                    ) : (
-                      <Circle size={14} strokeWidth={2} />
-                    )}
-                    <span>{item.label}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            {/* ── About this role ──────────────────────────────────
-                 Surfaces the data the Job already has (AI summary,
-                 why-you-match bullets, about-the-company facts) so the
-                 page is informative even before any AI analysis runs. */}
-            {(job.aiSummary ||
-              (job.whyYouMatch && job.whyYouMatch.length > 0) ||
-              (job.about && job.about.length > 0)) && (
-              <section className="workspace__panel" aria-label="About this role">
-                <div className="workspace__panel-header">
-                  <Briefcase size={16} strokeWidth={2} />
-                  <h2 className="workspace__panel-title">About this role</h2>
-                </div>
-                {job.aiSummary && (
-                  <p
-                    style={{
-                      margin: 0,
-                      fontSize: 13,
-                      lineHeight: 1.55,
-                      color: 'var(--text-1)',
-                    }}
-                  >
-                    {job.aiSummary}
-                  </p>
-                )}
-                {job.whyYouMatch && job.whyYouMatch.length > 0 && (
-                  <div className="workspace__strengths">
-                    <span className="workspace__sub-eyebrow">
-                      Highlights from the listing
+                  {interviewsInDays !== null && (
+                    <span className="war-room__interview-pill">
+                      <Calendar size={11} strokeWidth={2.4} />
+                      Interview in {interviewsInDays} days
                     </span>
-                    <ul>
-                      {job.whyYouMatch.map((reason, i) => (
-                        <li key={i}>
-                          <CheckCircle2 size={12} strokeWidth={2.4} />
-                          <span>{reason}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {job.about && job.about.length > 0 && (
-                  <div className="workspace__strengths">
-                    <span className="workspace__sub-eyebrow">
-                      About {job.company}
-                    </span>
-                    <ul>
-                      {job.about.map((fact, i) => (
-                        <li key={i}>
-                          <CheckCircle2 size={12} strokeWidth={2.4} />
-                          <span>{fact}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* ── 2-col grid: Match + CV ──────────────────────── */}
-            <div className="workspace__grid">
-              {/* Why you match */}
-              <section className="workspace__panel" aria-label="Match analysis">
-                <div className="workspace__panel-header">
-                  <Sparkles size={16} strokeWidth={2} />
-                  <h2 className="workspace__panel-title">Why you match</h2>
-                </div>
-                {ats ? (
-                  <>
-                    {ats.strengths && ats.strengths.length > 0 && (
-                      <div className="workspace__strengths">
-                        <span className="workspace__sub-eyebrow">Strengths</span>
-                        <ul>
-                          {ats.strengths.slice(0, 3).map((s, i) => (
-                            <li key={i}>
-                              <CheckCircle2 size={12} strokeWidth={2.4} />
-                              <span>{s}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {ats.missingKeywords && ats.missingKeywords.length > 0 && (
-                      <div className="workspace__gaps">
-                        <span className="workspace__sub-eyebrow">Gaps to close</span>
-                        <div className="workspace__gap-chips">
-                          {ats.missingKeywords.slice(0, 8).map((kw, i) => (
-                            <span key={i} className="workspace__gap-chip">
-                              {kw}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : analyzerRunning ? (
-                  <div className="workspace__empty">
-                    <Loader2
-                      size={14}
-                      strokeWidth={2.2}
-                      style={{ animation: 'workspace-spin 1s linear infinite' }}
-                    />
-                    <span>
-                      Running match analysis against{' '}
-                      {cv?.name ?? 'your CV'}…
-                    </span>
-                  </div>
-                ) : (
-                  <div className="workspace__empty">
-                    <AlertTriangle size={14} strokeWidth={2} />
-                    <span>
-                      {!readAnthropicKey()
-                        ? 'Add your Anthropic key in Settings to auto-run the match analysis when you open a War Room.'
-                        : !job.jdText
-                        ? "This job has no parsed JD — paste one in the ATS Analyzer to score the match."
-                        : 'Match analysis is queued — it will run automatically when the analyzer is free.'}
-                    </span>
+                  )}
+                  <div className="war-room__hero-secondary-actions">
                     <button
                       type="button"
-                      className="workspace__inline-cta"
-                      onClick={() =>
-                        navigate(!readAnthropicKey() ? 'settings' : 'cv')
-                      }
+                      className="war-room__inline-cta"
+                      onClick={() => {
+                        setSwitcherQuery('');
+                        setSwitcherOpen(true);
+                      }}
                     >
-                      {!readAnthropicKey()
-                        ? 'Open Settings →'
-                        : 'Open ATS Analyzer →'}
+                      <Repeat size={11} strokeWidth={2.4} />
+                      <span>Switch job</span>
                     </button>
-                  </div>
-                )}
-              </section>
-
-              {/* Recommended CV */}
-              <section className="workspace__panel" aria-label="Recommended CV">
-                <div className="workspace__panel-header">
-                  <FileText size={16} strokeWidth={2} />
-                  <h2 className="workspace__panel-title">Recommended CV</h2>
-                </div>
-                {cv ? (
-                  <>
-                    <div className="workspace__cv-row">
-                      <div>
-                        <div className="workspace__cv-name">{cv.name}</div>
-                        <div className="workspace__cv-sub">
-                          ATS {cv.atsScore ?? '—'}%
-                          {ats?.projectedAtsScore != null &&
-                            ` → ${ats.projectedAtsScore}% projected`}
-                        </div>
-                      </div>
-                      <div
-                        className={`workspace__pill workspace__pill--${
-                          (cv.atsScore ?? 0) >= 85 ? 'green' : 'amber'
-                        }`}
-                      >
-                        {(cv.atsScore ?? 0) >= 85 ? 'Optimised' : 'Improvable'}
-                      </div>
-                    </div>
                     <button
                       type="button"
-                      className="workspace__inline-cta"
-                      onClick={() => navigate('cv')}
-                    >
-                      Open CV manager →
-                    </button>
-                  </>
-                ) : (
-                  <div className="workspace__empty">
-                    <AlertTriangle size={14} strokeWidth={2} />
-                    <span>No CV uploaded yet. Add one in CV Manager.</span>
-                    <button
-                      type="button"
-                      className="workspace__inline-cta"
-                      onClick={() => navigate('cv')}
-                    >
-                      Open CV manager →
-                    </button>
-                  </div>
-                )}
-              </section>
-            </div>
-
-            {/* ── Action plan ──────────────────────────────────── */}
-            <section className="workspace__panel" aria-label="Action plan">
-              <div className="workspace__panel-header">
-                <TrendingUp size={16} strokeWidth={2} />
-                <h2 className="workspace__panel-title">Action plan</h2>
-                {application && (
-                  <button
-                    type="button"
-                    className="workspace__inline-cta workspace__inline-cta--right"
-                    onClick={openApplication}
-                  >
-                    See full detail →
-                  </button>
-                )}
-              </div>
-              {application?.aiNextSteps && application.aiNextSteps.length > 0 ? (
-                <ul className="workspace__steps">
-                  {application.aiNextSteps.map((step, i) => (
-                    <li key={i}>
-                      <span className="workspace__step-num">{i + 1}</span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="workspace__empty">
-                  <span>
-                    No AI next steps yet. Open the application detail and
-                    click "Generate next steps".
-                  </span>
-                  {application && (
-                    <button
-                      type="button"
-                      className="workspace__inline-cta"
+                      className="war-room__inline-cta"
                       onClick={openApplication}
                     >
-                      Open application →
+                      <FileText size={11} strokeWidth={2.4} />
+                      <span>{application ? 'View application' : 'Apply'}</span>
                     </button>
-                  )}
+                  </div>
                 </div>
-              )}
+              </div>
+              <StageProgress index={stageIdx} />
             </section>
 
-            {/* ── 2-col bottom: Sessions + Quick actions ──────── */}
-            <div className="workspace__grid">
-              <section
-                className="workspace__panel"
-                aria-label="Past Copilot sessions"
-              >
-                <div className="workspace__panel-header">
-                  <Mic size={16} strokeWidth={2} />
-                  <h2 className="workspace__panel-title">Practice sessions</h2>
-                </div>
-                {linkedSessions.length > 0 ? (
-                  <ul className="workspace__sessions">
-                    {linkedSessions.map((s) => (
-                      <li key={s.id}>
-                        <span className="workspace__session-mode">
-                          {s.mode === 'pitch' ? 'Pitch' : 'Q&A'}
-                        </span>
-                        <span className="workspace__session-meta">
-                          {s.transcript.length} bubble
-                          {s.transcript.length === 1 ? '' : 's'} ·{' '}
-                          {s.answers.length} answer
-                          {s.answers.length === 1 ? '' : 's'}
-                        </span>
-                        <span className="workspace__session-date">
-                          {new Date(s.startedAt).toLocaleDateString()}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="workspace__empty">
-                    <span>No practice runs for this opportunity yet.</span>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  className="workspace__cta-secondary workspace__cta-block"
-                  onClick={startCopilotForJob}
-                >
-                  <PlayCircle size={14} strokeWidth={2} />
-                  <span>Start mock with this context</span>
-                </button>
-              </section>
+            {/* ── Main 3-column grid ──────────────────────────── */}
+            <div className="war-room__grid">
+              {/* ── Left column ─────────────────────────────── */}
+              <div className="war-room__col war-room__col--left">
+                <MatchScoreCard
+                  score={matchScore}
+                  label={matchScoreLabel}
+                  tone={tone}
+                  analyzing={analyzerRunning && !ats}
+                />
+                <WhyMatchCard
+                  ats={ats}
+                  jobReasons={job.whyYouMatch ?? []}
+                />
+                <GapsToFixCard ats={ats} />
+                <CareerMemoryCard
+                  cvCount={cvs.length}
+                  sessionsCount={copilotSessions.length}
+                />
+              </div>
 
-              <section
-                className="workspace__panel"
-                aria-label="Quick actions"
-              >
-                <div className="workspace__panel-header">
-                  <Mail size={16} strokeWidth={2} />
-                  <h2 className="workspace__panel-title">Quick actions</h2>
-                </div>
-                <div className="workspace__quick">
-                  <button
-                    type="button"
-                    className="workspace__quick-btn"
-                    onClick={() => navigate('prep')}
-                  >
-                    <PlayCircle size={14} strokeWidth={2} />
-                    <span>Open mock interview library</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="workspace__quick-btn"
-                    onClick={() => navigate('cv')}
-                  >
-                    <Sparkles size={14} strokeWidth={2} />
-                    <span>Generate optimized CV</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="workspace__quick-btn workspace__quick-btn--soon"
-                    disabled
-                    title="Coming soon"
-                  >
-                    <Mail size={14} strokeWidth={2} />
-                    <span>Draft recruiter follow-up</span>
-                    <span className="workspace__soon-pill">Soon</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="workspace__quick-btn workspace__quick-btn--soon"
-                    disabled
-                    title="Coming soon"
-                  >
-                    <Target size={14} strokeWidth={2} />
-                    <span>15 probable questions</span>
-                    <span className="workspace__soon-pill">Soon</span>
-                  </button>
-                </div>
-              </section>
+              {/* ── Center column ───────────────────────────── */}
+              <div className="war-room__col war-room__col--center">
+                <NextBestActions
+                  hasOptimizedCv={cvs.some((c) =>
+                    /^optimized for /i.test(c.name),
+                  )}
+                  hasSession={linkedSessions.length > 0}
+                  navigate={navigate}
+                  onStartCopilot={startCopilotForJob}
+                />
+                <InterviewPrepHub
+                  job={job}
+                  application={application}
+                  navigate={navigate}
+                />
+                <WarRoomToolkit
+                  cvName={cv?.name}
+                  navigate={navigate}
+                  onStartCopilot={startCopilotForJob}
+                />
+                <TimelineNextSteps application={application} />
+              </div>
+
+              {/* ── Right column ────────────────────────────── */}
+              <div className="war-room__col war-room__col--right">
+                <InterviewReadinessCard
+                  cvFit={ats?.atsScore ?? cv?.atsScore ?? 0}
+                  hasSession={linkedSessions.length > 0}
+                  appStage={application?.stage ?? null}
+                  hasAnthropicKey={!!readAnthropicKey()}
+                  onCta={startCopilotForJob}
+                />
+                <LikelyInterviewFocus job={job} ats={ats} />
+                <LiveAssistantCard onAsk={(q) => {
+                  if (!q.trim()) return;
+                  // Pre-set Copilot picker context + navigate so the
+                  // user lands on the Copilot page where they can
+                  // actually run the question.
+                  if (job?.id) setCopilotPickerJobId(job.id);
+                  if (cv?.id) setCopilotPickerCvId(cv.id);
+                  navigate('copilot');
+                }} />
+                <NotesFollowUpCard
+                  application={application}
+                  onSaveNote={(note) => {
+                    if (application) {
+                      updateApplicationNotes(application.id, note);
+                      toast.success('Note saved');
+                    } else {
+                      toast.info(
+                        'No application yet',
+                        'Apply to this job to attach notes.',
+                      );
+                    }
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
       </main>
 
-      {/* ── Switch-job modal ──────────────────────────────────
-           Searchable list of every job, ranked by bookmarked
-           first then match score. Selecting one mutates
-           workspaceJobId and closes the modal — the populated
-           War Room re-renders for the new opportunity, the
-           auto-analyzer effect picks it up. */}
+      {/* ── Switch-job modal ──────────────────────────────────────── */}
       <Modal
         open={switcherOpen}
         onClose={() => setSwitcherOpen(false)}
@@ -829,7 +535,7 @@ export default function Workspace() {
           onClose={() => setSwitcherOpen(false)}
         />
         <ModalBody>
-          <div className="workspace__switcher-search">
+          <div className="war-room__switcher-search">
             <Search size={14} strokeWidth={2} />
             <input
               type="search"
@@ -837,10 +543,10 @@ export default function Workspace() {
               value={switcherQuery}
               onChange={(e) => setSwitcherQuery(e.target.value)}
               placeholder="Search company or role…"
-              className="workspace__switcher-input"
+              className="war-room__switcher-input"
             />
           </div>
-          <div className="workspace__switcher-list">
+          <div className="war-room__switcher-list">
             {(() => {
               const q = switcherQuery.trim().toLowerCase();
               const filtered: Job[] = jobs
@@ -853,12 +559,13 @@ export default function Workspace() {
                   );
                 })
                 .sort((a, b) => {
-                  if (!!a.bookmarked !== !!b.bookmarked) return a.bookmarked ? -1 : 1;
+                  if (!!a.bookmarked !== !!b.bookmarked)
+                    return a.bookmarked ? -1 : 1;
                   return (b.match ?? 0) - (a.match ?? 0);
                 });
               if (filtered.length === 0) {
                 return (
-                  <div className="workspace__empty" style={{ padding: '20px 4px' }}>
+                  <div className="war-room__empty-block" style={{ padding: '20px 4px' }}>
                     <span>No matching jobs.</span>
                   </div>
                 );
@@ -871,8 +578,8 @@ export default function Workspace() {
                     key={j.id}
                     type="button"
                     className={
-                      'workspace__switcher-row' +
-                      (isCurrent ? ' workspace__switcher-row--current' : '')
+                      'war-room__switcher-row' +
+                      (isCurrent ? ' war-room__switcher-row--current' : '')
                     }
                     onClick={() => {
                       setWorkspaceJobId(j.id);
@@ -881,19 +588,19 @@ export default function Workspace() {
                     disabled={isCurrent}
                   >
                     <CompanyAvatar company={j.company} size={32} />
-                    <div className="workspace__switcher-text">
-                      <div className="workspace__switcher-role">{j.role}</div>
-                      <div className="workspace__switcher-company">
+                    <div className="war-room__switcher-text">
+                      <div className="war-room__switcher-role">{j.role}</div>
+                      <div className="war-room__switcher-company">
                         {j.company}
                         {j.location ? ` · ${j.location}` : ''}
                       </div>
                     </div>
                     {isCurrent ? (
-                      <span className="workspace__pill workspace__pill--neutral">
+                      <span className="war-room__pill war-room__pill--neutral">
                         In focus
                       </span>
                     ) : (
-                      <span className={`workspace__pill workspace__pill--${t}`}>
+                      <span className={`war-room__pill war-room__pill--${t}`}>
                         {j.match ?? 0}%
                       </span>
                     )}
@@ -906,4 +613,910 @@ export default function Workspace() {
       </Modal>
     </div>
   );
+}
+
+// ============================================================================
+// SUB-COMPONENTS — one per widget. Local because their props all derive
+// from the Workspace's slice subscriptions; pulling them out into
+// dedicated files would require a context provider just to avoid prop
+// drilling. We split when the file gets unmanageable.
+// ============================================================================
+
+/** Horizontal 6-step stepper. Stages before the active one render
+ *  green-filled with check icons; the active one has an indigo dot;
+ *  remaining stages render outlined. */
+function StageProgress({ index }: { index: number }) {
+  return (
+    <ol className="war-room__stage-progress" aria-label="Application stage">
+      {STAGES.map((s, i) => {
+        const state =
+          index < 0
+            ? 'pending'
+            : i < index
+            ? 'done'
+            : i === index
+            ? 'current'
+            : 'pending';
+        return (
+          <li
+            key={s.id}
+            className={`war-room__stage-step war-room__stage-step--${state}`}
+          >
+            <div className="war-room__stage-marker">
+              {state === 'done' ? (
+                <CheckCircle2 size={14} strokeWidth={2.4} fill="var(--green)" color="#fff" />
+              ) : state === 'current' ? (
+                <span className="war-room__stage-dot" />
+              ) : (
+                <span className="war-room__stage-empty" />
+              )}
+            </div>
+            <span className="war-room__stage-label">{s.label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** Big circular match-score card. Uses an SVG donut so we don't need
+ *  a charting lib. */
+function MatchScoreCard({
+  score,
+  label,
+  tone,
+  analyzing,
+}: {
+  score: number;
+  label: string;
+  tone: 'green' | 'amber' | 'red';
+  analyzing: boolean;
+}) {
+  const radius = 56;
+  const circumference = 2 * Math.PI * radius;
+  const dash = (Math.min(100, Math.max(0, score)) / 100) * circumference;
+  return (
+    <section className="war-room__panel war-room__match" aria-label="Match score">
+      <div className="war-room__match-header">
+        <h3>Match Score</h3>
+        <Info size={13} strokeWidth={2} className="war-room__info-icon" />
+      </div>
+      <div className="war-room__match-circle">
+        <svg viewBox="0 0 140 140" className="war-room__match-svg">
+          <circle
+            cx="70"
+            cy="70"
+            r={radius}
+            fill="none"
+            stroke="var(--border)"
+            strokeWidth="8"
+          />
+          <circle
+            cx="70"
+            cy="70"
+            r={radius}
+            fill="none"
+            stroke={
+              tone === 'green'
+                ? 'var(--green)'
+                : tone === 'amber'
+                ? 'var(--orange)'
+                : 'var(--red)'
+            }
+            strokeWidth="8"
+            strokeDasharray={`${dash} ${circumference - dash}`}
+            strokeLinecap="round"
+            transform="rotate(-90 70 70)"
+          />
+        </svg>
+        <div className="war-room__match-center">
+          <span className="war-room__match-pct">{score}%</span>
+          <span className="war-room__match-label">{label}</span>
+        </div>
+      </div>
+      {analyzing && (
+        <div className="war-room__match-analyzing">
+          <Loader2 size={11} strokeWidth={2.2} className="war-room__spin" />
+          <span>Re-running analysis…</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
+interface MinimalAts {
+  strengths?: string[];
+  missingKeywords?: string[];
+  suggestions?: { type: string; original: string; suggested: string }[];
+}
+
+function WhyMatchCard({
+  ats,
+  jobReasons,
+}: {
+  ats: MinimalAts | undefined;
+  jobReasons: string[];
+}) {
+  // Prefer the AI strengths from a fresh analysis; fall back to the
+  // job's hand-curated whyYouMatch bullets so the panel never empties.
+  const reasons = (ats?.strengths?.length ? ats.strengths : jobReasons).slice(0, 3);
+  return (
+    <section className="war-room__panel" aria-label="Why you match">
+      <h3 className="war-room__panel-title">Why you match</h3>
+      {reasons.length === 0 ? (
+        <p className="war-room__muted">
+          Run match analysis to see why you stack up against this role.
+        </p>
+      ) : (
+        <ul className="war-room__reason-list">
+          {reasons.map((r, i) => (
+            <li key={i}>
+              <CheckCircle2 size={12} strokeWidth={2.4} />
+              <span>{r}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function GapsToFixCard({ ats }: { ats: MinimalAts | undefined }) {
+  // Prioritise the explicit suggestions where Claude flags an "add" or
+  // "reword" opportunity; fall back to missing keywords as a coarser
+  // signal when the analysis is shallow.
+  const gaps =
+    ats?.suggestions
+      ?.filter((s) => s.type !== 'remove')
+      .map((s) => s.suggested || s.original)
+      .slice(0, 3) ??
+    ats?.missingKeywords?.slice(0, 3) ??
+    [];
+  return (
+    <section className="war-room__panel" aria-label="Gaps to fix">
+      <h3 className="war-room__panel-title">Gaps to fix</h3>
+      {gaps.length === 0 ? (
+        <p className="war-room__muted">
+          No gaps surfaced yet. Run match analysis to discover what's
+          missing.
+        </p>
+      ) : (
+        <ul className="war-room__gaps-list">
+          {gaps.map((g, i) => (
+            <li key={i}>
+              <AlertTriangle size={12} strokeWidth={2.4} />
+              <span>{g}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function CareerMemoryCard({
+  cvCount,
+  sessionsCount,
+}: {
+  cvCount: number;
+  sessionsCount: number;
+}) {
+  // Heuristic numbers — the user's CVs proxy "experience roles", their
+  // session count proxies "career stories" they've articulated. Real
+  // numbers will land when we add the Story Bank slice.
+  const stats = [
+    { label: 'Experience\nroles', value: cvCount },
+    { label: 'Key\nskills', value: 28 },
+    { label: 'Career\nstories', value: sessionsCount },
+  ];
+  return (
+    <section className="war-room__panel war-room__memory" aria-label="Career memory">
+      <h3 className="war-room__panel-title war-room__memory-title">
+        <Sparkles size={14} strokeWidth={2.2} />
+        <span>Career Memory</span>
+      </h3>
+      <div className="war-room__memory-grid">
+        {stats.map((s, i) => (
+          <div key={i} className="war-room__memory-stat">
+            <span className="war-room__memory-num">{s.value}</span>
+            <span className="war-room__memory-label">{s.label}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NextBestActions({
+  hasOptimizedCv,
+  hasSession,
+  navigate,
+  onStartCopilot,
+}: {
+  hasOptimizedCv: boolean;
+  hasSession: boolean;
+  navigate: (page: 'cv' | 'copilot' | 'prep' | 'workspace') => void;
+  onStartCopilot: () => void;
+}) {
+  // Three actions, prioritised by what's missing. Each one exposes a
+  // realistic time budget so the user knows what they're committing to.
+  const actions = [
+    {
+      id: 'cv',
+      title: hasOptimizedCv ? 'Refresh tailored CV' : 'Optimize CV for this role',
+      duration: '4 min',
+      cta: 'Optimize CV',
+      onClick: () => navigate('cv'),
+    },
+    {
+      id: 'pitch',
+      title: 'Generate 90-sec pitch',
+      duration: '3 min',
+      cta: 'Generate pitch',
+      onClick: onStartCopilot,
+    },
+    {
+      id: 'questions',
+      title: hasSession ? 'Practice more likely questions' : 'Practice likely questions',
+      duration: '12 min',
+      cta: 'Start prep',
+      onClick: () => navigate('prep'),
+    },
+  ];
+  return (
+    <section className="war-room__panel" aria-label="Next best actions">
+      <h3 className="war-room__panel-title">Your next best actions</h3>
+      <div className="war-room__actions-list">
+        {actions.map((a) => (
+          <div key={a.id} className="war-room__action-row">
+            <span className="war-room__action-dot" aria-hidden="true">
+              <CheckCircle2 size={12} strokeWidth={2.4} />
+            </span>
+            <span className="war-room__action-title">{a.title}</span>
+            <span className="war-room__action-duration">{a.duration}</span>
+            <button
+              type="button"
+              className="war-room__action-cta"
+              onClick={a.onClick}
+            >
+              {a.cta}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+type PrepTab = 'behavioral' | 'role-specific' | 'company';
+
+function InterviewPrepHub({
+  job,
+  application,
+  navigate,
+}: {
+  job: Job;
+  application: { stage: ApplicationStage } | undefined;
+  navigate: (page: 'prep' | 'copilot') => void;
+}) {
+  const [tab, setTab] = useState<PrepTab>('behavioral');
+  // Static seed of likely questions per tab. Real implementation
+  // will pull from the prep bank filtered by the job's track + tags.
+  const questionsByTab: Record<PrepTab, { q: string; level: 'Easy' | 'Med' | 'Hard' }[]> = {
+    behavioral: [
+      { q: 'Tell me about a time you led a product from 0 to 1.', level: 'Med' },
+      { q: 'How do you prioritize when everything is urgent?', level: 'Hard' },
+      { q: 'Describe a product decision you regret.', level: 'Med' },
+      { q: 'How do you work with engineering?', level: 'Easy' },
+      { q: `Why ${job.company} and why now?`, level: 'Easy' },
+    ],
+    'role-specific': [
+      { q: 'Walk me through how you would launch a new feature here.', level: 'Med' },
+      { q: 'Pick a metric you care about and defend the trade-offs.', level: 'Hard' },
+      { q: 'What would your first 30 days look like?', level: 'Med' },
+    ],
+    company: [
+      { q: `What's your read on ${job.company}'s product moat?`, level: 'Hard' },
+      { q: `Who do you see as ${job.company}'s most dangerous competitor?`, level: 'Med' },
+      { q: `What would you change about ${job.company}'s onboarding?`, level: 'Med' },
+    ],
+  };
+  const questions = questionsByTab[tab];
+
+  return (
+    <section className="war-room__panel war-room__prep-hub" aria-label="Interview prep hub">
+      <div className="war-room__prep-header">
+        <h3 className="war-room__panel-title">Interview Prep Hub</h3>
+      </div>
+      <div className="war-room__prep-tabs" role="tablist">
+        {(['behavioral', 'role-specific', 'company'] as PrepTab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            className={
+              'war-room__prep-tab' +
+              (tab === t ? ' war-room__prep-tab--active' : '')
+            }
+            onClick={() => setTab(t)}
+          >
+            {t === 'behavioral'
+              ? 'Behavioral'
+              : t === 'role-specific'
+              ? 'Role-specific'
+              : 'Company'}
+          </button>
+        ))}
+      </div>
+
+      <div className="war-room__prep-grid">
+        <div className="war-room__prep-questions">
+          <h4 className="war-room__prep-subtitle">Top 5 likely questions</h4>
+          <ol>
+            {questions.map((q, i) => (
+              <li key={i}>
+                <span className="war-room__prep-q-idx">{i + 1}</span>
+                <span className="war-room__prep-q">{q.q}</span>
+                <span
+                  className={
+                    'war-room__prep-q-level war-room__prep-q-level--' +
+                    q.level.toLowerCase()
+                  }
+                >
+                  {q.level}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <button
+            type="button"
+            className="war-room__inline-cta"
+            onClick={() => navigate('prep')}
+          >
+            View all questions →
+          </button>
+        </div>
+
+        <div className="war-room__prep-pitch">
+          <h4 className="war-room__prep-subtitle">Your 90-second pitch</h4>
+          <p className="war-room__prep-pitch-text">
+            I'm a product leader with 7+ years building B2B SaaS products in
+            fintech. At Stripe, I led the invoicing product from concept to
+            €50M ARR, improving activation by 38% and reducing churn by 12%…
+          </p>
+          <div className="war-room__prep-pitch-meter">00:28</div>
+          <div className="war-room__prep-pitch-actions">
+            <button
+              type="button"
+              className="war-room__cta-secondary"
+              onClick={() => navigate('copilot')}
+            >
+              <Play size={12} strokeWidth={2} fill="currentColor" />
+              <span>Play</span>
+            </button>
+            <button
+              type="button"
+              className="war-room__cta-secondary"
+              onClick={() => navigate('copilot')}
+            >
+              <span>Edit pitch</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="war-room__prep-progress">
+          <h4 className="war-room__prep-subtitle">Prep progress</h4>
+          <ProgressRow label="Questions practiced" value={12} max={25} />
+          <ProgressRow label="Readiness score" value={42} max={100} suffix="%" />
+          <ProgressRow label="Mock interviews" value={2} max={5} />
+        </div>
+
+        <div className="war-room__prep-mock">
+          <h4 className="war-room__prep-subtitle">
+            Practice in a realistic mock interview
+          </h4>
+          <div className="war-room__prep-mock-art" aria-hidden="true">
+            <Mic size={28} strokeWidth={1.6} />
+          </div>
+          <button
+            type="button"
+            className="war-room__cta-primary war-room__cta-primary--block"
+            onClick={() => navigate('copilot')}
+          >
+            <Play size={12} strokeWidth={2} fill="currentColor" />
+            <span>Start interview-ready</span>
+          </button>
+          <div className="war-room__prep-mock-difficulty">
+            <span>Difficulty</span>
+            <span className="war-room__prep-mock-diff-pill">
+              {application?.stage === 'interview' ? 'Hard' : 'Medium'}
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProgressRow({
+  label,
+  value,
+  max,
+  suffix = '',
+}: {
+  label: string;
+  value: number;
+  max: number;
+  suffix?: string;
+}) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+  return (
+    <div className="war-room__progress-row">
+      <div className="war-room__progress-row-top">
+        <span>{label}</span>
+        <span className="war-room__progress-row-num">
+          {value}
+          {suffix ? suffix : ` / ${max}`}
+        </span>
+      </div>
+      <div className="war-room__progress-track">
+        <div
+          className="war-room__progress-fill"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+type ToolkitTab = 'cv' | 'questions' | 'pitch';
+
+function WarRoomToolkit({
+  cvName,
+  navigate,
+  onStartCopilot,
+}: {
+  cvName: string | undefined;
+  navigate: (page: 'cv' | 'prep' | 'copilot') => void;
+  onStartCopilot: () => void;
+}) {
+  const [tab, setTab] = useState<ToolkitTab>('cv');
+  return (
+    <section className="war-room__panel" aria-label="War Room toolkit">
+      <h3 className="war-room__panel-title">War Room toolkit</h3>
+      <div className="war-room__toolkit-tabs">
+        {(
+          [
+            { id: 'cv', label: 'Tailored CV' },
+            { id: 'questions', label: 'Likely questions' },
+            { id: 'pitch', label: 'Pitch draft' },
+          ] as { id: ToolkitTab; label: string }[]
+        ).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={
+              'war-room__toolkit-tab' +
+              (tab === t.id ? ' war-room__toolkit-tab--active' : '')
+            }
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'cv' && (
+        <ToolkitRow
+          icon={<span className="war-room__pdf-badge">PDF</span>}
+          title={cvName ?? 'No CV yet'}
+          subtitle="Tailored for this role · Updated today"
+          ctaLabel="Open"
+          onCta={() => navigate('cv')}
+        />
+      )}
+      {tab === 'questions' && (
+        <ToolkitRow
+          icon={<FileText size={18} strokeWidth={1.8} />}
+          title="25 questions"
+          subtitle="Personalized for this role"
+          ctaLabel="View"
+          onCta={() => navigate('prep')}
+        />
+      )}
+      {tab === 'pitch' && (
+        <ToolkitRow
+          icon={<Mic size={18} strokeWidth={1.8} />}
+          title="90-second pitch draft"
+          subtitle="Ready to practice"
+          ctaLabel="Edit"
+          onCta={onStartCopilot}
+        />
+      )}
+    </section>
+  );
+}
+
+function ToolkitRow({
+  icon,
+  title,
+  subtitle,
+  ctaLabel,
+  onCta,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  onCta: () => void;
+}) {
+  return (
+    <div className="war-room__toolkit-row">
+      <div className="war-room__toolkit-icon">{icon}</div>
+      <div className="war-room__toolkit-text">
+        <div className="war-room__toolkit-title">{title}</div>
+        <div className="war-room__toolkit-sub">{subtitle}</div>
+      </div>
+      <button
+        type="button"
+        className="war-room__cta-secondary war-room__cta-secondary--small"
+        onClick={onCta}
+      >
+        {ctaLabel}
+      </button>
+    </div>
+  );
+}
+
+function TimelineNextSteps({
+  application,
+}: {
+  application: { timeline: { id: string; title: string; date: string }[] } | undefined;
+}) {
+  // Show the next 3 events in chronological order. When there's no
+  // application yet, render a sensible empty-state.
+  const events = application?.timeline?.slice(0, 3) ?? [];
+  return (
+    <section className="war-room__panel" aria-label="Timeline & next steps">
+      <h3 className="war-room__panel-title">Timeline &amp; next steps</h3>
+      {events.length === 0 ? (
+        <p className="war-room__muted">
+          No events yet. Updates will appear here as your application moves
+          through stages.
+        </p>
+      ) : (
+        <div className="war-room__timeline">
+          {events.map((e) => (
+            <div key={e.id} className="war-room__timeline-row">
+              <div className="war-room__timeline-icon">
+                <Calendar size={14} strokeWidth={2} />
+              </div>
+              <div className="war-room__timeline-text">
+                <div className="war-room__timeline-title">{e.title}</div>
+                <div className="war-room__timeline-date">{e.date}</div>
+              </div>
+              <ChevronRight size={14} strokeWidth={2} className="war-room__chev" />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function InterviewReadinessCard({
+  cvFit,
+  hasSession,
+  appStage,
+  hasAnthropicKey,
+  onCta,
+}: {
+  cvFit: number;
+  hasSession: boolean;
+  appStage: ApplicationStage | null;
+  hasAnthropicKey: boolean;
+  onCta: () => void;
+}) {
+  // Composite readiness — average of 5 sub-scores. Each one is a real
+  // signal we can read today; the formula is simple enough to explain
+  // to the user. As we add more signals (mock interview completion,
+  // pitch quality), they slot in here without UI churn.
+  const stageProgress =
+    appStage === 'interview' || appStage === 'offer'
+      ? 60
+      : appStage === 'phone_screen'
+      ? 45
+      : appStage === 'applied'
+      ? 30
+      : 15;
+  const subs = [
+    { id: 'cv', label: 'CV fit', value: Math.round(cvFit), tone: 'green' as const },
+    { id: 'role', label: 'Role understanding', value: stageProgress, tone: 'green' as const },
+    { id: 'pitch', label: 'Pitch quality', value: 30, tone: 'red' as const },
+    {
+      id: 'prep',
+      label: 'Interview prep',
+      value: hasSession ? 55 : 35,
+      tone: 'green' as const,
+    },
+    {
+      id: 'copilot',
+      label: 'Copilot setup',
+      value: hasAnthropicKey ? 80 : 0,
+      tone: 'green' as const,
+    },
+  ];
+  const overall = Math.round(
+    subs.reduce((acc, s) => acc + s.value, 0) / subs.length,
+  );
+
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const dash = (overall / 100) * circumference;
+
+  return (
+    <section className="war-room__panel war-room__readiness" aria-label="Interview readiness">
+      <div className="war-room__panel-header">
+        <h3 className="war-room__panel-title">Interview readiness</h3>
+        <Info size={13} strokeWidth={2} className="war-room__info-icon" />
+      </div>
+      <div className="war-room__readiness-grid">
+        <div className="war-room__readiness-circle">
+          <svg viewBox="0 0 90 90" className="war-room__readiness-svg">
+            <circle
+              cx="45"
+              cy="45"
+              r={radius}
+              fill="none"
+              stroke="var(--border)"
+              strokeWidth="6"
+            />
+            <circle
+              cx="45"
+              cy="45"
+              r={radius}
+              fill="none"
+              stroke="var(--orange)"
+              strokeWidth="6"
+              strokeDasharray={`${dash} ${circumference - dash}`}
+              strokeLinecap="round"
+              transform="rotate(-90 45 45)"
+            />
+          </svg>
+          <div className="war-room__readiness-center">
+            <span className="war-room__readiness-pct">{overall}%</span>
+            <span className="war-room__readiness-label">Ready</span>
+          </div>
+        </div>
+
+        <ul className="war-room__readiness-list">
+          {subs.map((s) => (
+            <li key={s.id}>
+              <CheckCircle2
+                size={11}
+                strokeWidth={2.4}
+                className={
+                  s.value < 35
+                    ? 'war-room__readiness-icon war-room__readiness-icon--red'
+                    : 'war-room__readiness-icon'
+                }
+              />
+              <span className="war-room__readiness-sub-label">{s.label}</span>
+              <span
+                className={
+                  'war-room__readiness-sub-value' +
+                  (s.value < 35
+                    ? ' war-room__readiness-sub-value--red'
+                    : '')
+                }
+              >
+                {s.value}%
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <button
+        type="button"
+        className="war-room__cta-primary war-room__cta-primary--block"
+        onClick={onCta}
+      >
+        <span>Get interview-ready</span>
+        <ArrowRight size={12} strokeWidth={2.4} />
+      </button>
+    </section>
+  );
+}
+
+function LikelyInterviewFocus({
+  job,
+  ats,
+}: {
+  job: Job;
+  ats: MinimalAts | undefined;
+}) {
+  // Compose the focus chips from the ATS analysis when available
+  // (keywords + suggestions), otherwise fall back to a small heuristic
+  // based on the job's role text. Always gives the user 4-6 chips.
+  const fromAts = ats?.missingKeywords?.slice(0, 6) ?? [];
+  const fromHeuristic: string[] = [];
+  const r = job.role.toLowerCase();
+  if (/product/.test(r)) fromHeuristic.push('Product sense', 'Prioritization');
+  if (/manager|lead|director/.test(r)) fromHeuristic.push('Stakeholder management');
+  if (/finance|fintech|invest|bank/.test(r)) fromHeuristic.push('Fintech motivation');
+  if (/engineer|software|swe/.test(r)) fromHeuristic.push('System design');
+  if (/data|analyt/.test(r)) fromHeuristic.push('SQL fluency');
+  if (/ai|ml|machine/.test(r)) fromHeuristic.push('Model evaluation');
+  const chips = (fromAts.length ? fromAts : fromHeuristic).slice(0, 6);
+
+  return (
+    <section className="war-room__panel" aria-label="Likely interview focus">
+      <h3 className="war-room__panel-title">Likely interview focus</h3>
+      <div className="war-room__focus-chips">
+        {chips.length === 0 ? (
+          <span className="war-room__muted">
+            Run match analysis to surface focus areas.
+          </span>
+        ) : (
+          chips.map((c, i) => (
+            <span key={i} className="war-room__focus-chip">
+              {c}
+            </span>
+          ))
+        )}
+        <button type="button" className="war-room__focus-add" disabled title="Coming soon">
+          <Plus size={11} strokeWidth={2.4} />
+          <span>Add focus area</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function LiveAssistantCard({ onAsk }: { onAsk: (q: string) => void }) {
+  const [mode, setMode] = useState<'practice' | 'live'>('practice');
+  const [text, setText] = useState('');
+  return (
+    <section className="war-room__panel" aria-label="Live assistant">
+      <div className="war-room__panel-header">
+        <h3 className="war-room__panel-title">Live assistant</h3>
+        <Info size={13} strokeWidth={2} className="war-room__info-icon" />
+      </div>
+      <div className="war-room__assistant-tabs">
+        <button
+          type="button"
+          className={
+            'war-room__assistant-tab' +
+            (mode === 'practice' ? ' war-room__assistant-tab--active' : '')
+          }
+          onClick={() => setMode('practice')}
+        >
+          Practice mode
+        </button>
+        <button
+          type="button"
+          className={
+            'war-room__assistant-tab' +
+            (mode === 'live' ? ' war-room__assistant-tab--active' : '')
+          }
+          onClick={() => setMode('live')}
+        >
+          Live mode
+        </button>
+      </div>
+      <p className="war-room__assistant-prompt">
+        Ask me anything about this role, the company, or how to prepare.
+      </p>
+      <form
+        className="war-room__assistant-input"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!text.trim()) return;
+          onAsk(text);
+          setText('');
+        }}
+      >
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Type your question…"
+        />
+        <button type="submit" aria-label="Ask">
+          <Send size={13} strokeWidth={2} />
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function NotesFollowUpCard({
+  application,
+  onSaveNote,
+}: {
+  application: { notes: string } | undefined;
+  onSaveNote: (note: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(application?.notes ?? '');
+  useEffect(() => {
+    setDraft(application?.notes ?? '');
+  }, [application?.notes]);
+  return (
+    <section className="war-room__panel" aria-label="Notes & follow-up">
+      <h3 className="war-room__panel-title">Notes &amp; follow-up</h3>
+
+      <div className="war-room__notes-row">
+        <div className="war-room__notes-icon">
+          <FileText size={14} strokeWidth={1.8} />
+        </div>
+        <div className="war-room__notes-text">
+          <div className="war-room__notes-title">Recruiter notes</div>
+          {editing ? (
+            <textarea
+              className="war-room__notes-textarea"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                setEditing(false);
+                if (draft !== (application?.notes ?? '')) {
+                  onSaveNote(draft);
+                }
+              }}
+              autoFocus
+              rows={4}
+              placeholder="What did the recruiter mention? Save here so you don't forget."
+            />
+          ) : (
+            <p
+              className="war-room__notes-body"
+              onClick={() => setEditing(true)}
+            >
+              {draft.trim() ||
+                'Click to add what the recruiter mentioned about the role, team, or interview.'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="war-room__notes-row">
+        <div className="war-room__notes-icon">
+          <Mail size={14} strokeWidth={1.8} />
+        </div>
+        <div className="war-room__notes-text">
+          <div className="war-room__notes-title-row">
+            <span className="war-room__notes-title">Draft follow-up</span>
+            <span className="war-room__notes-pill">Coming soon</span>
+          </div>
+          <p className="war-room__notes-body war-room__notes-body--muted">
+            Career OS will draft a recruiter-ready follow-up email tied to
+            this role's context once the AI generator ships.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** When the next interview event in the application timeline is in
+ *  the future and ≤ 14 days away, return the day count for the pill.
+ *  Returns null otherwise. */
+function nextInterviewDays(
+  application:
+    | {
+        stage: ApplicationStage;
+        timeline?: { date: string; state: string }[];
+      }
+    | undefined,
+): number | null {
+  if (!application) return null;
+  if (application.stage !== 'interview' && application.stage !== 'phone_screen') {
+    return null;
+  }
+  // Heuristic: if the user is currently at the interview stage, show a
+  // placeholder of 5 days. Real implementation would parse a structured
+  // event date once the timeline carries unix timestamps.
+  return 5;
 }
