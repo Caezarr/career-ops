@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FolderOpen, Play } from 'lucide-react';
+import { FolderOpen, Play, Target } from 'lucide-react';
 import DetailHeader from './DetailHeader';
 import DetailMeta from './DetailMeta';
 import ApplicationMaterials from './ApplicationMaterials';
@@ -22,6 +22,7 @@ export default function ApplicationDetail() {
   );
   const setPickerJobId = useAppStore((s) => s.setCopilotPickerJobId);
   const setPickerCvId = useAppStore((s) => s.setCopilotPickerCvId);
+  const setWorkspaceJobId = useAppStore((s) => s.setWorkspaceJobId);
 
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -80,6 +81,18 @@ export default function ApplicationDetail() {
       />
 
       <div className="app-detail__actions">
+        <button
+          type="button"
+          className="app-detail__btn app-detail__btn--war-room"
+          onClick={() => {
+            setWorkspaceJobId(application.jobId);
+            navigate('workspace');
+          }}
+          title="Open the unified war room for this opportunity"
+        >
+          <Target size={14} strokeWidth={2} />
+          <span>Open War Room</span>
+        </button>
         <button
           type="button"
           className="app-detail__btn app-detail__btn--ghost"

@@ -1168,3 +1168,17 @@
   background: var(--indigo-text);
   border-color: var(--indigo-text);
 }
+
+/* War Room CTA — purple-tinted neutral above the primary Copilot
+   button. Reads as "everything-in-one-place drill-down". */
+.dashboard-root .app-detail__btn--war-room {
+  background: var(--purple-soft);
+  color: var(--purple);
+  border: 1px solid transparent;
+  font-weight: 600;
+  transition: filter 120ms ease, border-color 120ms ease;
+}
+.dashboard-root .app-detail__btn--war-room:hover {
+  filter: brightness(0.97);
+  border-color: var(--purple);
+}

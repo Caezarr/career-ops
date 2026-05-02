@@ -86,6 +86,12 @@ export interface UiSlice {
   copilotPickerCvId: string | null;
   setCopilotPickerJobId: (id: string | null) => void;
   setCopilotPickerCvId: (id: string | null) => void;
+
+  /** The job currently focused in the Job War Room workspace. Set
+   *  when the user clicks a job row anywhere in the app. Persisted so
+   *  the workspace re-opens on the same job after a reload. */
+  workspaceJobId: string | null;
+  setWorkspaceJobId: (id: string | null) => void;
 }
 
 export const createUiSlice: StateCreator<UiSlice> = (set) => ({
@@ -133,4 +139,7 @@ export const createUiSlice: StateCreator<UiSlice> = (set) => ({
   copilotPickerCvId: null,
   setCopilotPickerJobId: (copilotPickerJobId) => set({ copilotPickerJobId }),
   setCopilotPickerCvId: (copilotPickerCvId) => set({ copilotPickerCvId }),
+
+  workspaceJobId: null,
+  setWorkspaceJobId: (workspaceJobId) => set({ workspaceJobId }),
 });

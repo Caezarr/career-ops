@@ -5,6 +5,7 @@ import {
   IdCard,
   Zap,
   Sparkles,
+  Target,
   Settings,
   ChevronUp,
 } from 'lucide-react';
@@ -19,8 +20,12 @@ interface NavEntry {
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 }
 
+// Workspace sits as #2 to anchor the "everything happens around the
+// job" model the product is built on. Catalog views (Jobs / Applications
+// / CV / Prep / Copilot) follow as supporting surfaces.
 const topNav: NavEntry[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'workspace', label: 'War Room', icon: Target },
   { id: 'jobs', label: 'Jobs', icon: Briefcase },
   { id: 'applications', label: 'Applications', icon: FileText },
   { id: 'cv', label: 'CV', icon: IdCard },
@@ -34,6 +39,7 @@ const bottomNav: NavEntry[] = [
 
 const PAGE_IDS: ReadonlyArray<Page> = [
   'dashboard',
+  'workspace',
   'jobs',
   'applications',
   'cv',
