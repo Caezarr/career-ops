@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Target, ChevronDown, LineChart, Sparkles } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Target, ChevronDown, LineChart, Sparkles, Bookmark, FileText, Briefcase } from 'lucide-react';
 import KeywordMatchSection from './KeywordMatchSection';
 import MissingKeywords from './MissingKeywords';
 import SuggestedEdits from './SuggestedEdits';
@@ -9,6 +9,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   useToast,
 } from '../../primitives';
@@ -16,13 +18,19 @@ import { useAppStore } from '../../store';
 import AnalyzeMatchModal from '../shared/AnalyzeMatchModal';
 import GenerateOptimizedModal from '../shared/GenerateOptimizedModal';
 
-const TARGET_ROLES = [
-  'Strategy Associate · Bain & Company',
-  'Senior Product Manager · Stripe',
-  'VP IBD · Goldman Sachs',
-  'AI Product Lead · Mistral AI',
-  'Strategy & Ops · Stripe',
-];
+/** A target the user can pick in the tailoring workspace. Sourced
+ *  from real Jobs + Applications, with a stable display label so the
+ *  user sees their actual pipeline rather than a hardcoded list. */
+interface TailoringOption {
+  /** "{role} · {company}" — the label shown in the dropdown and stored
+   *  on `tailoringTarget.role` for backwards compatibility with all
+   *  the call sites that still consume the string. */
+  label: string;
+  /** Linked Job id — drives the JD-text lookup for Analyze + Generate. */
+  jobId: string;
+  /** Source bucket for grouping in the dropdown. */
+  source: 'application' | 'bookmarked' | 'job';
+}
 
 export default function TailoringWorkspace() {
   const toast = useToast();
@@ -33,11 +41,85 @@ export default function TailoringWorkspace() {
   const setSelectedCv = useAppStore((s) => s.setSelectedCv);
   const atsByCv = useAppStore((s) => s.atsByCv);
   const atsAnalyzerJd = useAppStore((s) => s.atsAnalyzerJd);
+  const jobs = useAppStore((s) => s.jobs);
+  const applications = useAppStore((s) => s.applications);
 
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
 
   const baseCv = cvs.find((c) => c.id === tailoringTarget.baseCvId) ?? cvs[0];
+
+  // ── Build the target-role picker from REAL data ─────────────────
+  // Three buckets, in priority order:
+  //   1. Active applications (most actionable — apps the user is
+  //      currently chasing). Dedup on jobId so the same job doesn't
+  //      appear in apps + bookmarks + all-jobs.
+  //   2. Bookmarked jobs (saved for later but not yet applied).
+  //   3. Other jobs in the catalogue.
+  // We label each option `{role} · {company}` so the legacy string
+  // contract on `tailoringTarget.role` keeps working.
+  const targetOptions = useMemo<TailoringOption[]>(() => {
+    const seen = new Set<string>();
+    const out: TailoringOption[] = [];
+
+    // 1. Applications, sorted by recency (lastActivityAt → appliedAt fallback).
+    const appOrder = [...applications]
+      .filter((a) => !a.archived && a.stage !== 'rejected')
+      .sort((a, b) => {
+        const ax = a.lastActivityAt ?? a.appliedAt ?? 0;
+        const bx = b.lastActivityAt ?? b.appliedAt ?? 0;
+        return bx - ax;
+      });
+    for (const app of appOrder) {
+      const job = jobs.find((j) => j.id === app.jobId);
+      if (!job || seen.has(job.id)) continue;
+      seen.add(job.id);
+      out.push({
+        label: `${job.role} · ${job.company}`,
+        jobId: job.id,
+        source: 'application',
+      });
+    }
+
+    // 2. Bookmarked jobs.
+    for (const job of jobs) {
+      if (!job.bookmarked || seen.has(job.id)) continue;
+      seen.add(job.id);
+      out.push({
+        label: `${job.role} · ${job.company}`,
+        jobId: job.id,
+        source: 'bookmarked',
+      });
+    }
+
+    // 3. Everything else, sorted by match desc so the strongest fit
+    //    surfaces first.
+    const rest = jobs
+      .filter((j) => !seen.has(j.id))
+      .sort((a, b) => (b.match ?? 0) - (a.match ?? 0));
+    for (const job of rest) {
+      out.push({
+        label: `${job.role} · ${job.company}`,
+        jobId: job.id,
+        source: 'job',
+      });
+    }
+
+    return out;
+  }, [jobs, applications]);
+
+  // Group options for the dropdown sections — preserves the bucket
+  // ordering above without N filter passes inside JSX.
+  const groupedOptions = useMemo(() => {
+    const apps = targetOptions.filter((o) => o.source === 'application');
+    const bookmarked = targetOptions.filter((o) => o.source === 'bookmarked');
+    const others = targetOptions.filter((o) => o.source === 'job');
+    return { apps, bookmarked, others };
+  }, [targetOptions]);
+
+  function pickTarget(option: TailoringOption) {
+    setTailoringTarget({ role: option.label, jobId: option.jobId });
+  }
 
   // ── Pull the latest Analyze match output for the chosen base CV.
   // Fall back to the static mock when the user hasn't run Analyze yet.
@@ -94,14 +176,65 @@ export default function TailoringWorkspace() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
-              {TARGET_ROLES.map((role) => (
-                <DropdownMenuItem
-                  key={role}
-                  onSelect={() => setTailoringTarget({ role })}
-                >
-                  {role}
+              {targetOptions.length === 0 ? (
+                <DropdownMenuItem disabled>
+                  No jobs in your catalogue yet — add one from the Jobs page.
                 </DropdownMenuItem>
-              ))}
+              ) : (
+                <>
+                  {groupedOptions.apps.length > 0 && (
+                    <>
+                      <DropdownMenuLabel>
+                        <FileText size={11} strokeWidth={2.4} style={{ marginRight: 6, verticalAlign: -1 }} />
+                        Active applications
+                      </DropdownMenuLabel>
+                      {groupedOptions.apps.map((opt) => (
+                        <DropdownMenuItem
+                          key={opt.jobId}
+                          onSelect={() => pickTarget(opt)}
+                        >
+                          {opt.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                  {groupedOptions.bookmarked.length > 0 && (
+                    <>
+                      {groupedOptions.apps.length > 0 && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel>
+                        <Bookmark size={11} strokeWidth={2.4} style={{ marginRight: 6, verticalAlign: -1 }} />
+                        Bookmarked
+                      </DropdownMenuLabel>
+                      {groupedOptions.bookmarked.map((opt) => (
+                        <DropdownMenuItem
+                          key={opt.jobId}
+                          onSelect={() => pickTarget(opt)}
+                        >
+                          {opt.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                  {groupedOptions.others.length > 0 && (
+                    <>
+                      {(groupedOptions.apps.length > 0 ||
+                        groupedOptions.bookmarked.length > 0) && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel>
+                        <Briefcase size={11} strokeWidth={2.4} style={{ marginRight: 6, verticalAlign: -1 }} />
+                        Other jobs
+                      </DropdownMenuLabel>
+                      {groupedOptions.others.map((opt) => (
+                        <DropdownMenuItem
+                          key={opt.jobId}
+                          onSelect={() => pickTarget(opt)}
+                        >
+                          {opt.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -171,14 +304,22 @@ export default function TailoringWorkspace() {
 
       <DiffSection removeReduce={removeReduce} addStrengthen={addStrengthen} />
 
+      {/* Resolve the JD text used by Analyze + Generate. Priority:
+            1. The JD pasted in the ATS Analyzer tab (cache hit on
+               multi-CV runs — saves credits).
+            2. The linked job's `jdText` when the user picked a real
+               opportunity from the dropdown.
+            3. The target-role label as a last resort. */}
       <AnalyzeMatchModal
         open={analyzeOpen}
         onClose={() => setAnalyzeOpen(false)}
         cvId={baseCv?.id}
-        // Prefer the JD pasted in the ATS Analyzer tab so the cache from
-        // the multi-CV comparison hits and we don't re-spend credits.
-        // Fall back to the target-role label only when no JD has been entered.
-        jdText={atsAnalyzerJd.trim() || tailoringTarget.role}
+        jdText={
+          atsAnalyzerJd.trim() ||
+          (tailoringTarget.jobId
+            ? jobs.find((j) => j.id === tailoringTarget.jobId)?.jdText ?? tailoringTarget.role
+            : tailoringTarget.role)
+        }
         onApply={() => toast.success('Suggestions applied')}
       />
 
@@ -186,6 +327,11 @@ export default function TailoringWorkspace() {
         open={generateOpen}
         onClose={() => setGenerateOpen(false)}
         targetRole={tailoringTarget.role}
+        jdText={
+          tailoringTarget.jobId
+            ? jobs.find((j) => j.id === tailoringTarget.jobId)?.jdText
+            : undefined
+        }
         onCreate={() => {
           const cv = createCV({
             name: `Optimized for ${tailoringTarget.role}`,
