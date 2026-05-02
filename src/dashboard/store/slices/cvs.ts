@@ -144,6 +144,12 @@ const seedCVs: CV[] = legacyCVs.map((cv, i) => {
 export interface TailoringTarget {
   role: string;
   baseCvId: string | null;
+  /** Optional link to a real Job — set when the user picks a target
+   *  role from their Jobs / Applications catalogue. Lets the
+   *  Analyze + Generate flows pull the actual JD text instead of
+   *  guessing from the role label. Null for free-form / legacy
+   *  targets ("Senior Product Manager"). */
+  jobId?: string | null;
 }
 
 export interface CvsSlice {

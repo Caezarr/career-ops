@@ -8,8 +8,16 @@ import MockInterview from '../components/prep/MockInterview';
 import ProgressCard from '../components/prep/ProgressCard';
 import TodaysPlanCard from '../components/prep/TodaysPlanCard';
 import AIInsightsCard from '../components/prep/AIInsightsCard';
+import { useAdaptivePrepTrack } from '../hooks/useAdaptivePrepTrack';
 
 export default function Prep() {
+  // Mount the adaptive-track hook ONCE at the page root. It watches
+  // workspaceJobId / selectedJobId / most-recent application and
+  // sets prepActiveTrack to match the candidate's current candidacy.
+  // The user can override by clicking another track tab; the
+  // override sticks until the focused job changes.
+  useAdaptivePrepTrack();
+
   return (
     <div className="dashboard dashboard--prep">
       <Sidebar />

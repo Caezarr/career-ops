@@ -188,6 +188,8 @@ export interface StoreAtsAnalysis {
 export type PrepCategory = "Behavioral" | "Technical" | "Case" | "Culture Fit";
 export type Difficulty = "Easy" | "Medium" | "Hard";
 
+/** Legacy 6-question shape — still in use until the QuestionBank UI
+ *  migration completes. Kept alive so existing components compile. */
 export interface PrepQuestion {
   id: string;
   index: number;
@@ -196,6 +198,110 @@ export interface PrepQuestion {
   difficulty: Difficulty;
   framework: string;
   practiceScore: number | null;
+}
+
+// ─── Prep — V2 question bank ───────────────────────────────────────────────
+//
+// Designed to scale from 50 → 50,000+ questions. The shape is locked
+// so a future SQLite back-end (Tauri sqlx) can hydrate the slice from
+// a query without changing call sites.
+
+/** Top-level career track. Adding a new track is a 3-line change in
+ *  `data/prep/tracks.ts` plus appended topics + questions; consumers
+ *  use `QuestionTrack` so unknown ids fail at compile time. */
+export type QuestionTrack =
+  | "finance"
+  | "consulting"
+  | "product"
+  | "swe"
+  | "ai"
+  | "data"
+  | "design"
+  | "general";
+
+/** How the question is asked / what the format implies for prep. */
+export type QuestionFormat =
+  | "behavioral"
+  | "motivation"
+  | "technical"
+  | "case"
+  | "coding"
+  | "system-design"
+  | "fit"
+  | "brain-teaser";
+
+/** Refined difficulty scale — lets advanced questions (LBO modeling
+ *  with PIK, transformer attention from scratch) get an "expert" tag
+ *  while keeping the leetcode-easy buckets honest. */
+export type QuestionDifficulty = "easy" | "medium" | "hard" | "expert";
+
+/** A single question in the bank. Keep all fields except question /
+ *  track / format / topicIds / difficulty optional so a thin import
+ *  path (raw question text + minimal metadata) can land without
+ *  blowing up validation. */
+export interface PrepQuestionV2 {
+  id: string;
+  track: QuestionTrack;
+  format: QuestionFormat;
+  /** 1+ topic ids — most questions belong to a single topic, but
+   *  cross-cutting prompts (a finance behavioural with STAR
+   *  references) tag both topics so search hits either way. */
+  topicIds: string[];
+  difficulty: QuestionDifficulty;
+  /** Free-form filterable atoms — frameworks (STAR, MECE), keywords
+   *  (DCF, transformer), or domain hints. Always lowercase normalised
+   *  on read so partial-match search behaves. */
+  tags: string[];
+  /** The full prompt the candidate is asked. */
+  question: string;
+  /** Common follow-up probes — surfaced in the detail panel so the
+   *  user can prep for the second-order questions. */
+  followUps?: string[];
+  /** Skeleton of a strong answer. Optional because the AI-generated
+   *  variant fills this on demand for questions that ship without
+   *  one. */
+  modelAnswer?: string;
+  /** Suggested time to spend (mins). Used by the UI to size sessions
+   *  and to drive the today's-plan time budget. */
+  durationMin?: number;
+  /** Where the question comes from (Hull, LeetCode, BCG archive,
+   *  Bouzouba, …). Surfaced as a footnote so users trust the source. */
+  source?: string;
+  /** Companies known to ask this exact / very similar question. Drives
+   *  the War Room "this firm is known for asking…" surface. Always
+   *  treated as case-sensitive labels (display strings). */
+  knownAtCompanies?: string[];
+}
+
+/** Aggregate filter applied to the question bank in the UI. Every
+ *  field is optional — omitted means "no filter on this dimension". */
+export interface QuestionFilter {
+  track?: QuestionTrack;
+  topicId?: string;
+  difficulty?: QuestionDifficulty;
+  format?: QuestionFormat;
+  /** Free-text query — matched against question text + tags
+   *  (case-insensitive). */
+  query?: string;
+  /** Restrict to questions that have any of these companies in
+   *  `knownAtCompanies`. Drives "questions Goldman has asked"
+   *  surfaces. */
+  company?: string;
+}
+
+/** A single attempt the user has logged against a question. The slice
+ *  keeps these in `prepAttempts` so the question bank can show
+ *  "practised X times, last score Y". */
+export interface PrepQuestionAttempt {
+  id: string;
+  questionId: string;
+  /** Unix ms. */
+  recordedAt: number;
+  /** 0-10 self-rating, optional — when missing we just count the
+   *  attempt without scoring it. */
+  selfScore?: number;
+  /** Optional free-form note. */
+  note?: string;
 }
 
 export interface PrepSession {
