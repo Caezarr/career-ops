@@ -331,7 +331,7 @@ export default function Workspace() {
   }
 
   return (
-    <div className="dashboard">
+    <div className="dashboard dashboard--workspace">
       <Sidebar />
       <TopBar />
       <main className="dashboard__main">
