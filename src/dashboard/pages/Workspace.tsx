@@ -483,7 +483,7 @@ export default function Workspace() {
                 <TimelineNextSteps application={application} />
               </div>
 
-              {/* ── Right column ────────────────────────────── */}
+              {/* ── Right column 1 — signals ─────────────────── */}
               <div className="war-room__col war-room__col--right">
                 <InterviewReadinessCard
                   cvFit={ats?.atsScore ?? cv?.atsScore ?? 0}
@@ -493,6 +493,10 @@ export default function Workspace() {
                   onCta={startCopilotForJob}
                 />
                 <LikelyInterviewFocus job={job} ats={ats} />
+              </div>
+
+              {/* ── Right column 2 — assistant + notes ───────── */}
+              <div className="war-room__col war-room__col--assistant">
                 <LiveAssistantCard onAsk={(q) => {
                   if (!q.trim()) return;
                   // Pre-set Copilot picker context + navigate so the

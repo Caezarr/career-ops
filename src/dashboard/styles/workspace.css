@@ -13,7 +13,9 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: 1440px;
+  /* No max-width cap — let the page fill the viewport so the user
+     gets four equal-density columns on wide screens instead of a
+     blank strip on the right. */
 }
 
 .dashboard-root .war-room--empty-shell {
@@ -288,10 +290,22 @@
   color: var(--text-2);
 }
 
-/* ── Main 3-col grid ──────────────────────────────────────────────── */
+/* ── Main 4-col grid ──────────────────────────────────────────────────
+   - Drilldown (match · why · gaps · memory)
+   - Do (next actions · prep hub · toolkit · timeline) — wider, gets
+     the bulk of attention since it's where the user spends time
+   - Signals (readiness · focus)
+   - Assistant (live assistant · notes)
+   The wider center column hosts the prep hub which has its own 2x2
+   sub-grid. minmax(0, …) on every track lets the columns shrink
+   when the viewport tightens. */
 .dashboard-root .war-room__grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.6fr) minmax(280px, 1fr);
+  grid-template-columns:
+    minmax(260px, 0.9fr)
+    minmax(0, 1.5fr)
+    minmax(260px, 0.9fr)
+    minmax(260px, 0.9fr);
   gap: 16px;
   align-items: stretch;
 }
@@ -1227,17 +1241,38 @@
   text-overflow: ellipsis;
 }
 
-/* ── Responsive: collapse to 2 cols then 1 col ─────────────────────── */
-@media (max-width: 1280px) {
+/* ── Responsive: collapse 4 → 3 → 2 → 1 cols ──────────────────────────
+   1500px: assistant column drops below the rest as a 2-up row.
+   1200px: signals column drops too, both bottom rows wrap.
+    900px: stack everything vertically. */
+@media (max-width: 1500px) {
   .dashboard-root .war-room__grid {
-    grid-template-columns: minmax(280px, 1fr) minmax(0, 1.4fr);
+    grid-template-columns:
+      minmax(260px, 1fr)
+      minmax(0, 1.6fr)
+      minmax(260px, 1fr);
   }
-  .dashboard-root .war-room__col--right {
+  .dashboard-root .war-room__col--assistant {
     grid-column: 1 / -1;
     flex-direction: row;
     flex-wrap: wrap;
   }
-  .dashboard-root .war-room__col--right > .war-room__panel {
+  .dashboard-root .war-room__col--assistant > .war-room__panel {
+    flex: 1 1 280px;
+  }
+}
+@media (max-width: 1200px) {
+  .dashboard-root .war-room__grid {
+    grid-template-columns: minmax(260px, 1fr) minmax(0, 1.4fr);
+  }
+  .dashboard-root .war-room__col--right,
+  .dashboard-root .war-room__col--assistant {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .dashboard-root .war-room__col--right > .war-room__panel,
+  .dashboard-root .war-room__col--assistant > .war-room__panel {
     flex: 1 1 240px;
   }
 }
@@ -1245,7 +1280,8 @@
   .dashboard-root .war-room__grid {
     grid-template-columns: 1fr;
   }
-  .dashboard-root .war-room__col--right { flex-direction: column; flex-wrap: nowrap; }
+  .dashboard-root .war-room__col--right,
+  .dashboard-root .war-room__col--assistant { flex-direction: column; flex-wrap: nowrap; }
   .dashboard-root .war-room__hero {
     grid-template-columns: 1fr;
   }
