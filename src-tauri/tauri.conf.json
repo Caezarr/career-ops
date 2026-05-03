@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Interview Copilot",
+  "productName": "Career OS",
   "version": "0.0.1",
-  "identifier": "com.caezarr.interview-copilot",
+  "identifier": "com.caezarr.career-ops",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Interview Copilot",
+        "title": "Career OS",
         "label": "main",
         "url": "index.html",
         "width": 1400,
@@ -65,7 +65,7 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "Stealth interview copilot",
-    "longDescription": "Mac overlay that helps with live job interviews via real-time transcription and AI-generated answer bullets."
+    "shortDescription": "Career OS — dashboard, war room, CV manager, and stealth live interview copilot",
+    "longDescription": "Mac app that owns the entire job-hunt loop: track applications, tailor CV variants, drill prep questions, and get a CV-grounded stealth coach during live interviews."
   }
 }

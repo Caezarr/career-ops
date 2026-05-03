@@ -1,4 +1,9 @@
-# CLAUDE.md — Interview Copilot
+# CLAUDE.md — Career OS
+
+> Originally scoped as "Interview Copilot" (Phases 0–6 = stealth live-interview overlay).
+> Scope expanded into a full career operating system: Dashboard, Jobs, Applications,
+> War Room, CV Manager, Prep, Live Copilot. The `.planning/` artifacts below were
+> written under the original name and are preserved as historical record.
 
 This file orients Claude (and humans) on this project. Read it first.
 
@@ -34,7 +39,7 @@ Mac desktop stealth overlay that assists during live job interviews (visio, phon
 2. **Zero tolerance for CV hallucinations.** Citation-required prompting (each bullet citing a fact carries `[ref: CV.experience.<id>]`); post-generation validator drops bullets with unresolved refs; structured CV ingestion (Docling → JSON, lossless).
 3. **Tier-1 reliability.** Failover STT (Deepgram → AssemblyAI), failover LLM (Claude → GPT-5), local degraded (Whisper.cpp + Ollama). Pre-flight check UI before each session. Watchdog at 7s. Cross-cloud vendor diversity.
 4. **Stealth assumed (recruiter must not know).** No automatic disclosure prompts. App minimises legal exposure by default (transcripts only, no audio persistence on disk, easy purge) without fricting the user.
-5. **All persistence local.** Data path under `~/Library/Application Support/com.caezarr.interview-copilot/` (NOT `~/Documents/` which can be iCloud-synced). No cloud sync ever.
+5. **All persistence local.** Data path under `~/Library/Application Support/com.caezarr.career-ops/` (NOT `~/Documents/` which can be iCloud-synced). No cloud sync ever.
 6. **Single-egress `cloud::Client`.** Every outbound HTTP/WS call routes through one module — privacy boundary enforceable by code review.
 7. **Languages:** FR + EN, with auto-detection and switch in-session.
 8. **Latency budget:** ≤ 5s from question-end to first bullet, target 2.5-3.5s. Profile each stage at every milestone exit.
@@ -109,8 +114,8 @@ pnpm test               # run frontend tests
 
 ## Repository
 
-- **GitHub:** https://github.com/Caezarr/interview-copilot
-- **Local:** `/Users/gabriel/Desktop/Wonka/code/interview-copilot/`
+- **GitHub:** https://github.com/Caezarr/career-ops (originally `Caezarr/interview-copilot` — renamed)
+- **Local:** `/Users/gabriel/Desktop/Wonka/code/interview-copilot/` *(folder still uses the original name; rename when convenient)*
 - **Tracking note (Obsidian):** `Projects/interview-copilot.md` in vault
 
 ---
