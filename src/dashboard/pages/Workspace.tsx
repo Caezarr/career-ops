@@ -730,6 +730,20 @@ interface MinimalAts {
   suggestions?: { type: string; original: string; suggested: string }[];
 }
 
+/** Truncate a long AI-generated string to its first sentence (up to
+ *  a hard char cap) so the panel cards stay skim-able. The full text
+ *  is still available — we expose it via the title attribute on the
+ *  list item so hover/long-press shows everything. */
+function truncateForCard(s: string, max = 140): string {
+  const trimmed = s.trim();
+  if (trimmed.length <= max) return trimmed;
+  // Try to cut at the first sentence-ish boundary; otherwise hard
+  // cap at `max` and add ellipsis.
+  const dotIdx = trimmed.indexOf('. ');
+  if (dotIdx > 30 && dotIdx < max) return trimmed.slice(0, dotIdx + 1);
+  return trimmed.slice(0, max).trimEnd() + '…';
+}
+
 function WhyMatchCard({
   ats,
   jobReasons,
@@ -750,9 +764,9 @@ function WhyMatchCard({
       ) : (
         <ul className="war-room__reason-list">
           {reasons.map((r, i) => (
-            <li key={i}>
+            <li key={i} title={r}>
               <CheckCircle2 size={12} strokeWidth={2.4} />
-              <span>{r}</span>
+              <span>{truncateForCard(r)}</span>
             </li>
           ))}
         </ul>
@@ -783,9 +797,9 @@ function GapsToFixCard({ ats }: { ats: MinimalAts | undefined }) {
       ) : (
         <ul className="war-room__gaps-list">
           {gaps.map((g, i) => (
-            <li key={i}>
+            <li key={i} title={g}>
               <AlertTriangle size={12} strokeWidth={2.4} />
-              <span>{g}</span>
+              <span>{truncateForCard(g)}</span>
             </li>
           ))}
         </ul>
@@ -1013,9 +1027,10 @@ function InterviewPrepHub({
         </div>
 
         <div className="war-room__prep-mock">
-          <h4 className="war-room__prep-subtitle">
-            Practice in a realistic mock interview
-          </h4>
+          <h4 className="war-room__prep-subtitle">Mock interview</h4>
+          <p className="war-room__prep-mock-hint">
+            Practise live with the Copilot — realistic, timed.
+          </p>
           <div className="war-room__prep-mock-art" aria-hidden="true">
             <Mic size={28} strokeWidth={1.6} />
           </div>
@@ -1025,7 +1040,7 @@ function InterviewPrepHub({
             onClick={() => navigate('copilot')}
           >
             <Play size={12} strokeWidth={2} fill="currentColor" />
-            <span>Start interview-ready</span>
+            <span>Start mock</span>
           </button>
           <div className="war-room__prep-mock-difficulty">
             <span>Difficulty</span>

@@ -70,7 +70,16 @@
 }
 .dashboard-root .war-room__cta-primary--block {
   width: 100%;
-  padding: 10px 16px;
+  padding: 10px 12px;
+  /* Allow shrinking to 0 width so the button never overflows its
+     parent column — the `--block` variant is used inside narrow
+     prep-hub sub-cells. */
+  min-width: 0;
+}
+.dashboard-root .war-room__cta-primary--block > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dashboard-root .war-room__cta-secondary {
   background: var(--bg);
@@ -417,6 +426,18 @@
   color: var(--text-1);
   line-height: 1.45;
 }
+/* Clamp long strengths/gaps text — Claude returns paragraphs in
+   `suggested` / `original` and the panel was eating the whole
+   viewport. 3 lines max with ellipsis keeps the cards skim-able. */
+.dashboard-root .war-room__reason-list li span,
+.dashboard-root .war-room__gaps-list li span {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
 .dashboard-root .war-room__reason-list svg {
   color: var(--green);
   flex-shrink: 0;
@@ -546,12 +567,13 @@
 }
 .dashboard-root .war-room__prep-grid {
   display: grid;
-  /* 2fr · 1fr matches the spec: questions + pitch share the wide
-     column on the left, progress + mock share the narrow column on
-     the right. minmax(0, …) lets the columns shrink below the
-     content's preferred width, otherwise the question text would
-     overflow and force per-character wrapping in narrow viewports. */
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  /* Equal columns. The previous 2fr/1fr split crushed the right
+     column inside a center column that's already only ~44% of the
+     page, so the pitch text and the mock-interview labels were
+     wrapping per word. minmax(0, …) lets each column shrink below
+     intrinsic content width — required to avoid char-by-char
+     wrapping fallback. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
   margin-top: 4px;
 }
@@ -643,6 +665,12 @@
   background: var(--bg-soft);
   padding: 10px 12px;
   border-radius: 10px;
+  /* Cap to 5 lines so the pitch preview never explodes the panel.
+     Full text remains accessible via the Edit pitch CTA. */
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .dashboard-root .war-room__prep-pitch-meter {
   margin-top: 6px;
@@ -666,6 +694,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.dashboard-root .war-room__prep-mock-hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
 }
 .dashboard-root .war-room__prep-mock-art {
   background: linear-gradient(135deg, var(--indigo-soft), var(--purple-soft));
