@@ -8,12 +8,22 @@
 
    All scoped to .dashboard-root so we keep the design tokens contract. */
 
+/* Page-level grid override — sidebar + main only. Without this the
+   workspace inherits the default `.dashboard` grid which reserves a
+   320px right-panel column even when no right-panel is rendered,
+   leaving an empty white strip on the right of the screen. */
+.dashboard-root .dashboard.dashboard--workspace {
+  grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+}
+
 .dashboard-root .war-room {
   padding: 28px 32px 64px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  max-width: 1440px;
 }
 
 .dashboard-root .war-room--empty-shell {
@@ -70,7 +80,16 @@
 }
 .dashboard-root .war-room__cta-primary--block {
   width: 100%;
-  padding: 10px 16px;
+  padding: 10px 12px;
+  /* Allow shrinking to 0 width so the button never overflows its
+     parent column — the `--block` variant is used inside narrow
+     prep-hub sub-cells. */
+  min-width: 0;
+}
+.dashboard-root .war-room__cta-primary--block > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .dashboard-root .war-room__cta-secondary {
   background: var(--bg);
@@ -279,10 +298,20 @@
   color: var(--text-2);
 }
 
-/* ── Main 3-col grid ──────────────────────────────────────────────── */
+/* ── Main 3-col grid ──────────────────────────────────────────────────
+   The center column hosts the Prep Hub which has its own 2x2 internal
+   grid, so it MUST stay wide enough — minmax(440px, 2fr) gives it a
+   hard floor below which the whole page collapses to 1-col instead of
+   crushing the prep hub sub-cells. The side columns get a healthy
+   minimum (300px) so their cards stay legible on standard MacBook
+   widths. No max-width cap so the page fills the viewport on large
+   screens. */
 .dashboard-root .war-room__grid {
   display: grid;
-  grid-template-columns: minmax(280px, 1fr) minmax(0, 1.6fr) minmax(280px, 1fr);
+  grid-template-columns:
+    minmax(300px, 1fr)
+    minmax(440px, 2fr)
+    minmax(300px, 1fr);
   gap: 16px;
   align-items: stretch;
 }
@@ -303,6 +332,14 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Prevent intrinsic content (long AI strings, tabular data) from
+     blowing the panel beyond its grid track. min-width: 0 lets the
+     panel shrink to its track width and child overflow rules take
+     over from there. */
+  min-width: 0;
+}
+.dashboard-root .war-room__col {
+  min-width: 0;
 }
 .dashboard-root .war-room__panel-header {
   display: flex;
@@ -416,6 +453,18 @@
   font-size: 12.5px;
   color: var(--text-1);
   line-height: 1.45;
+}
+/* Clamp long strengths/gaps text — Claude returns paragraphs in
+   `suggested` / `original` and the panel was eating the whole
+   viewport. 3 lines max with ellipsis keeps the cards skim-able. */
+.dashboard-root .war-room__reason-list li span,
+.dashboard-root .war-room__gaps-list li span {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .dashboard-root .war-room__reason-list svg {
   color: var(--green);
@@ -546,9 +595,23 @@
 }
 .dashboard-root .war-room__prep-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Equal columns. The previous 2fr/1fr split crushed the right
+     column inside a center column that's already only ~44% of the
+     page, so the pitch text and the mock-interview labels were
+     wrapping per word. minmax(0, …) lets each column shrink below
+     intrinsic content width — required to avoid char-by-char
+     wrapping fallback. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 14px;
   margin-top: 4px;
+}
+/* All four sub-areas need min-width: 0 too so their inner grids and
+   long question text wrap word-by-word, not character-by-character. */
+.dashboard-root .war-room__prep-questions,
+.dashboard-root .war-room__prep-pitch,
+.dashboard-root .war-room__prep-progress,
+.dashboard-root .war-room__prep-mock {
+  min-width: 0;
 }
 .dashboard-root .war-room__prep-subtitle {
   margin: 0 0 8px;
@@ -568,9 +631,13 @@
 }
 .dashboard-root .war-room__prep-questions li {
   display: grid;
-  grid-template-columns: 18px 1fr auto;
+  /* minmax(0, 1fr) for the question column so it can shrink below
+     its intrinsic content width; otherwise CSS grid pushes the
+     content out and the rendering engine ends up wrapping by
+     character to fit. */
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: center;
+  align-items: start;
   font-size: 12.5px;
   color: var(--text-1);
   line-height: 1.4;
@@ -589,6 +656,13 @@
 }
 .dashboard-root .war-room__prep-q {
   min-width: 0;
+  /* Wrap on word boundaries when the question is long; if a single
+     word still doesn't fit (rare), fall back to breaking it rather
+     than blowing out the cell. Avoid `word-break: break-all` which
+     would break ANY word at any character. */
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: none;
 }
 .dashboard-root .war-room__prep-q-level {
   font-size: 10px;
@@ -619,6 +693,12 @@
   background: var(--bg-soft);
   padding: 10px 12px;
   border-radius: 10px;
+  /* Cap to 5 lines so the pitch preview never explodes the panel.
+     Full text remains accessible via the Edit pitch CTA. */
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .dashboard-root .war-room__prep-pitch-meter {
   margin-top: 6px;
@@ -642,6 +722,12 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.dashboard-root .war-room__prep-mock-hint {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
 }
 .dashboard-root .war-room__prep-mock-art {
   background: linear-gradient(135deg, var(--indigo-soft), var(--purple-soft));
@@ -818,7 +904,11 @@
 /* ── Interview readiness ──────────────────────────────────────────── */
 .dashboard-root .war-room__readiness-grid {
   display: grid;
-  grid-template-columns: 90px 1fr;
+  /* minmax(0, 1fr) lets the right side shrink below intrinsic
+     content width — without it, the list cell refuses to shrink and
+     overflows the panel, getting clipped at the column's right edge
+     ('CV f' instead of 'CV fit', 'Inter' instead of 'Interview prep'). */
+  grid-template-columns: 90px minmax(0, 1fr);
   gap: 14px;
   align-items: center;
 }
@@ -861,14 +951,24 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 .dashboard-root .war-room__readiness-list li {
   display: grid;
-  grid-template-columns: 14px 1fr auto;
+  /* Same minmax(0, 1fr) trick — the label cell must be allowed to
+     shrink so 'Role understanding' wraps to 2 lines instead of
+     overflowing right and getting clipped to 'Role unde'. */
+  grid-template-columns: 14px minmax(0, 1fr) auto;
   align-items: center;
   gap: 6px;
   font-size: 11.5px;
   color: var(--text-2);
+}
+.dashboard-root .war-room__readiness-sub-label {
+  color: var(--text-1);
+  min-width: 0;
+  overflow-wrap: break-word;
+  line-height: 1.3;
 }
 .dashboard-root .war-room__readiness-icon { color: var(--green); }
 .dashboard-root .war-room__readiness-icon--red { color: var(--red); }
@@ -885,6 +985,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  /* Allow the wrap container to shrink with its parent so individual
+     chips can wrap their long text instead of overflowing. */
+  min-width: 0;
 }
 .dashboard-root .war-room__focus-chip {
   font-size: 11px;
@@ -893,6 +996,14 @@
   background: var(--purple-soft);
   padding: 4px 10px;
   border-radius: 999px;
+  /* AI keywords can be long ('TypeScript / TypeScript SDK',
+     'Documentation / docs'). Cap each chip at the column width and
+     allow word-wrap so long phrases break onto two lines instead
+     of getting clipped at the column edge. */
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-height: 1.3;
 }
 .dashboard-root .war-room__focus-add {
   display: inline-flex;
@@ -1169,10 +1280,12 @@
   text-overflow: ellipsis;
 }
 
-/* ── Responsive: collapse to 2 cols then 1 col ─────────────────────── */
-@media (max-width: 1280px) {
+/* ── Responsive: 3 cols → 2 cols → 1 col ────────────────────────────
+   1200px: drop the right column below the rest as a 2-up wrap row.
+    900px: stack the whole page vertically. */
+@media (max-width: 1200px) {
   .dashboard-root .war-room__grid {
-    grid-template-columns: minmax(280px, 1fr) minmax(0, 1.4fr);
+    grid-template-columns: minmax(260px, 1fr) minmax(440px, 1.6fr);
   }
   .dashboard-root .war-room__col--right {
     grid-column: 1 / -1;
@@ -1180,7 +1293,7 @@
     flex-wrap: wrap;
   }
   .dashboard-root .war-room__col--right > .war-room__panel {
-    flex: 1 1 240px;
+    flex: 1 1 280px;
   }
 }
 @media (max-width: 900px) {
