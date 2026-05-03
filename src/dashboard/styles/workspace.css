@@ -8,14 +8,22 @@
 
    All scoped to .dashboard-root so we keep the design tokens contract. */
 
+/* Page-level grid override — sidebar + main only. Without this the
+   workspace inherits the default `.dashboard` grid which reserves a
+   320px right-panel column even when no right-panel is rendered,
+   leaving an empty white strip on the right of the screen. */
+.dashboard-root .dashboard.dashboard--workspace {
+  grid-template-columns: 220px 1fr;
+  grid-template-areas:
+    "sidebar topbar"
+    "sidebar main";
+}
+
 .dashboard-root .war-room {
   padding: 28px 32px 64px;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  /* No max-width cap — let the page fill the viewport so the user
-     gets four equal-density columns on wide screens instead of a
-     blank strip on the right. */
 }
 
 .dashboard-root .war-room--empty-shell {

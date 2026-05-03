@@ -181,7 +181,7 @@ export default function Workspace() {
       })
       .slice(0, 9);
     return (
-      <div className="dashboard">
+      <div className="dashboard dashboard--workspace">
         <Sidebar />
         <TopBar />
         <main className="dashboard__main">
