@@ -112,13 +112,27 @@ export interface IngestRunAllSummary {
   errors: IngestRunAllResultDto["errors"];
 }
 
-/** Run every built-in source in parallel — Greenhouse + Lever + Ashby
- *  + Y Combinator across the curated company list. Single-click
+interface SourceSpecDto {
+  provider: IngestProvider;
+  identifier: string;
+}
+
+/** Get the curated source list shipped with the app — used to seed
+ *  Settings → Job Sources on first launch. */
+export async function getBuiltinSources(): Promise<SourceSpecDto[]> {
+  return invoke<SourceSpecDto[]>("ingest_get_builtin_sources");
+}
+
+/** Run every enabled source in parallel — Greenhouse + Lever + Ashby
+ *  + Y Combinator across the user's configured list. Single-click
  *  "Sync all jobs" path.
  *
+ *  Reads enabled sources from the Zustand `ingestSources` slice;
+ *  when that's empty the Rust side falls back to the curated builtin.
+ *
  *  Optional `keyword`: free text. When provided, only jobs whose
- *  role / company / location / description contain every word of
- *  the keyword (AND, case-insensitive) are returned. */
+ *  role / company / location have every token as a word-prefix
+ *  survive the server-side narrow. */
 export async function runIngestAll(
   keyword?: string,
 ): Promise<IngestRunAllSummary> {
@@ -129,8 +143,17 @@ export async function runIngestAll(
 
   const trimmedKeyword = keyword?.trim() || undefined;
 
+  // Read user-enabled sources from the store. Each `IngestSource`
+  // has an `enabled` flag the user toggles via Settings → Job Sources;
+  // disabled ones are filtered out here so the user's preferences
+  // actually take effect.
+  const sources: SourceSpecDto[] = store.ingestSources
+    .filter((s) => s.enabled)
+    .map((s) => ({ provider: s.provider, identifier: s.identifier }));
+
   try {
     const result = await invoke<IngestRunAllResultDto>("ingest_run_all", {
+      sources,
       keyword: trimmedKeyword,
     });
     const { newCount } = useAppStore.getState().setIngestedJobs(result.jobs);

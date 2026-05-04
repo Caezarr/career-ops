@@ -12,6 +12,7 @@ export type PipelineSort = "date" | "match";
 export type SettingsTab =
   | "account"
   | "apiKeys"
+  | "jobSources"
   | "audio"
   | "appearance"
   | "notifications"

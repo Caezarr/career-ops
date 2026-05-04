@@ -12,6 +12,7 @@ import { useAppStore } from "./store";
 import { CommandPalette, ConfirmProvider, ToastProvider } from "./primitives";
 import { useApplyAppearance } from "./hooks/useApplyAppearance";
 import { useAutostart } from "./hooks/useAutostart";
+import { useSeedIngestSources } from "./hooks/useSeedIngestSources";
 import { useCopilotEventBridge } from "./hooks/useCopilotSession";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
@@ -117,6 +118,15 @@ function CopilotEventBridge() {
   return null;
 }
 
+/** Idempotently seeds Settings → Job Sources from the curated
+ *  BUILTIN_SOURCES list shipped in Rust on first launch. After
+ *  that, the user's enabled / disabled / custom sources own the
+ *  configuration. */
+function IngestSourcesSeeder() {
+  useSeedIngestSources();
+  return null;
+}
+
 export function DashboardApp() {
   return (
     <div className="dashboard-root">
@@ -126,6 +136,7 @@ export function DashboardApp() {
             <AppearanceApplier />
             <AutostartApplier />
             <CopilotEventBridge />
+            <IngestSourcesSeeder />
             <GlobalKeyboardShortcuts />
             <PageRouter />
             <CommandPaletteHost />

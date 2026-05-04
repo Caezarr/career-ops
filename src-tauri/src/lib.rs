@@ -917,19 +917,27 @@ async fn ingest_run_source(
         .map_err(|e| e.to_string())
 }
 
-/// Sync every built-in source in one call. The "Sync all jobs" button
-/// in the frontend hits this — it pulls Greenhouse + Lever + Ashby +
-/// Y Combinator concurrently across the curated `BUILTIN_SOURCES`
-/// list and returns a flat job array plus per-source error reports.
+/// Sync the supplied list of sources in parallel. The "Sync all jobs"
+/// button in the frontend hits this — passing the user's enabled
+/// sources from the Zustand store. Empty list ⇒ falls back to the
+/// curated `BUILTIN_SOURCES` constant (used during first-launch boot).
 ///
 /// Optional `keyword` narrows the response to jobs matching every
-/// whitespace-separated token (AND, case-insensitive) across role +
-/// company + location + description. Empty / null = no filter.
+/// whitespace-separated token as a word-prefix across role + company
+/// + location. Empty / null = no filter.
 #[tauri::command]
 async fn ingest_run_all(
+    sources: Vec<ingest::SourceSpec>,
     keyword: Option<String>,
 ) -> Result<ingest::IngestRunAllResult, String> {
-    Ok(ingest::run_all(keyword).await)
+    Ok(ingest::run_all(sources, keyword).await)
+}
+
+/// Returns the curated source list shipped with the app. Frontend
+/// uses this to seed Settings → Job Sources on first launch.
+#[tauri::command]
+fn ingest_get_builtin_sources() -> Vec<ingest::SourceSpec> {
+    ingest::get_builtin_sources_list()
 }
 
 /// Cheap probe to verify a Greenhouse / Lever / Ashby identifier resolves
@@ -1058,7 +1066,8 @@ pub fn run() {
             // Job ingestion (Greenhouse / Lever / Ashby / YC)
             ingest_run_source,
             ingest_run_all,
-            ingest_health_check
+            ingest_health_check,
+            ingest_get_builtin_sources
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

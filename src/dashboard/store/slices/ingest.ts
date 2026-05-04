@@ -39,6 +39,11 @@ export interface IngestSlice {
     id: string,
     patch: Partial<Pick<IngestSource, "lastSyncedAt" | "lastError">>,
   ) => void;
+  /** Bulk-replace the source list. Used to seed from BUILTIN on first
+   *  launch (only fires when ingestSources is empty). */
+  seedIngestSources: (
+    sources: { provider: IngestProvider; identifier: string }[],
+  ) => void;
 
   startIngestRun: (source?: IngestProvider) => IngestRun;
   finishIngestRun: (
@@ -85,6 +90,25 @@ export const createIngestSlice: StateCreator<IngestSlice> = (set) => ({
         s.id === id ? { ...s, ...patch } : s,
       ),
     })),
+
+  seedIngestSources: (sources) =>
+    set((state) => {
+      // Idempotent — if the user has already configured anything, we
+      // don't overwrite. The seed only runs on a fresh install.
+      if (state.ingestSources.length > 0) return state;
+      const now = Date.now();
+      const seeded: IngestSource[] = sources.map(
+        ({ provider, identifier }) => ({
+          id: uid("src"),
+          provider,
+          identifier: provider === "ycombinator" ? "" : identifier,
+          label: defaultLabel(provider, identifier),
+          enabled: true,
+          addedAt: now,
+        }),
+      );
+      return { ingestSources: seeded };
+    }),
 
   startIngestRun: (source) => {
     const run: IngestRun = {

@@ -118,24 +118,59 @@ pub struct IngestRunAllResult {
     pub elapsed_ms: u128,
 }
 
-/// Pull every built-in source in parallel (capped at 8 in flight at
+/// Pair (provider, identifier) — the unit the user / settings UI
+/// thinks in. `identifier` may be empty (YC pulls all roles by
+/// default; an explicit role slug filters to one category).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SourceSpec {
+    pub provider: IngestProvider,
+    pub identifier: String,
+}
+
+/// Returns the curated `BUILTIN_SOURCES` list as `SourceSpec`s for
+/// the frontend to seed Settings → Job Sources on first launch.
+pub fn get_builtin_sources_list() -> Vec<SourceSpec> {
+    BUILTIN_SOURCES
+        .iter()
+        .map(|(provider, identifier)| SourceSpec {
+            provider: *provider,
+            identifier: identifier.to_string(),
+        })
+        .collect()
+}
+
+/// Pull every requested source in parallel (capped at 8 in flight at
 /// once to avoid blasting any single provider). Per-source failures
 /// are collected into `errors` — they never abort the run.
 ///
-/// `keyword` is a free-text filter applied AFTER fetch — when present,
-/// only jobs whose role (or description, as fallback) contain every
-/// whitespace-separated token (case-insensitive, AND-mode) survive.
-/// Empty string / `None` ⇒ no filtering.
-pub async fn run_all(keyword: Option<String>) -> IngestRunAllResult {
+/// `sources` is an explicit list — the frontend Settings UI owns the
+/// configuration (which sources are enabled, which custom slugs were
+/// added). Empty list ⇒ falls back to `BUILTIN_SOURCES`.
+///
+/// `keyword` is a strict tag-style filter applied AFTER fetch — when
+/// present, only jobs whose role/company/location/seniority/sector/
+/// stage have every token as a word-prefix survive. Empty / None =
+/// no filtering.
+pub async fn run_all(
+    sources: Vec<SourceSpec>,
+    keyword: Option<String>,
+) -> IngestRunAllResult {
     let started = std::time::Instant::now();
 
-    // Pre-collect into owned tuples — passing `&'static str` slices
-    // into async blocks confuses `tauri::command`'s higher-rank
-    // lifetime checks, so we do the trivial allocation once.
-    let pairs: Vec<(IngestProvider, String)> = BUILTIN_SOURCES
-        .iter()
-        .map(|(p, s)| (*p, s.to_string()))
-        .collect();
+    // Default to the curated list when the frontend passes an empty
+    // array — keeps the backend usable from a fresh install before
+    // the Zustand seed lands.
+    let pairs: Vec<(IngestProvider, String)> = if sources.is_empty() {
+        BUILTIN_SOURCES
+            .iter()
+            .map(|(p, s)| (*p, s.to_string()))
+            .collect()
+    } else {
+        sources
+            .into_iter()
+            .map(|s| (s.provider, s.identifier))
+            .collect()
+    };
 
     let stream = stream::iter(pairs.into_iter().map(
         |(provider, slug)| async move {
