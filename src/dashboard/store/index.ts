@@ -26,6 +26,7 @@ import {
   createCopilotSessionsSlice,
   type CopilotSessionsSlice,
 } from "./slices/copilotSessions";
+import { createIngestSlice, type IngestSlice } from "./slices/ingest";
 
 export type AppStore = UserSlice &
   NotificationsSlice &
@@ -42,7 +43,8 @@ export type AppStore = UserSlice &
   AppearanceSlice &
   NotificationPrefsSlice &
   BillingSlice &
-  CopilotSessionsSlice;
+  CopilotSessionsSlice &
+  IngestSlice;
 
 const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUserSlice(...(a as Parameters<typeof createUserSlice>)),
@@ -61,6 +63,7 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createNotificationPrefsSlice(...(a as Parameters<typeof createNotificationPrefsSlice>)),
   ...createBillingSlice(...(a as Parameters<typeof createBillingSlice>)),
   ...createCopilotSessionsSlice(...(a as Parameters<typeof createCopilotSessionsSlice>)),
+  ...createIngestSlice(...(a as Parameters<typeof createIngestSlice>)),
 });
 
 export const useAppStore = create<AppStore>()(
@@ -113,6 +116,11 @@ export const useAppStore = create<AppStore>()(
       prepAttempts: state.prepAttempts,
       prepBankFilter: state.prepBankFilter,
       prepActiveTrack: state.prepActiveTrack,
+      // Ingest — persist the user's configured job sources and last
+      // sync timestamp. Run history (ingestRuns) and the syncing flag
+      // are runtime-only.
+      ingestSources: state.ingestSources,
+      ingestLastSyncedAt: state.ingestLastSyncedAt,
     }),
   }),
 );

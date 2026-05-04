@@ -75,6 +75,14 @@ export interface JobsSlice {
   toggleBookmark: (id: string) => void;
   isBookmarked: (id: string) => boolean;
 
+  /** Merge ingested jobs from external boards.
+   *
+   *  Dedup key: source.provider + source.identifier + source.sourceId.
+   *  Preserves user-mutable fields (bookmarked) on existing matches —
+   *  re-running an ingestion never loses a bookmark.
+   *  Returns the count of newly-added jobs (for run reporting). */
+  setIngestedJobs: (incoming: Job[]) => { newCount: number };
+
   createJob: (input: {
     role: string;
     company: string;
@@ -108,6 +116,50 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
       ),
     })),
   isBookmarked: (id) => !!get().jobs.find((j) => j.id === id)?.bookmarked,
+
+  setIngestedJobs: (incoming) => {
+    // Build a key → existing-job map for fast dedup lookup.
+    const existing = get().jobs;
+    const keyOf = (j: Job): string | null =>
+      j.source
+        ? `${j.source.provider}:${j.source.identifier ?? ""}:${j.source.sourceId}`
+        : null;
+    const byKey = new Map<string, Job>();
+    for (const j of existing) {
+      const k = keyOf(j);
+      if (k) byKey.set(k, j);
+    }
+
+    let newCount = 0;
+    const merged: Job[] = [...existing];
+    for (const inc of incoming) {
+      const k = keyOf(inc);
+      if (!k) {
+        // No source on incoming → just append (shouldn't happen via ingestion).
+        merged.unshift(inc);
+        newCount++;
+        continue;
+      }
+      const prior = byKey.get(k);
+      if (prior) {
+        // Update mutable fields, preserve bookmarked + locally-generated id.
+        const idx = merged.findIndex((j) => j.id === prior.id);
+        if (idx >= 0) {
+          merged[idx] = {
+            ...inc,
+            id: prior.id,
+            bookmarked: prior.bookmarked,
+          };
+        }
+      } else {
+        merged.unshift(inc);
+        byKey.set(k, inc);
+        newCount++;
+      }
+    }
+    set({ jobs: merged });
+    return { newCount };
+  },
 
   createJob: (input) => {
     const brand = companyBrand(input.company);

@@ -1,6 +1,7 @@
 mod ai;
 mod audio;
 mod db;
+mod ingest;
 mod latex;
 mod llm;
 mod pdf;
@@ -898,6 +899,42 @@ async fn run_pipeline(
     Ok(())
 }
 
+// ─── Job ingestion (Greenhouse / Lever / Ashby / YC) ─────────────────────────
+
+/// Run a single job-board ingestion. Frontend dispatches one of these per
+/// configured `IngestSource`. Returns the ingested jobs in the frontend
+/// `Job` shape (camelCase, with `source` populated for dedup).
+#[tauri::command]
+async fn ingest_run_source(
+    provider: String,
+    identifier: String,
+) -> Result<ingest::IngestRunResult, String> {
+    let provider_enum = ingest::IngestProvider::from_str(&provider)
+        .ok_or_else(|| format!("Unknown provider: {}", provider))?;
+
+    ingest::run_source(provider_enum, &identifier)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Cheap probe to verify a Greenhouse / Lever / Ashby identifier resolves
+/// before saving it as an `IngestSource` in Settings. Fetches the live
+/// endpoint but only returns counts, no payload.
+#[tauri::command]
+async fn ingest_health_check(
+    provider: String,
+    identifier: String,
+) -> Result<u64, String> {
+    let provider_enum = ingest::IngestProvider::from_str(&provider)
+        .ok_or_else(|| format!("Unknown provider: {}", provider))?;
+
+    let result = ingest::run_source(provider_enum, &identifier)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(result.jobs.len() as u64)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -1002,7 +1039,10 @@ pub fn run() {
             generate_optimized_cv,
             detect_latex_compilers,
             // AI: Application next steps
-            generate_application_next_steps
+            generate_application_next_steps,
+            // Job ingestion (Greenhouse / Lever / Ashby / YC)
+            ingest_run_source,
+            ingest_health_check
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
