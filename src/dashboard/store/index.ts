@@ -69,13 +69,30 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
 export const useAppStore = create<AppStore>()(
   persist(composedStore, {
     name: "career-os-store",
-    version: 1,
+    // Bumped 1 → 2 with the migration that drops the heavy `jobs`
+    // field from persistence (was blowing localStorage's ~5MB quota
+    // once ingestion pulled 5000+ postings × 12k chars each).
+    version: 2,
+    migrate: (persisted: unknown, fromVersion: number) => {
+      if (persisted && typeof persisted === "object" && fromVersion < 2) {
+        const p = persisted as Record<string, unknown>;
+        // Drop the bloated jobs array. Bookmarks survive via
+        // bookmarkedJobIds (added in v2).
+        delete p.jobs;
+        if (!Array.isArray(p.bookmarkedJobIds)) p.bookmarkedJobIds = [];
+        return p;
+      }
+      return persisted;
+    },
     storage: createJSONStorage(() => localStorage),
     // Persist only durable state — never selection, search, or transient UI flags.
+    // Notably we DO NOT persist `jobs` (the full ingested list can hit
+    // 50MB+ at 5000 postings × 12k chars each, far past localStorage's
+    // ~5MB quota). Bookmarks survive via `bookmarkedJobIds`.
     partialize: (state) => ({
       user: state.user,
       notifications: state.notifications,
-      jobs: state.jobs,
+      bookmarkedJobIds: state.bookmarkedJobIds,
       applications: state.applications,
       cvs: state.cvs,
       defaultCvId: state.defaultCvId,

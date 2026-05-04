@@ -71,6 +71,12 @@ export interface JobsSlice {
   jobsSort: JobSort;
   jobsFilters: JobFilters;
 
+  /** IDs of bookmarked jobs. Persisted across sessions so that
+   *  re-syncing 5 000 jobs doesn't lose a single bookmark, and so
+   *  that we DON'T have to persist the full jobs array (which blows
+   *  up localStorage's ~5MB quota). */
+  bookmarkedJobIds: string[];
+
   setSelectedJob: (id: string | null) => void;
   setJobsSearchQuery: (q: string) => void;
   setJobsSort: (s: JobSort) => void;
@@ -103,6 +109,7 @@ export interface JobsSlice {
 export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
   jobs: seedJobs,
   selectedJobId: seedJobs[0]?.id ?? null,
+  bookmarkedJobIds: [],
   jobsSearchQuery: "",
   jobsSort: "match",
   jobsFilters: defaultFilters,
@@ -115,12 +122,18 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
   resetJobsFilters: () => set({ jobsFilters: defaultFilters }),
 
   toggleBookmark: (id) =>
-    set((state) => ({
-      jobs: state.jobs.map((j) =>
-        j.id === id ? { ...j, bookmarked: !j.bookmarked } : j,
-      ),
-    })),
-  isBookmarked: (id) => !!get().jobs.find((j) => j.id === id)?.bookmarked,
+    set((state) => {
+      const isCurrentlyBookmarked = state.bookmarkedJobIds.includes(id);
+      return {
+        jobs: state.jobs.map((j) =>
+          j.id === id ? { ...j, bookmarked: !isCurrentlyBookmarked } : j,
+        ),
+        bookmarkedJobIds: isCurrentlyBookmarked
+          ? state.bookmarkedJobIds.filter((x) => x !== id)
+          : [...state.bookmarkedJobIds, id],
+      };
+    }),
+  isBookmarked: (id) => get().bookmarkedJobIds.includes(id),
 
   setIngestedJobs: (incoming) => {
     // Enrich each ingested job with frontend-only derived fields:
@@ -134,6 +147,7 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
     //   - aiSummary / whyYouMatch are LEFT undefined intentionally —
     //     those are CV-vs-JD AI outputs and get filled by the existing
     //     match-analysis flow on demand.
+    const persistedBookmarks = new Set(get().bookmarkedJobIds);
     const enrich = (j: Job): Job => {
       const brand = companyBrand(j.company);
       const stats: string[] = [];
@@ -153,6 +167,10 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
 
       return {
         ...j,
+        // Restore bookmark state from the persisted ID list — the
+        // jobs array itself isn't persisted (would blow localStorage's
+        // ~5MB quota with 5000+ ingested postings).
+        bookmarked: persistedBookmarks.has(j.id),
         avatarColor: brand.bg,
         avatarLabel: brand.label,
         stats: stats.length > 0 ? stats : j.stats,
