@@ -7,7 +7,10 @@ use serde::{Deserialize, Serialize};
 
 use super::traits::{IngestProvider, RawJob};
 
-const MAX_DESCRIPTION_CHARS: usize = 2000;
+/// Hard cap on the full-description payload sent to the frontend.
+/// 12 000 chars covers ~99% of real ATS postings without bloating the
+/// store. Anything longer gets a final '…' marker.
+const MAX_DESCRIPTION_CHARS: usize = 12_000;
 
 /// Mirrors `src/dashboard/store/types.ts::Job` (with `source` populated).
 ///

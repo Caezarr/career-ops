@@ -154,6 +154,14 @@ export default function JobDetail() {
         </section>
       )}
 
+      {/* Full job description for ingested postings — shown collapsed
+          by default with a "Show more" toggle. The about[] section
+          above is the first 8 paragraphs; this section shows
+          everything else (the full posting). */}
+      {job.jdText && (
+        <FullDescription text={job.jdText} initialParagraphsShown={job.about?.length ?? 8} />
+      )}
+
       {job.whyYouMatch && job.whyYouMatch.length > 0 && (
         <WhyYouMatchCard items={job.whyYouMatch} />
       )}
@@ -205,5 +213,51 @@ export default function JobDetail() {
         location={job.location}
       />
     </aside>
+  );
+}
+
+// ── Full description (collapsible) ────────────────────────────────────
+//
+// Renders the rest of `jdText` past whatever paragraphs the about[]
+// summary already covers. Collapsed by default — the user clicks
+// "Show full description" to expand. Avoids drowning the panel for
+// jobs whose full posting is 4000+ chars.
+
+function FullDescription({
+  text,
+  initialParagraphsShown,
+}: {
+  text: string;
+  initialParagraphsShown: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const paragraphs = text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0);
+
+  const remaining = paragraphs.slice(initialParagraphsShown);
+  if (remaining.length === 0) return null;
+
+  return (
+    <section className="job-detail__full-desc">
+      <button
+        type="button"
+        className="job-detail__full-desc-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        {open ? 'Hide full description' : `Show full description (${remaining.length} more paragraph${remaining.length === 1 ? '' : 's'})`}
+      </button>
+      {open && (
+        <div className="job-detail__full-desc-body">
+          {remaining.map((p, i) => (
+            <p key={i} className="job-detail__about-text">
+              {p}
+            </p>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

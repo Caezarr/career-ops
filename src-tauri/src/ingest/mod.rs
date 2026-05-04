@@ -18,9 +18,12 @@
 //! `reqwest::Client::builder()` — `ingest/*` matches that pattern until the
 //! single-egress refactor lands (tracked separately).
 
+pub mod ashby;
 pub mod greenhouse;
+pub mod lever;
 pub mod normalize;
 pub mod traits;
+pub mod ycombinator;
 
 pub use normalize::IngestedJob;
 pub use traits::{IngestError, IngestProvider};
@@ -53,14 +56,18 @@ pub async fn run_source(
     let raw_jobs = match provider {
         IngestProvider::Greenhouse => greenhouse::fetch(identifier).await?,
         IngestProvider::Lever => {
-            return Err(IngestError::NotImplemented("lever"));
+            // Lever postings don't carry a company name — backfill
+            // from the slug the user provided (capitalised).
+            let mut jobs = lever::fetch(identifier).await?;
+            lever::fill_company(&mut jobs, identifier);
+            jobs
         }
         IngestProvider::Ashby => {
-            return Err(IngestError::NotImplemented("ashby"));
+            let mut jobs = ashby::fetch(identifier).await?;
+            ashby::fill_company(&mut jobs, identifier);
+            jobs
         }
-        IngestProvider::YCombinator => {
-            return Err(IngestError::NotImplemented("ycombinator"));
-        }
+        IngestProvider::YCombinator => ycombinator::fetch(identifier).await?,
     };
 
     let jobs: Vec<IngestedJob> = raw_jobs

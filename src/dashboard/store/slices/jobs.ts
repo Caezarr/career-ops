@@ -146,7 +146,9 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
             .split(/\n\n+/)
             .map((s) => s.trim())
             .filter((s) => s.length > 0)
-            .slice(0, 4)
+            // First 8 paragraphs gives a real overview without
+            // duplicating the full-description scroll panel.
+            .slice(0, 8)
         : undefined;
 
       return {

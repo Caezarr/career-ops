@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const PAGE_SIZE = 15;
 import JobListItem from './JobListItem';
 import {
   DropdownMenu,
@@ -51,6 +53,7 @@ export default function JobList() {
   const setSelected = useAppStore((s) => s.setSelectedJob);
 
   const [applyJob, setApplyJob] = useState<Job | null>(null);
+  const [page, setPage] = useState(0);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -83,11 +86,29 @@ export default function JobList() {
       });
   }, [jobs, search, filters, sort]);
 
+  // Pagination — 15 per page. Reset to first page whenever the
+  // visible result set changes (search/filters/sort/new ingest).
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    setPage(0);
+  }, [search, filters, sort, filtered.length]);
+
+  const safePage = Math.min(page, totalPages - 1);
+  const pageStart = safePage * PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + PAGE_SIZE, filtered.length);
+  const paginated = filtered.slice(pageStart, pageEnd);
+
+  // If the user has a job selected that isn't in the current page,
+  // the JobDetail still works (it reads from the global jobs slice
+  // by id) so we don't need to clamp selection.
+
   return (
     <section className="job-list" aria-label="Job results">
       <header className="job-list__header">
         <span className="job-list__count">
-          {filtered.length} match{filtered.length === 1 ? '' : 'es'} found
+          {filtered.length === 0
+            ? '0 matches'
+            : `${pageStart + 1}–${pageEnd} of ${filtered.length} match${filtered.length === 1 ? '' : 'es'}`}
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -115,7 +136,7 @@ export default function JobList() {
             <span>No matching jobs — try adjusting your filters.</span>
           </div>
         ) : (
-          filtered.map((job) => (
+          paginated.map((job) => (
             <JobListItem
               key={job.id}
               job={job}
@@ -126,6 +147,34 @@ export default function JobList() {
           ))
         )}
       </div>
+
+      {filtered.length > PAGE_SIZE && (
+        <div className="job-list__pagination">
+          <button
+            type="button"
+            className="job-list__page-btn"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={safePage === 0}
+            aria-label="Previous page"
+          >
+            <ChevronLeft size={14} />
+            Prev
+          </button>
+          <span className="job-list__page-indicator">
+            Page {safePage + 1} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="job-list__page-btn"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={safePage >= totalPages - 1}
+            aria-label="Next page"
+          >
+            Next
+            <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
 
       <ApplyModal
         open={!!applyJob}

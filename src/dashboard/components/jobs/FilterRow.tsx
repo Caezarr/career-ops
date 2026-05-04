@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal } from 'lucide-react';
 import FilterChip from './FilterChip';
 import {
@@ -13,34 +13,61 @@ import {
   useToast,
 } from '../../primitives';
 import { useAppStore } from '../../store';
-import type { JobFilters } from '../../store';
+import type { Job, JobFilters } from '../../store';
 
-const FILTER_OPTIONS: Record<keyof JobFilters, string[]> = {
-  location: [
-    'Any',
-    'Paris, France',
-    'London, UK',
-    'Berlin, DE',
-    'Remote (EU)',
-  ],
-  salary: [
-    'Any',
-    '€60k - €80k',
-    '€80k - €120k',
-    '€120k - €160k',
-    '€160k+',
-  ],
+// Static fallbacks used when no jobs are loaded yet (or when a
+// dimension can't be derived from the job data — sector / stage /
+// seniority aren't on the ATS payloads, so they stay curated).
+const STATIC_OPTIONS: Record<keyof JobFilters, string[]> = {
+  location: ['Any'], // dynamic — see deriveOptions
+  salary: ['Any', '€60k - €80k', '€80k - €120k', '€120k - €160k', '€160k+'],
   seniority: ['Any', 'Junior', 'Mid', 'Senior', 'Staff', 'VP+'],
   sector: ['Any', 'Fintech', 'Health', 'AI/ML', 'Consulting', 'PE/VC'],
-  stage: [
-    'Any',
-    'Pre-seed',
-    'Series A',
-    'Series B+',
-    'Public',
-  ],
-  remote: ['Any', 'On-site', 'Hybrid', 'Remote', 'Hybrid + Remote'],
+  stage: ['Any', 'Pre-seed', 'Series A', 'Series B+', 'Public'],
+  remote: ['Any'], // dynamic — see deriveOptions
 };
+
+/** Build the dropdown options for each filter dimension from the
+ *  current set of jobs. Location and remote (workMode) are computed
+ *  live so the user only sees values that actually appear in the
+ *  feed. The other dimensions stay curated until we have richer
+ *  metadata from the providers. */
+function deriveOptions(jobs: Job[]): Record<keyof JobFilters, string[]> {
+  // Locations — split combined values like "Paris / Remote (Paris)"
+  // and trim. Cap to ~30 most-frequent for sanity.
+  const locCounts = new Map<string, number>();
+  for (const j of jobs) {
+    if (!j.location) continue;
+    for (const part of j.location.split(/\s*[,/|]\s*/)) {
+      const key = part.trim();
+      if (key.length > 0) locCounts.set(key, (locCounts.get(key) ?? 0) + 1);
+    }
+  }
+  const locations = ['Any', ...Array.from(locCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 30)
+    .map(([k]) => k)];
+
+  const remoteSet = new Set<string>();
+  for (const j of jobs) {
+    if (j.workMode) remoteSet.add(normaliseRemote(j.workMode));
+  }
+  const remote = ['Any', ...Array.from(remoteSet).sort()];
+
+  return {
+    ...STATIC_OPTIONS,
+    location: locations,
+    remote: remote.length > 1 ? remote : ['Any', 'On-site', 'Hybrid', 'Remote'],
+  };
+}
+
+function normaliseRemote(s: string): string {
+  const lower = s.toLowerCase();
+  if (lower.includes('hybrid')) return 'Hybrid';
+  if (lower.includes('remote')) return 'Remote';
+  if (lower.includes('on-site') || lower.includes('onsite')) return 'On-site';
+  return s;
+}
 
 const FILTER_DEFS: { key: keyof JobFilters; label: string }[] = [
   { key: 'location', label: 'Location' },
@@ -55,7 +82,12 @@ export default function FilterRow() {
   const filters = useAppStore((s) => s.jobsFilters);
   const setFilter = useAppStore((s) => s.setJobsFilter);
   const resetFilters = useAppStore((s) => s.resetJobsFilters);
+  const jobs = useAppStore((s) => s.jobs);
   const toast = useToast();
+
+  // Dropdowns reflect what's actually in the loaded job set —
+  // re-computed when the user syncs new sources.
+  const FILTER_OPTIONS = useMemo(() => deriveOptions(jobs), [jobs]);
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [employmentType, setEmploymentType] = useState('Any');

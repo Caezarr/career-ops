@@ -75,8 +75,6 @@ pub enum IngestError {
     },
     #[error("Identifier empty or invalid for {0}")]
     BadIdentifier(&'static str),
-    #[error("Provider {0} not yet implemented")]
-    NotImplemented(&'static str),
 }
 
 impl serde::Serialize for IngestError {
