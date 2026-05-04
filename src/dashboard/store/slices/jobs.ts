@@ -5,6 +5,11 @@ import {
   mockSelectedJob as legacySelectedJob,
 } from "../../data/jobs";
 import { companyBrand } from "../../data/mock";
+import {
+  companyMeta,
+  seniorityFromTitle,
+  stageFromYcBatch,
+} from "../../data/companyMeta";
 import { uid } from "../utils";
 
 // Parse "€90k - €120k" → { min: 90000, max: 120000, currency: "€" }
@@ -51,12 +56,17 @@ const seedJobs: Job[] = legacyJobs.map((j, i) =>
 );
 
 const defaultFilters: JobFilters = {
-  location: "Paris, France",
-  salary: "€80k - €120k",
-  seniority: "Senior",
-  sector: "Fintech, Health",
-  stage: "Series B+",
-  remote: "Hybrid + Remote",
+  // "Any" is the sentinel that the JobList filter logic recognises as
+  // "skip this filter entirely". The previous defaults were tuned for
+  // the Qonto-era seed data and quietly excluded almost everything
+  // ingested from external boards (e.g., 443 Anthropic jobs collapsed
+  // to 5 because none have "Paris, France" in their location string).
+  location: "Any",
+  salary: "Any",
+  seniority: "Any",
+  sector: "Any",
+  stage: "Any",
+  remote: "Any",
 };
 
 export interface JobsSlice {
@@ -66,6 +76,12 @@ export interface JobsSlice {
   jobsSort: JobSort;
   jobsFilters: JobFilters;
 
+  /** IDs of bookmarked jobs. Persisted across sessions so that
+   *  re-syncing 5 000 jobs doesn't lose a single bookmark, and so
+   *  that we DON'T have to persist the full jobs array (which blows
+   *  up localStorage's ~5MB quota). */
+  bookmarkedJobIds: string[];
+
   setSelectedJob: (id: string | null) => void;
   setJobsSearchQuery: (q: string) => void;
   setJobsSort: (s: JobSort) => void;
@@ -74,6 +90,20 @@ export interface JobsSlice {
 
   toggleBookmark: (id: string) => void;
   isBookmarked: (id: string) => boolean;
+
+  /** Hydrate bookmarks from SQLite at app start. Replaces the in-memory
+   *  list and re-applies the `bookmarked` flag to any matching jobs
+   *  already in the slice. Does NOT write back to localStorage / DB —
+   *  the caller has just read from DB. */
+  hydrateBookmarks: (ids: string[]) => void;
+
+  /** Merge ingested jobs from external boards.
+   *
+   *  Dedup key: source.provider + source.identifier + source.sourceId.
+   *  Preserves user-mutable fields (bookmarked) on existing matches —
+   *  re-running an ingestion never loses a bookmark.
+   *  Returns the count of newly-added jobs (for run reporting). */
+  setIngestedJobs: (incoming: Job[]) => { newCount: number };
 
   createJob: (input: {
     role: string;
@@ -90,6 +120,7 @@ export interface JobsSlice {
 export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
   jobs: seedJobs,
   selectedJobId: seedJobs[0]?.id ?? null,
+  bookmarkedJobIds: [],
   jobsSearchQuery: "",
   jobsSort: "match",
   jobsFilters: defaultFilters,
@@ -102,12 +133,138 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
   resetJobsFilters: () => set({ jobsFilters: defaultFilters }),
 
   toggleBookmark: (id) =>
+    set((state) => {
+      const isCurrentlyBookmarked = state.bookmarkedJobIds.includes(id);
+      return {
+        jobs: state.jobs.map((j) =>
+          j.id === id ? { ...j, bookmarked: !isCurrentlyBookmarked } : j,
+        ),
+        bookmarkedJobIds: isCurrentlyBookmarked
+          ? state.bookmarkedJobIds.filter((x) => x !== id)
+          : [...state.bookmarkedJobIds, id],
+      };
+    }),
+  isBookmarked: (id) => get().bookmarkedJobIds.includes(id),
+
+  hydrateBookmarks: (ids) =>
     set((state) => ({
-      jobs: state.jobs.map((j) =>
-        j.id === id ? { ...j, bookmarked: !j.bookmarked } : j,
-      ),
+      bookmarkedJobIds: ids,
+      jobs: state.jobs.map((j) => ({
+        ...j,
+        bookmarked: ids.includes(j.id),
+      })),
     })),
-  isBookmarked: (id) => !!get().jobs.find((j) => j.id === id)?.bookmarked,
+
+  setIngestedJobs: (incoming) => {
+    // Enrich each ingested job with frontend-only derived fields:
+    //   - avatarColor / avatarLabel from the canonical companyBrand()
+    //     map (so Stripe / OpenAI / Notion / Qonto / etc. render with
+    //     their proper brand). The Rust fallback is overridden.
+    //   - stats[]   from non-empty among (location, workMode, type) so
+    //     the JobDetail header has something to show
+    //   - about[]   split jdText on paragraph breaks (max 4 entries)
+    //     so the JobDetail body shows the actual description
+    //   - aiSummary / whyYouMatch are LEFT undefined intentionally —
+    //     those are CV-vs-JD AI outputs and get filled by the existing
+    //     match-analysis flow on demand.
+    const persistedBookmarks = new Set(get().bookmarkedJobIds);
+    const enrich = (j: Job): Job => {
+      const brand = companyBrand(j.company);
+      const meta = companyMeta(j.company);
+
+      // Seniority — derived purely from the role title.
+      const seniority = j.seniority ?? seniorityFromTitle(j.role);
+
+      // Stage — curated map first, YC batch fallback.
+      const companyStage =
+        j.companyStage ??
+        meta.stage ??
+        (j.companyBatch ? stageFromYcBatch(j.companyBatch) : undefined);
+
+      // Sector — curated map only.
+      const sector = j.sector ?? meta.sector;
+
+      // Stats shown in the JobDetail header pill row. Now includes
+      // seniority + sector + companyStage when present, so the user
+      // sees the full tag chain at a glance.
+      const stats: string[] = [];
+      if (j.location) stats.push(j.location);
+      if (j.workMode) stats.push(j.workMode);
+      if (j.type) stats.push(j.type);
+      if (seniority) stats.push(seniority);
+      if (sector) stats.push(sector);
+      if (companyStage) stats.push(companyStage);
+      if (j.companyBatch) stats.push(`YC ${j.companyBatch}`);
+
+      const about = j.jdText
+        ? j.jdText
+            .split(/\n\n+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+            // First 8 paragraphs gives a real overview without
+            // duplicating the full-description scroll panel.
+            .slice(0, 8)
+        : undefined;
+
+      return {
+        ...j,
+        // Restore bookmark state from the persisted ID list — the
+        // jobs array itself isn't persisted (would blow localStorage's
+        // ~5MB quota with 5000+ ingested postings).
+        bookmarked: persistedBookmarks.has(j.id),
+        avatarColor: brand.bg,
+        avatarLabel: brand.label,
+        stats: stats.length > 0 ? stats : j.stats,
+        about: about && about.length > 0 ? about : j.about,
+        seniority,
+        sector,
+        companyStage,
+      };
+    };
+
+    // Build a key → existing-job map for fast dedup lookup.
+    const existing = get().jobs;
+    const keyOf = (j: Job): string | null =>
+      j.source
+        ? `${j.source.provider}:${j.source.identifier ?? ""}:${j.source.sourceId}`
+        : null;
+    const byKey = new Map<string, Job>();
+    for (const j of existing) {
+      const k = keyOf(j);
+      if (k) byKey.set(k, j);
+    }
+
+    let newCount = 0;
+    const merged: Job[] = [...existing];
+    for (const raw of incoming) {
+      const inc = enrich(raw);
+      const k = keyOf(inc);
+      if (!k) {
+        // No source on incoming → just append (shouldn't happen via ingestion).
+        merged.unshift(inc);
+        newCount++;
+        continue;
+      }
+      const prior = byKey.get(k);
+      if (prior) {
+        // Update mutable fields, preserve bookmarked + locally-generated id.
+        const idx = merged.findIndex((j) => j.id === prior.id);
+        if (idx >= 0) {
+          merged[idx] = {
+            ...inc,
+            id: prior.id,
+            bookmarked: prior.bookmarked,
+          };
+        }
+      } else {
+        merged.unshift(inc);
+        byKey.set(k, inc);
+        newCount++;
+      }
+    }
+    set({ jobs: merged });
+    return { newCount };
+  },
 
   createJob: (input) => {
     const brand = companyBrand(input.company);

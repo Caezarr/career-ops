@@ -72,6 +72,60 @@ export interface Job {
   reviews?: number;
   avatarColor: string;
   avatarLabel: string;
+  /** Provenance for jobs pulled from external boards. Absent for hand-created jobs. */
+  source?: JobSource;
+  /** Derived from role title via regex (Junior / Mid / Senior / Staff / VP+). */
+  seniority?: string;
+  /** Looked up from a curated company → sector map. */
+  sector?: string;
+  /** Looked up from companyMeta or derived from YC batch (e.g. "Seed", "Series B"). */
+  companyStage?: string;
+  /** YC batch identifier (e.g. "S25", "W26") — only set for YC postings. */
+  companyBatch?: string;
+}
+
+// ─── Job ingestion (external boards) ────────────────────────────────────────
+export type IngestProvider = "greenhouse" | "lever" | "ashby" | "ycombinator";
+
+export interface JobSource {
+  provider: IngestProvider;
+  /** Board / company slug. Empty for YC (flat feed). */
+  identifier?: string;
+  /** The provider's own job ID — used for dedup. */
+  sourceId: string;
+  /** Canonical apply URL. */
+  sourceUrl: string;
+  fetchedAt: number;
+}
+
+export interface IngestSource {
+  id: string;
+  provider: IngestProvider;
+  /** Board / company slug. Empty for YC. */
+  identifier: string;
+  /** User-facing label (e.g., "Anthropic · Greenhouse"). */
+  label: string;
+  enabled: boolean;
+  addedAt: number;
+  lastSyncedAt?: number;
+  lastError?: string;
+}
+
+export interface IngestRunError {
+  provider: IngestProvider;
+  identifier?: string;
+  message: string;
+}
+
+export interface IngestRun {
+  id: string;
+  startedAt: number;
+  finishedAt?: number;
+  /** Empty when running all sources. */
+  source?: IngestProvider;
+  fetchedCount: number;
+  newCount: number;
+  errors: IngestRunError[];
 }
 
 export type JobSort = "match" | "recent" | "salary";

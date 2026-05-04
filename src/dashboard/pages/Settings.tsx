@@ -3,6 +3,7 @@ import TopBar from '../components/TopBar';
 import SettingsNav from '../components/settings/SettingsNav';
 import ProfileCard from '../components/settings/ProfileCard';
 import IntegrationsCard from '../components/settings/IntegrationsCard';
+import JobSourcesCard from '../components/settings/JobSourcesCard';
 import PreferencesCard from '../components/settings/PreferencesCard';
 import AudioSettingsCard from '../components/settings/AudioSettingsCard';
 import AppearanceSettingsCard from '../components/settings/AppearanceSettingsCard';
@@ -22,6 +23,10 @@ const TAB_META = {
   apiKeys: {
     title: 'API Keys & Integrations',
     hint: 'Connect Career OS to the AI providers it calls under the hood.',
+  },
+  jobSources: {
+    title: 'Job sources',
+    hint: 'Companies and boards Career OS pulls from when you click Sync all jobs.',
   },
   audio: {
     title: 'Audio',
@@ -74,6 +79,7 @@ export default function Settings() {
                 <div className="settings-panel__body">
                   {tab === 'account' && <ProfileCard />}
                   {tab === 'apiKeys' && <IntegrationsCard />}
+                  {tab === 'jobSources' && <JobSourcesCard />}
                   {tab === 'audio' && <AudioSettingsCard />}
                   {tab === 'appearance' && <AppearanceSettingsCard />}
                   {tab === 'notifications' && (

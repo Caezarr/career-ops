@@ -1,6 +1,7 @@
 mod ai;
 mod audio;
 mod db;
+mod ingest;
 mod latex;
 mod llm;
 mod pdf;
@@ -898,6 +899,119 @@ async fn run_pipeline(
     Ok(())
 }
 
+// ─── Job ingestion (Greenhouse / Lever / Ashby / YC) ─────────────────────────
+
+/// Run a single job-board ingestion. Frontend dispatches one of these per
+/// configured `IngestSource`. Returns the ingested jobs in the frontend
+/// `Job` shape (camelCase, with `source` populated for dedup).
+#[tauri::command]
+async fn ingest_run_source(
+    provider: String,
+    identifier: String,
+) -> Result<ingest::IngestRunResult, String> {
+    let provider_enum = ingest::IngestProvider::from_str(&provider)
+        .ok_or_else(|| format!("Unknown provider: {}", provider))?;
+
+    ingest::run_source(provider_enum, &identifier)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Sync the supplied list of sources in parallel. The "Sync all jobs"
+/// button in the frontend hits this — passing the user's enabled
+/// sources from the Zustand store. Empty list ⇒ falls back to the
+/// curated `BUILTIN_SOURCES` constant (used during first-launch boot).
+///
+/// Optional `keyword` narrows the response to jobs matching every
+/// whitespace-separated token as a word-prefix across role + company
+/// + location. Empty / null = no filter.
+#[tauri::command]
+async fn ingest_run_all(
+    sources: Vec<ingest::SourceSpec>,
+    keyword: Option<String>,
+) -> Result<ingest::IngestRunAllResult, String> {
+    Ok(ingest::run_all(sources, keyword).await)
+}
+
+/// Returns the curated source list shipped with the app. Frontend
+/// uses this to seed Settings → Job Sources on first launch.
+#[tauri::command]
+fn ingest_get_builtin_sources() -> Vec<ingest::SourceSpec> {
+    ingest::get_builtin_sources_list()
+}
+
+// ─── DB persistence (Phase 6) ────────────────────────────────────────
+
+#[tauri::command]
+async fn db_load_ingest_sources(
+    pool: State<'_, SqlitePool>,
+) -> Result<Vec<db::ingest::IngestSourceRow>, DbError> {
+    db::ingest::load_ingest_sources(&pool).await
+}
+
+#[tauri::command]
+async fn db_upsert_ingest_source(
+    pool: State<'_, SqlitePool>,
+    source: db::ingest::IngestSourceRow,
+) -> Result<(), DbError> {
+    db::ingest::upsert_ingest_source(&pool, &source).await
+}
+
+#[tauri::command]
+async fn db_delete_ingest_source(
+    pool: State<'_, SqlitePool>,
+    id: String,
+) -> Result<(), DbError> {
+    db::ingest::delete_ingest_source(&pool, &id).await
+}
+
+#[tauri::command]
+async fn db_load_ingested_jobs(
+    pool: State<'_, SqlitePool>,
+) -> Result<Vec<db::ingest::IngestedJobRow>, DbError> {
+    db::ingest::load_ingested_jobs(&pool).await
+}
+
+#[tauri::command]
+async fn db_save_ingested_jobs(
+    pool: State<'_, SqlitePool>,
+    jobs: Vec<db::ingest::IngestedJobRow>,
+) -> Result<usize, DbError> {
+    db::ingest::save_ingested_jobs(&pool, &jobs).await
+}
+
+#[tauri::command]
+async fn db_load_bookmarks(pool: State<'_, SqlitePool>) -> Result<Vec<String>, DbError> {
+    db::ingest::load_bookmarks(&pool).await
+}
+
+#[tauri::command]
+async fn db_set_bookmark(
+    pool: State<'_, SqlitePool>,
+    job_id: String,
+    bookmarked: bool,
+) -> Result<(), DbError> {
+    db::ingest::set_bookmark(&pool, &job_id, bookmarked).await
+}
+
+/// Cheap probe to verify a Greenhouse / Lever / Ashby identifier resolves
+/// before saving it as an `IngestSource` in Settings. Fetches the live
+/// endpoint but only returns counts, no payload.
+#[tauri::command]
+async fn ingest_health_check(
+    provider: String,
+    identifier: String,
+) -> Result<u64, String> {
+    let provider_enum = ingest::IngestProvider::from_str(&provider)
+        .ok_or_else(|| format!("Unknown provider: {}", provider))?;
+
+    let result = ingest::run_source(provider_enum, &identifier)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(result.jobs.len() as u64)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -1002,7 +1116,20 @@ pub fn run() {
             generate_optimized_cv,
             detect_latex_compilers,
             // AI: Application next steps
-            generate_application_next_steps
+            generate_application_next_steps,
+            // Job ingestion (Greenhouse / Lever / Ashby / YC)
+            ingest_run_source,
+            ingest_run_all,
+            ingest_health_check,
+            ingest_get_builtin_sources,
+            // DB: ingest persistence (Phase 6)
+            db_load_ingest_sources,
+            db_upsert_ingest_source,
+            db_delete_ingest_source,
+            db_load_ingested_jobs,
+            db_save_ingested_jobs,
+            db_load_bookmarks,
+            db_set_bookmark
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

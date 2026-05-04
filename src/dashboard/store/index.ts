@@ -26,6 +26,7 @@ import {
   createCopilotSessionsSlice,
   type CopilotSessionsSlice,
 } from "./slices/copilotSessions";
+import { createIngestSlice, type IngestSlice } from "./slices/ingest";
 
 export type AppStore = UserSlice &
   NotificationsSlice &
@@ -42,7 +43,8 @@ export type AppStore = UserSlice &
   AppearanceSlice &
   NotificationPrefsSlice &
   BillingSlice &
-  CopilotSessionsSlice;
+  CopilotSessionsSlice &
+  IngestSlice;
 
 const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUserSlice(...(a as Parameters<typeof createUserSlice>)),
@@ -61,18 +63,36 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createNotificationPrefsSlice(...(a as Parameters<typeof createNotificationPrefsSlice>)),
   ...createBillingSlice(...(a as Parameters<typeof createBillingSlice>)),
   ...createCopilotSessionsSlice(...(a as Parameters<typeof createCopilotSessionsSlice>)),
+  ...createIngestSlice(...(a as Parameters<typeof createIngestSlice>)),
 });
 
 export const useAppStore = create<AppStore>()(
   persist(composedStore, {
     name: "career-os-store",
-    version: 1,
+    // Bumped 1 → 2 with the migration that drops the heavy `jobs`
+    // field from persistence (was blowing localStorage's ~5MB quota
+    // once ingestion pulled 5000+ postings × 12k chars each).
+    version: 2,
+    migrate: (persisted: unknown, fromVersion: number) => {
+      if (persisted && typeof persisted === "object" && fromVersion < 2) {
+        const p = persisted as Record<string, unknown>;
+        // Drop the bloated jobs array. Bookmarks survive via
+        // bookmarkedJobIds (added in v2).
+        delete p.jobs;
+        if (!Array.isArray(p.bookmarkedJobIds)) p.bookmarkedJobIds = [];
+        return p;
+      }
+      return persisted;
+    },
     storage: createJSONStorage(() => localStorage),
     // Persist only durable state — never selection, search, or transient UI flags.
+    // Notably we DO NOT persist `jobs` (the full ingested list can hit
+    // 50MB+ at 5000 postings × 12k chars each, far past localStorage's
+    // ~5MB quota). Bookmarks survive via `bookmarkedJobIds`.
     partialize: (state) => ({
       user: state.user,
       notifications: state.notifications,
-      jobs: state.jobs,
+      bookmarkedJobIds: state.bookmarkedJobIds,
       applications: state.applications,
       cvs: state.cvs,
       defaultCvId: state.defaultCvId,
@@ -113,6 +133,11 @@ export const useAppStore = create<AppStore>()(
       prepAttempts: state.prepAttempts,
       prepBankFilter: state.prepBankFilter,
       prepActiveTrack: state.prepActiveTrack,
+      // Ingest — persist the user's configured job sources and last
+      // sync timestamp. Run history (ingestRuns) and the syncing flag
+      // are runtime-only.
+      ingestSources: state.ingestSources,
+      ingestLastSyncedAt: state.ingestLastSyncedAt,
     }),
   }),
 );
