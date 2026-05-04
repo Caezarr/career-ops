@@ -21,7 +21,10 @@ import type { Job, JobFilters } from '../../store';
 const STATIC_OPTIONS: Record<keyof JobFilters, string[]> = {
   location: ['Any'], // dynamic — see deriveOptions
   salary: ['Any', '€60k - €80k', '€80k - €120k', '€120k - €160k', '€160k+'],
-  seniority: ['Any', 'Junior', 'Mid', 'Senior', 'Staff', 'VP+'],
+  // Match the buckets returned by seniorityFromTitle() in companyMeta.ts.
+  // Always shown in full so you can pick "Junior" even when no junior
+  // postings are loaded yet — the empty result is the answer.
+  seniority: ['Any', 'Internship', 'Junior', 'Senior', 'Lead/Manager', 'Staff', 'VP+'],
   sector: ['Any', 'Fintech', 'Health', 'AI/ML', 'Consulting', 'PE/VC'],
   stage: ['Any', 'Pre-seed', 'Series A', 'Series B+', 'Public'],
   remote: ['Any'], // dynamic — see deriveOptions
@@ -54,19 +57,19 @@ function deriveOptions(jobs: Job[]): Record<keyof JobFilters, string[]> {
   }
   const remote = ['Any', ...Array.from(remoteSet).sort()];
 
-  // Each of these dimensions is now derivable: seniority comes from
-  // the role title (regex), sector + stage from the curated company
-  // map. `setIngestedJobs` populates these per-job at sync time, so
-  // we can just collect distinct values here.
-  const seniority = uniqueValues(jobs, (j) => j.seniority);
+  // Sector + stage are derived from company data — show only what's
+  // actually present (long tail of "Series E", "Pre-IPO", etc. that
+  // would clutter a static list).
   const sector = uniqueValues(jobs, (j) => j.sector);
   const stage = uniqueValues(jobs, (j) => j.companyStage);
 
+  // Seniority is a closed set (Internship → VP+) — always show the
+  // full canonical list so the user can filter by "Junior" even when
+  // no junior postings are loaded yet.
   return {
     ...STATIC_OPTIONS,
     location: locations,
     remote: remote.length > 1 ? remote : ['Any', 'On-site', 'Hybrid', 'Remote'],
-    seniority: seniority.length > 1 ? seniority : STATIC_OPTIONS.seniority,
     sector: sector.length > 1 ? sector : STATIC_OPTIONS.sector,
     stage: stage.length > 1 ? stage : STATIC_OPTIONS.stage,
   };
