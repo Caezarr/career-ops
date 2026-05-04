@@ -175,8 +175,14 @@ pub async fn run_all(keyword: Option<String>) -> IngestRunAllResult {
         }
     }
 
-    // Optional keyword filter — multi-token AND, case-insensitive,
-    // matched on (role + company + location + description).
+    // Optional keyword filter — strict, tag-style matching:
+    //   - haystack is role + company + location (NOT the description,
+    //     to avoid false positives like a Customer Success role that
+    //     mentions "we use AI" matching "AI Engineer")
+    //   - each whitespace-separated token must be the prefix of a
+    //     whole word in the haystack (not a substring inside one).
+    //     "ai" → matches the word "AI" but NOT "Maintenance".
+    //     "engineer" → matches "Engineer" AND "Engineering".
     let filtered_jobs = match keyword.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
         None => all_jobs,
         Some(kw) => {
@@ -187,15 +193,15 @@ pub async fn run_all(keyword: Option<String>) -> IngestRunAllResult {
             all_jobs
                 .into_iter()
                 .filter(|j| {
-                    let hay = format!(
-                        "{} {} {} {}",
-                        j.role,
-                        j.company,
-                        j.location,
-                        j.jd_text.as_deref().unwrap_or("")
-                    )
-                    .to_lowercase();
-                    tokens.iter().all(|t| hay.contains(t.as_str()))
+                    let hay = format!("{} {} {}", j.role, j.company, j.location);
+                    let words: Vec<String> = hay
+                        .split(|c: char| !c.is_alphanumeric())
+                        .filter(|w| !w.is_empty())
+                        .map(|w| w.to_lowercase())
+                        .collect();
+                    tokens
+                        .iter()
+                        .all(|t| words.iter().any(|w| w.starts_with(t.as_str())))
                 })
                 .collect()
         }

@@ -57,17 +57,22 @@ export default function JobList() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    // Multi-token AND search so "ai engineer paris" matches a Paris-based
-    // AI Engineer role even when the words appear in different fields.
+    // Strict tag-style matching: each whitespace-separated token must
+    // be a PREFIX OF A WHOLE WORD in role + company + location. We do
+    // NOT search the JD body — that produces too many false positives
+    // (a Customer Success role mentioning "we use AI" should not match
+    // "AI Engineer"). "ai" → matches "AI" but not "Maintenance".
+    // "engineer" → matches both "Engineer" and "Engineering" (prefix).
     const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
     return jobs
       .filter((j) => {
         if (tokens.length > 0) {
-          // Include jdText so descriptions are searchable too — costs
-          // nothing while we keep the per-job text capped at 12k chars.
-          const hay = `${j.role} ${j.company} ${j.location} ${j.jdText ?? ''}`.toLowerCase();
+          const words = `${j.role} ${j.company} ${j.location}`
+            .toLowerCase()
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean);
           for (const t of tokens) {
-            if (!hay.includes(t)) return false;
+            if (!words.some((w) => w.startsWith(t))) return false;
           }
         }
         if (filters.location !== 'Any' && filters.location !== j.location) {
