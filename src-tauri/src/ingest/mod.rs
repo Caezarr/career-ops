@@ -19,6 +19,7 @@
 //! single-egress refactor lands (tracked separately).
 
 pub mod ashby;
+pub mod builtin_sources;
 pub mod greenhouse;
 pub mod lever;
 pub mod normalize;
@@ -28,6 +29,8 @@ pub mod ycombinator;
 pub use normalize::IngestedJob;
 pub use traits::{IngestError, IngestProvider};
 
+use builtin_sources::BUILTIN_SOURCES;
+use futures_util::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 
 /// Result returned to the frontend after an ingestion run.
@@ -85,4 +88,93 @@ pub async fn run_source(
         jobs,
         elapsed_ms: started.elapsed().as_millis(),
     })
+}
+
+// ─── Run-all (curated builtin sources) ─────────────────────────────────────
+
+/// Per-source error in a `run_all` batch. Sent back to the frontend so
+/// the UI can show "synced 4847 jobs · 2 sources unreachable".
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IngestRunAllError {
+    pub provider: IngestProvider,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identifier: Option<String>,
+    pub message: String,
+}
+
+/// Aggregate result of running every built-in source. The `jobs` field
+/// is the flattened list across providers — frontend dedup handles
+/// duplicates if the same posting appears in two sources.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IngestRunAllResult {
+    pub jobs: Vec<IngestedJob>,
+    /// Number of sources that returned at least one job.
+    pub successful_sources: usize,
+    /// Number of sources that errored.
+    pub failed_sources: usize,
+    pub errors: Vec<IngestRunAllError>,
+    pub elapsed_ms: u128,
+}
+
+/// Pull every built-in source in parallel (capped at 8 in flight at
+/// once to avoid blasting any single provider). Per-source failures
+/// are collected into `errors` — they never abort the run.
+pub async fn run_all() -> IngestRunAllResult {
+    let started = std::time::Instant::now();
+
+    // Pre-collect into owned tuples — passing `&'static str` slices
+    // into async blocks confuses `tauri::command`'s higher-rank
+    // lifetime checks, so we do the trivial allocation once.
+    let pairs: Vec<(IngestProvider, String)> = BUILTIN_SOURCES
+        .iter()
+        .map(|(p, s)| (*p, s.to_string()))
+        .collect();
+
+    let stream = stream::iter(pairs.into_iter().map(
+        |(provider, slug)| async move {
+            let res = run_source(provider, &slug).await;
+            (provider, slug, res)
+        },
+    ))
+    .buffer_unordered(8);
+
+    let outcomes: Vec<_> = stream.collect().await;
+
+    let mut all_jobs: Vec<IngestedJob> = Vec::new();
+    let mut errors: Vec<IngestRunAllError> = Vec::new();
+    let mut successful = 0usize;
+
+    for (provider, slug, res) in outcomes {
+        match res {
+            Ok(r) => {
+                if !r.jobs.is_empty() {
+                    successful += 1;
+                }
+                all_jobs.extend(r.jobs);
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "ingest run_all: {}:{} failed: {}",
+                    provider.as_str(),
+                    slug,
+                    e
+                );
+                errors.push(IngestRunAllError {
+                    provider,
+                    identifier: if slug.is_empty() { None } else { Some(slug) },
+                    message: e.to_string(),
+                });
+            }
+        }
+    }
+
+    IngestRunAllResult {
+        jobs: all_jobs,
+        successful_sources: successful,
+        failed_sources: errors.len(),
+        errors,
+        elapsed_ms: started.elapsed().as_millis(),
+    }
 }

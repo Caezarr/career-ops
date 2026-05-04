@@ -917,6 +917,15 @@ async fn ingest_run_source(
         .map_err(|e| e.to_string())
 }
 
+/// Sync every built-in source in one call. The "Sync all jobs" button
+/// in the frontend hits this — it pulls Greenhouse + Lever + Ashby +
+/// Y Combinator concurrently across the curated `BUILTIN_SOURCES`
+/// list and returns a flat job array plus per-source error reports.
+#[tauri::command]
+async fn ingest_run_all() -> Result<ingest::IngestRunAllResult, String> {
+    Ok(ingest::run_all().await)
+}
+
 /// Cheap probe to verify a Greenhouse / Lever / Ashby identifier resolves
 /// before saving it as an `IngestSource` in Settings. Fetches the live
 /// endpoint but only returns counts, no payload.
@@ -1042,6 +1051,7 @@ pub fn run() {
             generate_application_next_steps,
             // Job ingestion (Greenhouse / Lever / Ashby / YC)
             ingest_run_source,
+            ingest_run_all,
             ingest_health_check
         ])
         .run(tauri::generate_context!())

@@ -93,3 +93,60 @@ export async function ingestHealthCheck(
   });
   return count;
 }
+
+interface IngestRunAllResultDto {
+  jobs: Job[];
+  successfulSources: number;
+  failedSources: number;
+  errors: { provider: IngestProvider; identifier?: string; message: string }[];
+  elapsedMs: number;
+}
+
+export interface IngestRunAllSummary {
+  fetched: number;
+  newCount: number;
+  successfulSources: number;
+  failedSources: number;
+  elapsedMs: number;
+  errors: IngestRunAllResultDto["errors"];
+}
+
+/** Run every built-in source in parallel — Greenhouse + Lever + Ashby
+ *  + Y Combinator across the curated company list. Single-click
+ *  "Sync all jobs" path. */
+export async function runIngestAll(): Promise<IngestRunAllSummary> {
+  const store = useAppStore.getState();
+  store.setIngestSyncing(true);
+  // We model run-all as a single run with no `source` (= "all").
+  const run = store.startIngestRun();
+
+  try {
+    const result = await invoke<IngestRunAllResultDto>("ingest_run_all");
+    const { newCount } = useAppStore.getState().setIngestedJobs(result.jobs);
+
+    useAppStore.getState().finishIngestRun(run.id, {
+      fetchedCount: result.jobs.length,
+      newCount,
+      errors: result.errors,
+    });
+
+    return {
+      fetched: result.jobs.length,
+      newCount,
+      successfulSources: result.successfulSources,
+      failedSources: result.failedSources,
+      elapsedMs: result.elapsedMs,
+      errors: result.errors,
+    };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    useAppStore.getState().finishIngestRun(run.id, {
+      fetchedCount: 0,
+      newCount: 0,
+      errors: [{ provider: "greenhouse", message }],
+    });
+    throw e;
+  } finally {
+    useAppStore.getState().setIngestSyncing(false);
+  }
+}

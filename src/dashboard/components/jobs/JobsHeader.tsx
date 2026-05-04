@@ -1,7 +1,7 @@
-import { Info, RefreshCw } from 'lucide-react';
+import { Info, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import MonitorToggle from './MonitorToggle';
-import { runIngestSource } from '../../lib/ingest';
+import { runIngestAll, runIngestSource } from '../../lib/ingest';
 import { useAppStore } from '../../store';
 import type { IngestProvider } from '../../store/types';
 
@@ -44,17 +44,31 @@ const PROVIDERS: ProviderConfig[] = [
 ];
 
 export default function JobsHeader() {
-  // Temporary sync UI — replaced by the proper Settings → Job Sources
-  // panel later in the sprint.
   const [provider, setProvider] = useState<IngestProvider>('greenhouse');
   const [identifier, setIdentifier] = useState('anthropic');
   const [status, setStatus] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const ingestSyncing = useAppStore((s) => s.ingestSyncing);
 
   const config = PROVIDERS.find((p) => p.value === provider)!;
   const canSync = config.optional || identifier.trim().length > 0;
 
-  async function handleSync() {
+  async function handleSyncAll() {
+    setStatus('Syncing all sources…');
+    try {
+      const r = await runIngestAll();
+      const errSuffix = r.failedSources > 0
+        ? ` · ${r.failedSources} unreachable`
+        : '';
+      setStatus(
+        `Synced ${r.fetched} jobs across ${r.successfulSources} companies (${r.newCount} new) in ${(r.elapsedMs / 1000).toFixed(1)}s${errSuffix}`,
+      );
+    } catch (e) {
+      setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  async function handleSyncSingle() {
     setStatus('Syncing…');
     const result = await runIngestSource(provider, identifier.trim());
     if (result.error) {
@@ -70,8 +84,6 @@ export default function JobsHeader() {
   function handleProviderChange(next: IngestProvider) {
     setProvider(next);
     const nextConfig = PROVIDERS.find((p) => p.value === next)!;
-    // Pre-fill the input with the placeholder when switching, except
-    // for YC where empty = all roles is a sensible default.
     setIdentifier(nextConfig.optional ? '' : nextConfig.placeholder);
     setStatus(null);
   }
@@ -85,47 +97,85 @@ export default function JobsHeader() {
         </p>
 
         <div className="jobs__sync-bar">
-          <div className="jobs__sync-providers" role="tablist" aria-label="Job source provider">
-            {PROVIDERS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                role="tab"
-                aria-selected={provider === p.value}
-                className={
-                  'jobs__sync-pill' + (provider === p.value ? ' jobs__sync-pill--active' : '')
-                }
-                onClick={() => handleProviderChange(p.value)}
-                disabled={ingestSyncing}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-
+          {/* Primary action — pulls Greenhouse + Lever + Ashby + YC across
+              ~30 curated companies in one click. */}
           <div className="jobs__sync-row">
-            <input
-              className="jobs__sync-input"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder={config.placeholder}
-              spellCheck={false}
-              autoCapitalize="off"
-              autoCorrect="off"
-              aria-label={`${config.label} identifier`}
-            />
             <button
-              className="jobs__sync-btn"
+              className="jobs__sync-btn jobs__sync-btn--primary"
               type="button"
-              onClick={handleSync}
-              disabled={ingestSyncing || !canSync}
+              onClick={handleSyncAll}
+              disabled={ingestSyncing}
             >
-              <RefreshCw size={14} className={ingestSyncing ? 'jobs__sync-icon--spin' : ''} />
-              {ingestSyncing ? 'Syncing…' : 'Sync'}
+              <RefreshCw
+                size={14}
+                className={ingestSyncing ? 'jobs__sync-icon--spin' : ''}
+              />
+              {ingestSyncing ? 'Syncing all sources…' : 'Sync all jobs'}
+            </button>
+            <button
+              type="button"
+              className="jobs__sync-advanced-toggle"
+              onClick={() => setAdvancedOpen((v) => !v)}
+              aria-expanded={advancedOpen}
+            >
+              {advancedOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              Advanced
             </button>
           </div>
 
-          <div className="jobs__sync-hint">{config.hint}</div>
+          <div className="jobs__sync-tagline">
+            Pulls Greenhouse, Lever, Ashby, and Y Combinator across ~30 top companies.
+            Then search by role above ("AI Engineer", "Product Manager", …) to filter.
+          </div>
+
+          {advancedOpen && (
+            <div className="jobs__sync-advanced">
+              <div className="jobs__sync-providers" role="tablist" aria-label="Job source provider">
+                {PROVIDERS.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={provider === p.value}
+                    className={
+                      'jobs__sync-pill' + (provider === p.value ? ' jobs__sync-pill--active' : '')
+                    }
+                    onClick={() => handleProviderChange(p.value)}
+                    disabled={ingestSyncing}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="jobs__sync-row">
+                <input
+                  className="jobs__sync-input"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder={config.placeholder}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  aria-label={`${config.label} identifier`}
+                />
+                <button
+                  className="jobs__sync-btn"
+                  type="button"
+                  onClick={handleSyncSingle}
+                  disabled={ingestSyncing || !canSync}
+                >
+                  <RefreshCw
+                    size={14}
+                    className={ingestSyncing ? 'jobs__sync-icon--spin' : ''}
+                  />
+                  Sync this one
+                </button>
+              </div>
+              <div className="jobs__sync-hint">{config.hint}</div>
+            </div>
+          )}
+
           {status && <div className="jobs__sync-status">{status}</div>}
         </div>
       </div>
