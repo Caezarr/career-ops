@@ -940,6 +940,60 @@ fn ingest_get_builtin_sources() -> Vec<ingest::SourceSpec> {
     ingest::get_builtin_sources_list()
 }
 
+// ─── DB persistence (Phase 6) ────────────────────────────────────────
+
+#[tauri::command]
+async fn db_load_ingest_sources(
+    pool: State<'_, SqlitePool>,
+) -> Result<Vec<db::ingest::IngestSourceRow>, DbError> {
+    db::ingest::load_ingest_sources(&pool).await
+}
+
+#[tauri::command]
+async fn db_upsert_ingest_source(
+    pool: State<'_, SqlitePool>,
+    source: db::ingest::IngestSourceRow,
+) -> Result<(), DbError> {
+    db::ingest::upsert_ingest_source(&pool, &source).await
+}
+
+#[tauri::command]
+async fn db_delete_ingest_source(
+    pool: State<'_, SqlitePool>,
+    id: String,
+) -> Result<(), DbError> {
+    db::ingest::delete_ingest_source(&pool, &id).await
+}
+
+#[tauri::command]
+async fn db_load_ingested_jobs(
+    pool: State<'_, SqlitePool>,
+) -> Result<Vec<db::ingest::IngestedJobRow>, DbError> {
+    db::ingest::load_ingested_jobs(&pool).await
+}
+
+#[tauri::command]
+async fn db_save_ingested_jobs(
+    pool: State<'_, SqlitePool>,
+    jobs: Vec<db::ingest::IngestedJobRow>,
+) -> Result<usize, DbError> {
+    db::ingest::save_ingested_jobs(&pool, &jobs).await
+}
+
+#[tauri::command]
+async fn db_load_bookmarks(pool: State<'_, SqlitePool>) -> Result<Vec<String>, DbError> {
+    db::ingest::load_bookmarks(&pool).await
+}
+
+#[tauri::command]
+async fn db_set_bookmark(
+    pool: State<'_, SqlitePool>,
+    job_id: String,
+    bookmarked: bool,
+) -> Result<(), DbError> {
+    db::ingest::set_bookmark(&pool, &job_id, bookmarked).await
+}
+
 /// Cheap probe to verify a Greenhouse / Lever / Ashby identifier resolves
 /// before saving it as an `IngestSource` in Settings. Fetches the live
 /// endpoint but only returns counts, no payload.
@@ -1067,7 +1121,15 @@ pub fn run() {
             ingest_run_source,
             ingest_run_all,
             ingest_health_check,
-            ingest_get_builtin_sources
+            ingest_get_builtin_sources,
+            // DB: ingest persistence (Phase 6)
+            db_load_ingest_sources,
+            db_upsert_ingest_source,
+            db_delete_ingest_source,
+            db_load_ingested_jobs,
+            db_save_ingested_jobs,
+            db_load_bookmarks,
+            db_set_bookmark
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

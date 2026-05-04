@@ -1,6 +1,7 @@
 pub mod application;
 pub mod cv;
 pub mod error;
+pub mod ingest;
 pub mod integration;
 pub mod interview;
 pub mod job;

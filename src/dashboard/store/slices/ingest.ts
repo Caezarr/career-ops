@@ -45,6 +45,12 @@ export interface IngestSlice {
     sources: { provider: IngestProvider; identifier: string }[],
   ) => void;
 
+  /** Replace the source list with a fully-formed array — used during
+   *  DB hydration where each source already has its id / addedAt /
+   *  enabled flag etc. preserved. Always overwrites (the hydration
+   *  is the source of truth at boot time). */
+  hydrateIngestSources: (sources: IngestSource[]) => void;
+
   startIngestRun: (source?: IngestProvider) => IngestRun;
   finishIngestRun: (
     runId: string,
@@ -109,6 +115,8 @@ export const createIngestSlice: StateCreator<IngestSlice> = (set) => ({
       );
       return { ingestSources: seeded };
     }),
+
+  hydrateIngestSources: (sources) => set({ ingestSources: sources }),
 
   startIngestRun: (source) => {
     const run: IngestRun = {

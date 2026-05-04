@@ -91,6 +91,12 @@ export interface JobsSlice {
   toggleBookmark: (id: string) => void;
   isBookmarked: (id: string) => boolean;
 
+  /** Hydrate bookmarks from SQLite at app start. Replaces the in-memory
+   *  list and re-applies the `bookmarked` flag to any matching jobs
+   *  already in the slice. Does NOT write back to localStorage / DB —
+   *  the caller has just read from DB. */
+  hydrateBookmarks: (ids: string[]) => void;
+
   /** Merge ingested jobs from external boards.
    *
    *  Dedup key: source.provider + source.identifier + source.sourceId.
@@ -139,6 +145,15 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
       };
     }),
   isBookmarked: (id) => get().bookmarkedJobIds.includes(id),
+
+  hydrateBookmarks: (ids) =>
+    set((state) => ({
+      bookmarkedJobIds: ids,
+      jobs: state.jobs.map((j) => ({
+        ...j,
+        bookmarked: ids.includes(j.id),
+      })),
+    })),
 
   setIngestedJobs: (incoming) => {
     // Enrich each ingested job with frontend-only derived fields:

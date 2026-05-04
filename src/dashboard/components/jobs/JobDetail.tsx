@@ -18,6 +18,7 @@ import WhyYouMatchCard from './WhyYouMatchCard';
 import AISummaryCard from './AISummaryCard';
 import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
+import { toggleBookmarkWithPersist } from '../../lib/ingest';
 import { useNavigation } from '../../navigation';
 import { ApplyModal, CompanyModal } from '../shared';
 
@@ -36,7 +37,6 @@ export default function JobDetail() {
     return id ? s.jobs.find((j) => j.id === id) ?? null : null;
   });
   const setSelected = useAppStore((s) => s.setSelectedJob);
-  const toggleBookmark = useAppStore((s) => s.toggleBookmark);
   const setWorkspaceJobId = useAppStore((s) => s.setWorkspaceJobId);
 
   const [applyOpen, setApplyOpen] = useState(false);
@@ -64,7 +64,7 @@ export default function JobDetail() {
   const job = selectedJob;
 
   function handleSave() {
-    toggleBookmark(job.id);
+    void toggleBookmarkWithPersist(job.id);
     toast.success(
       job.bookmarked ? 'Removed from saved jobs' : 'Saved to bookmarks',
     );

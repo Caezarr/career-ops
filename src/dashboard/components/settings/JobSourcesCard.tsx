@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAppStore } from '../../store';
 import type { IngestProvider, IngestSource } from '../../store/types';
-import { ingestHealthCheck } from '../../lib/ingest';
+import {
+  addIngestSourceWithPersist,
+  ingestHealthCheck,
+  removeIngestSourceWithPersist,
+  toggleIngestSourceWithPersist,
+} from '../../lib/ingest';
 import { useToast } from '../../primitives';
 import Toggle from './Toggle';
 
@@ -61,9 +66,6 @@ function formatLastSynced(ts?: number): string {
 
 export default function JobSourcesCard() {
   const sources = useAppStore((s) => s.ingestSources);
-  const addSource = useAppStore((s) => s.addIngestSource);
-  const removeSource = useAppStore((s) => s.removeIngestSource);
-  const toggleSource = useAppStore((s) => s.toggleIngestSource);
   const lastSyncedAt = useAppStore((s) => s.ingestLastSyncedAt);
   const toast = useToast();
 
@@ -107,7 +109,7 @@ export default function JobSourcesCard() {
     setTesting(true);
     try {
       const count = await ingestHealthCheck(provider, id);
-      addSource({ provider, identifier: id });
+      await addIngestSourceWithPersist({ provider, identifier: id });
       toast.success(
         count > 0
           ? `Added ${PROVIDER_LABELS[provider]} (${count} jobs found)`
@@ -216,10 +218,13 @@ export default function JobSourcesCard() {
                     <SourceRow
                       key={source.id}
                       source={source}
-                      onToggle={() => toggleSource(source.id)}
+                      onToggle={() => {
+                        void toggleIngestSourceWithPersist(source.id);
+                      }}
                       onRemove={() => {
-                        removeSource(source.id);
-                        toast.info(`Removed ${source.label}`);
+                        void removeIngestSourceWithPersist(source.id).then(
+                          () => toast.info(`Removed ${source.label}`),
+                        );
                       }}
                     />
                   ))}

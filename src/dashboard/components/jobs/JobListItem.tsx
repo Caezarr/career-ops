@@ -2,8 +2,8 @@ import { BadgeCheck, Bookmark } from 'lucide-react';
 import clsx from 'clsx';
 import CompanyAvatar from '../CompanyAvatar';
 import MatchPill from './MatchPill';
-import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
+import { toggleBookmarkWithPersist } from '../../lib/ingest';
 import type { Job } from '../../store';
 
 interface JobListItemProps {
@@ -27,12 +27,11 @@ export default function JobListItem({
   onSelect,
   onApply,
 }: JobListItemProps) {
-  const toggleBookmark = useAppStore((s) => s.toggleBookmark);
   const toast = useToast();
 
   function handleBookmark(e: React.MouseEvent) {
     e.stopPropagation();
-    toggleBookmark(job.id);
+    void toggleBookmarkWithPersist(job.id);
     toast.success(
       job.bookmarked ? 'Removed from saved jobs' : 'Saved to bookmarks',
     );
