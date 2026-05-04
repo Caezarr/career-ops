@@ -46,6 +46,7 @@ const PROVIDERS: ProviderConfig[] = [
 export default function JobsHeader() {
   const [provider, setProvider] = useState<IngestProvider>('greenhouse');
   const [identifier, setIdentifier] = useState('anthropic');
+  const [keyword, setKeyword] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const ingestSyncing = useAppStore((s) => s.ingestSyncing);
@@ -54,14 +55,16 @@ export default function JobsHeader() {
   const canSync = config.optional || identifier.trim().length > 0;
 
   async function handleSyncAll() {
-    setStatus('Syncing all sources…');
+    const kw = keyword.trim();
+    setStatus(kw ? `Syncing all sources, filtering "${kw}"…` : 'Syncing all sources…');
     try {
-      const r = await runIngestAll();
+      const r = await runIngestAll(kw || undefined);
       const errSuffix = r.failedSources > 0
         ? ` · ${r.failedSources} unreachable`
         : '';
+      const matchSuffix = r.keyword ? ` matching "${r.keyword}"` : '';
       setStatus(
-        `Synced ${r.fetched} jobs across ${r.successfulSources} companies (${r.newCount} new) in ${(r.elapsedMs / 1000).toFixed(1)}s${errSuffix}`,
+        `Synced ${r.fetched} jobs${matchSuffix} across ${r.successfulSources} companies (${r.newCount} new) in ${(r.elapsedMs / 1000).toFixed(1)}s${errSuffix}`,
       );
     } catch (e) {
       setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
@@ -98,8 +101,22 @@ export default function JobsHeader() {
 
         <div className="jobs__sync-bar">
           {/* Primary action — pulls Greenhouse + Lever + Ashby + YC across
-              ~30 curated companies in one click. */}
+              ~30 curated companies. Optional keyword narrows the response
+              server-side (multi-word AND, case-insensitive, matched on
+              role + company + location + description). */}
           <div className="jobs__sync-row">
+            <input
+              className="jobs__sync-input jobs__sync-input--keyword"
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              placeholder='Filter by keyword (e.g. "AI Engineer", "Product Manager EU") — optional'
+              spellCheck={false}
+              autoCorrect="off"
+              aria-label="Sync keyword filter"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !ingestSyncing) handleSyncAll();
+              }}
+            />
             <button
               className="jobs__sync-btn jobs__sync-btn--primary"
               type="button"
@@ -110,7 +127,11 @@ export default function JobsHeader() {
                 size={14}
                 className={ingestSyncing ? 'jobs__sync-icon--spin' : ''}
               />
-              {ingestSyncing ? 'Syncing all sources…' : 'Sync all jobs'}
+              {ingestSyncing
+                ? 'Syncing…'
+                : keyword.trim()
+                ? 'Sync matching jobs'
+                : 'Sync all jobs'}
             </button>
             <button
               type="button"
@@ -125,7 +146,8 @@ export default function JobsHeader() {
 
           <div className="jobs__sync-tagline">
             Pulls Greenhouse, Lever, Ashby, and Y Combinator across ~30 top companies.
-            Then search by role above ("AI Engineer", "Product Manager", …) to filter.
+            Leave the keyword empty to sync everything (~5 000 jobs), or type a role
+            and only matching postings come back.
           </div>
 
           {advancedOpen && (

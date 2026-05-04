@@ -121,7 +121,12 @@ pub struct IngestRunAllResult {
 /// Pull every built-in source in parallel (capped at 8 in flight at
 /// once to avoid blasting any single provider). Per-source failures
 /// are collected into `errors` — they never abort the run.
-pub async fn run_all() -> IngestRunAllResult {
+///
+/// `keyword` is a free-text filter applied AFTER fetch — when present,
+/// only jobs whose role (or description, as fallback) contain every
+/// whitespace-separated token (case-insensitive, AND-mode) survive.
+/// Empty string / `None` ⇒ no filtering.
+pub async fn run_all(keyword: Option<String>) -> IngestRunAllResult {
     let started = std::time::Instant::now();
 
     // Pre-collect into owned tuples — passing `&'static str` slices
@@ -170,8 +175,34 @@ pub async fn run_all() -> IngestRunAllResult {
         }
     }
 
+    // Optional keyword filter — multi-token AND, case-insensitive,
+    // matched on (role + company + location + description).
+    let filtered_jobs = match keyword.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        None => all_jobs,
+        Some(kw) => {
+            let tokens: Vec<String> = kw
+                .split_whitespace()
+                .map(|s| s.to_lowercase())
+                .collect();
+            all_jobs
+                .into_iter()
+                .filter(|j| {
+                    let hay = format!(
+                        "{} {} {} {}",
+                        j.role,
+                        j.company,
+                        j.location,
+                        j.jd_text.as_deref().unwrap_or("")
+                    )
+                    .to_lowercase();
+                    tokens.iter().all(|t| hay.contains(t.as_str()))
+                })
+                .collect()
+        }
+    };
+
     IngestRunAllResult {
-        jobs: all_jobs,
+        jobs: filtered_jobs,
         successful_sources: successful,
         failed_sources: errors.len(),
         errors,

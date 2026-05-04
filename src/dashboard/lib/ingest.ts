@@ -108,20 +108,31 @@ export interface IngestRunAllSummary {
   successfulSources: number;
   failedSources: number;
   elapsedMs: number;
+  keyword?: string;
   errors: IngestRunAllResultDto["errors"];
 }
 
 /** Run every built-in source in parallel — Greenhouse + Lever + Ashby
  *  + Y Combinator across the curated company list. Single-click
- *  "Sync all jobs" path. */
-export async function runIngestAll(): Promise<IngestRunAllSummary> {
+ *  "Sync all jobs" path.
+ *
+ *  Optional `keyword`: free text. When provided, only jobs whose
+ *  role / company / location / description contain every word of
+ *  the keyword (AND, case-insensitive) are returned. */
+export async function runIngestAll(
+  keyword?: string,
+): Promise<IngestRunAllSummary> {
   const store = useAppStore.getState();
   store.setIngestSyncing(true);
   // We model run-all as a single run with no `source` (= "all").
   const run = store.startIngestRun();
 
+  const trimmedKeyword = keyword?.trim() || undefined;
+
   try {
-    const result = await invoke<IngestRunAllResultDto>("ingest_run_all");
+    const result = await invoke<IngestRunAllResultDto>("ingest_run_all", {
+      keyword: trimmedKeyword,
+    });
     const { newCount } = useAppStore.getState().setIngestedJobs(result.jobs);
 
     useAppStore.getState().finishIngestRun(run.id, {
@@ -136,6 +147,7 @@ export async function runIngestAll(): Promise<IngestRunAllSummary> {
       successfulSources: result.successfulSources,
       failedSources: result.failedSources,
       elapsedMs: result.elapsedMs,
+      keyword: trimmedKeyword,
       errors: result.errors,
     };
   } catch (e) {

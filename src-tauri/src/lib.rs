@@ -921,9 +921,15 @@ async fn ingest_run_source(
 /// in the frontend hits this — it pulls Greenhouse + Lever + Ashby +
 /// Y Combinator concurrently across the curated `BUILTIN_SOURCES`
 /// list and returns a flat job array plus per-source error reports.
+///
+/// Optional `keyword` narrows the response to jobs matching every
+/// whitespace-separated token (AND, case-insensitive) across role +
+/// company + location + description. Empty / null = no filter.
 #[tauri::command]
-async fn ingest_run_all() -> Result<ingest::IngestRunAllResult, String> {
-    Ok(ingest::run_all().await)
+async fn ingest_run_all(
+    keyword: Option<String>,
+) -> Result<ingest::IngestRunAllResult, String> {
+    Ok(ingest::run_all(keyword).await)
 }
 
 /// Cheap probe to verify a Greenhouse / Lever / Ashby identifier resolves

@@ -57,11 +57,18 @@ export default function JobList() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    // Multi-token AND search so "ai engineer paris" matches a Paris-based
+    // AI Engineer role even when the words appear in different fields.
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
     return jobs
       .filter((j) => {
-        if (q) {
-          const hay = `${j.role} ${j.company} ${j.location}`.toLowerCase();
-          if (!hay.includes(q)) return false;
+        if (tokens.length > 0) {
+          // Include jdText so descriptions are searchable too — costs
+          // nothing while we keep the per-job text capped at 12k chars.
+          const hay = `${j.role} ${j.company} ${j.location} ${j.jdText ?? ''}`.toLowerCase();
+          for (const t of tokens) {
+            if (!hay.includes(t)) return false;
+          }
         }
         if (filters.location !== 'Any' && filters.location !== j.location) {
           // loose match — require contains.
