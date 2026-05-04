@@ -64,6 +64,30 @@ struct AshbyJob {
     apply_url: Option<String>,
     #[serde(rename = "descriptionPlain", default)]
     description_plain: Option<String>,
+    #[serde(default)]
+    compensation: Option<AshbyCompensation>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AshbyCompensation {
+    /// Flat array of components — we look for the one with
+    /// `compensationType: "Salary"` and pull min/max from there.
+    /// The `compensationTiers` array is richer but redundant for
+    /// our needs.
+    #[serde(rename = "summaryComponents", default)]
+    summary_components: Vec<AshbyCompComponent>,
+}
+
+#[derive(Debug, Deserialize)]
+struct AshbyCompComponent {
+    #[serde(rename = "compensationType", default)]
+    compensation_type: Option<String>,
+    #[serde(rename = "minValue", default)]
+    min_value: Option<f64>,
+    #[serde(rename = "maxValue", default)]
+    max_value: Option<f64>,
+    #[serde(rename = "currencyCode", default)]
+    currency_code: Option<String>,
 }
 
 pub async fn fetch(org: &str) -> Result<Vec<RawJob>, IngestError> {
@@ -118,6 +142,8 @@ pub async fn fetch(org: &str) -> Result<Vec<RawJob>, IngestError> {
 }
 
 fn into_raw(j: AshbyJob) -> RawJob {
+    let (salary_min, salary_max, salary_currency) = extract_salary(j.compensation.as_ref());
+
     RawJob {
         source_id: j.id,
         source_url: j.apply_url.or(j.job_url).unwrap_or_default(),
@@ -127,14 +153,45 @@ fn into_raw(j: AshbyJob) -> RawJob {
         company: String::new(),
         location: j.location,
         description: j.description_plain,
-        salary_min: None,
-        salary_max: None,
-        salary_currency: None,
+        salary_min,
+        salary_max,
+        salary_currency,
         work_mode: j.workplace_type,
         // "FullTime" → "Full-time" for nicer display.
         employment_type: j.employment_type.map(humanise_employment),
         posted_at: j.published_at,
+        company_batch: None,
     }
+}
+
+/// Pull (min, max, currency) from the first `Salary` component, if
+/// any. Equity / bonus components are skipped. Min/max come back as
+/// integer dollar amounts, currency as a 3-letter ISO code or `$`/`€`/`£`.
+fn extract_salary(
+    comp: Option<&AshbyCompensation>,
+) -> (Option<i64>, Option<i64>, Option<String>) {
+    let Some(comp) = comp else {
+        return (None, None, None);
+    };
+    let Some(salary) = comp
+        .summary_components
+        .iter()
+        .find(|c| c.compensation_type.as_deref() == Some("Salary"))
+    else {
+        return (None, None, None);
+    };
+
+    let min = salary.min_value.map(|v| v.round() as i64);
+    let max = salary.max_value.map(|v| v.round() as i64);
+
+    let currency = salary.currency_code.as_deref().map(|code| match code {
+        "USD" => "$".to_string(),
+        "EUR" => "€".to_string(),
+        "GBP" => "£".to_string(),
+        other => other.to_string(),
+    });
+
+    (min, max, currency)
 }
 
 fn humanise_employment(s: String) -> String {

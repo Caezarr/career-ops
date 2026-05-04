@@ -59,6 +59,10 @@ pub struct RawJob {
     pub employment_type: Option<String>,
     /// ISO 8601 string when the job was posted on the provider.
     pub posted_at: Option<String>,
+    /// Provider-specific stage / batch identifier — currently only
+    /// populated by YC postings (e.g. "S25", "W26"). Used by the
+    /// frontend to derive `companyStage`.
+    pub company_batch: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]

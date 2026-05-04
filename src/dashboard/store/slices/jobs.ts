@@ -5,6 +5,11 @@ import {
   mockSelectedJob as legacySelectedJob,
 } from "../../data/jobs";
 import { companyBrand } from "../../data/mock";
+import {
+  companyMeta,
+  seniorityFromTitle,
+  stageFromYcBatch,
+} from "../../data/companyMeta";
 import { uid } from "../utils";
 
 // Parse "€90k - €120k" → { min: 90000, max: 120000, currency: "€" }
@@ -150,10 +155,31 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
     const persistedBookmarks = new Set(get().bookmarkedJobIds);
     const enrich = (j: Job): Job => {
       const brand = companyBrand(j.company);
+      const meta = companyMeta(j.company);
+
+      // Seniority — derived purely from the role title.
+      const seniority = j.seniority ?? seniorityFromTitle(j.role);
+
+      // Stage — curated map first, YC batch fallback.
+      const companyStage =
+        j.companyStage ??
+        meta.stage ??
+        (j.companyBatch ? stageFromYcBatch(j.companyBatch) : undefined);
+
+      // Sector — curated map only.
+      const sector = j.sector ?? meta.sector;
+
+      // Stats shown in the JobDetail header pill row. Now includes
+      // seniority + sector + companyStage when present, so the user
+      // sees the full tag chain at a glance.
       const stats: string[] = [];
       if (j.location) stats.push(j.location);
       if (j.workMode) stats.push(j.workMode);
       if (j.type) stats.push(j.type);
+      if (seniority) stats.push(seniority);
+      if (sector) stats.push(sector);
+      if (companyStage) stats.push(companyStage);
+      if (j.companyBatch) stats.push(`YC ${j.companyBatch}`);
 
       const about = j.jdText
         ? j.jdText
@@ -175,6 +201,9 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
         avatarLabel: brand.label,
         stats: stats.length > 0 ? stats : j.stats,
         about: about && about.length > 0 ? about : j.about,
+        seniority,
+        sector,
+        companyStage,
       };
     };
 

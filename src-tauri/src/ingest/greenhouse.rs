@@ -152,5 +152,6 @@ fn into_raw(j: GreenhouseJob) -> RawJob {
         // Prefer first-published — that's when the listing went live.
         // Fall back to updated_at.
         posted_at: j.first_published.or(j.updated_at),
+        company_batch: None,
     }
 }

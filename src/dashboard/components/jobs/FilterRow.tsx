@@ -54,11 +54,31 @@ function deriveOptions(jobs: Job[]): Record<keyof JobFilters, string[]> {
   }
   const remote = ['Any', ...Array.from(remoteSet).sort()];
 
+  // Each of these dimensions is now derivable: seniority comes from
+  // the role title (regex), sector + stage from the curated company
+  // map. `setIngestedJobs` populates these per-job at sync time, so
+  // we can just collect distinct values here.
+  const seniority = uniqueValues(jobs, (j) => j.seniority);
+  const sector = uniqueValues(jobs, (j) => j.sector);
+  const stage = uniqueValues(jobs, (j) => j.companyStage);
+
   return {
     ...STATIC_OPTIONS,
     location: locations,
     remote: remote.length > 1 ? remote : ['Any', 'On-site', 'Hybrid', 'Remote'],
+    seniority: seniority.length > 1 ? seniority : STATIC_OPTIONS.seniority,
+    sector: sector.length > 1 ? sector : STATIC_OPTIONS.sector,
+    stage: stage.length > 1 ? stage : STATIC_OPTIONS.stage,
   };
+}
+
+function uniqueValues<T>(jobs: T[], extract: (j: T) => string | undefined): string[] {
+  const set = new Set<string>();
+  for (const j of jobs) {
+    const v = extract(j);
+    if (v && v.trim()) set.add(v);
+  }
+  return ['Any', ...Array.from(set).sort()];
 }
 
 function normaliseRemote(s: string): string {

@@ -66,6 +66,8 @@ struct WaasJob {
     salary: Option<String>,
     #[serde(rename = "companyName")]
     company_name: String,
+    #[serde(rename = "companyBatch", default)]
+    company_batch: Option<String>,
     #[serde(rename = "companyOneLiner", default)]
     company_one_liner: Option<String>,
     #[serde(rename = "companyLastActiveAt", default)]
@@ -220,7 +222,10 @@ fn into_raw(j: WaasJob) -> RawJob {
         salary_currency,
         work_mode: None,
         employment_type: j.job_type,
+        // Note: posted_at filled below; company_batch propagates so
+        // the frontend can derive companyStage (e.g. "S25" → "Seed").
         posted_at,
+        company_batch: j.company_batch,
     }
 }
 

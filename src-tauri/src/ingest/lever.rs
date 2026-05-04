@@ -158,6 +158,7 @@ fn into_raw(j: LeverJob) -> RawJob {
         work_mode: j.workplace_type,
         employment_type: j.categories.commitment,
         posted_at,
+        company_batch: None,
     }
 }
 

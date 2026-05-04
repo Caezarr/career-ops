@@ -74,6 +74,14 @@ export interface Job {
   avatarLabel: string;
   /** Provenance for jobs pulled from external boards. Absent for hand-created jobs. */
   source?: JobSource;
+  /** Derived from role title via regex (Junior / Mid / Senior / Staff / VP+). */
+  seniority?: string;
+  /** Looked up from a curated company → sector map. */
+  sector?: string;
+  /** Looked up from companyMeta or derived from YC batch (e.g. "Seed", "Series B"). */
+  companyStage?: string;
+  /** YC batch identifier (e.g. "S25", "W26") — only set for YC postings. */
+  companyBatch?: string;
 }
 
 // ─── Job ingestion (external boards) ────────────────────────────────────────

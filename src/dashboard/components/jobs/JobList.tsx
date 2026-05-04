@@ -25,6 +25,33 @@ const SORT_LABEL: Record<JobSort, string> = {
   salary: 'Highest salary',
 };
 
+/** Decide whether a job's [min, max] salary range overlaps a filter
+ *  bucket label. The labels we ship are "€60k - €80k", "€80k - €120k",
+ *  "€120k - €160k", "€160k+", and "Any". When a job has no salary
+ *  data (both 0) we EXCLUDE it from any bucket selection — the user
+ *  asked for a salary band, hiding "salary unknown" entries is the
+ *  better default. Currency mismatches are tolerated (we only compare
+ *  numeric magnitudes; the curated buckets are euro-denominated but
+ *  we treat $/€ as roughly equivalent for filtering purposes). */
+function matchesSalaryBucket(min: number, max: number, bucket: string): boolean {
+  if (!min && !max) return false;
+  const hi = max || min;
+  const lo = min || max;
+
+  // Parse "€60k - €80k" → [60000, 80000]; "€160k+" → [160000, Infinity].
+  const plus = /(\d+)\s*k\+/.exec(bucket);
+  if (plus) {
+    const floor = Number(plus[1]) * 1000;
+    return hi >= floor;
+  }
+  const range = bucket.matchAll(/(\d+)\s*k/gi);
+  const nums = Array.from(range).map((m) => Number(m[1]) * 1000);
+  if (nums.length < 2) return false;
+  const [lowB, highB] = nums;
+  // Overlap test: [lo, hi] ∩ [lowB, highB] ≠ ∅
+  return lo <= highB && hi >= lowB;
+}
+
 function postedAgoToMinutes(s: string): number {
   // Parse "Just now", "2h ago", "1d ago" → minutes since posting (lower = newer)
   if (/just now/i.test(s)) return 0;
@@ -67,7 +94,19 @@ export default function JobList() {
     return jobs
       .filter((j) => {
         if (tokens.length > 0) {
-          const words = `${j.role} ${j.company} ${j.location}`
+          // Haystack now includes the derived tags (seniority,
+          // sector, stage, YC batch) so a search for "fintech" or
+          // "series b" actually narrows the list.
+          const haystack = [
+            j.role,
+            j.company,
+            j.location,
+            j.seniority ?? '',
+            j.sector ?? '',
+            j.companyStage ?? '',
+            j.companyBatch ?? '',
+          ].join(' ');
+          const words = haystack
             .toLowerCase()
             .split(/[^a-z0-9]+/)
             .filter(Boolean);
@@ -85,6 +124,23 @@ export default function JobList() {
           if (filters.remote === 'On-site' && !wm.includes('on-site')) return false;
           if (filters.remote === 'Remote' && !wm.includes('remote')) return false;
           if (filters.remote === 'Hybrid' && !wm.includes('hybrid')) return false;
+        }
+        if (filters.seniority !== 'Any') {
+          if ((j.seniority ?? '') !== filters.seniority) return false;
+        }
+        if (filters.sector !== 'Any') {
+          if ((j.sector ?? '') !== filters.sector) return false;
+        }
+        if (filters.stage !== 'Any') {
+          if ((j.companyStage ?? '') !== filters.stage) return false;
+        }
+        if (filters.salary !== 'Any') {
+          // Filter format: "€80k - €120k", "€160k+", or "Any".
+          // We compare the job's max (or min if max is missing) to
+          // the bucket boundaries — anything overlapping the bucket
+          // counts as a match.
+          if (!matchesSalaryBucket(j.salaryMin, j.salaryMax, filters.salary))
+            return false;
         }
         return true;
       })

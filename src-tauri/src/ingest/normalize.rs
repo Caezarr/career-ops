@@ -46,6 +46,10 @@ pub struct IngestedJob {
     pub avatar_color: String,
     pub avatar_label: String,
     pub source: JobSource,
+    /// YC batch identifier (e.g., "S25", "W26") — only set for YC
+    /// postings. Used by the frontend to derive `companyStage`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub company_batch: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +112,7 @@ pub fn to_ingested(raw: RawJob, provider: IngestProvider, identifier: &str) -> I
             source_url: raw.source_url,
             fetched_at: now_ms,
         },
+        company_batch: raw.company_batch,
     }
 }
 
