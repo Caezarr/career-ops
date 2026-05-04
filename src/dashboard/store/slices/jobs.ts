@@ -51,12 +51,17 @@ const seedJobs: Job[] = legacyJobs.map((j, i) =>
 );
 
 const defaultFilters: JobFilters = {
-  location: "Paris, France",
-  salary: "€80k - €120k",
-  seniority: "Senior",
-  sector: "Fintech, Health",
-  stage: "Series B+",
-  remote: "Hybrid + Remote",
+  // "Any" is the sentinel that the JobList filter logic recognises as
+  // "skip this filter entirely". The previous defaults were tuned for
+  // the Qonto-era seed data and quietly excluded almost everything
+  // ingested from external boards (e.g., 443 Anthropic jobs collapsed
+  // to 5 because none have "Paris, France" in their location string).
+  location: "Any",
+  salary: "Any",
+  seniority: "Any",
+  sector: "Any",
+  stage: "Any",
+  remote: "Any",
 };
 
 export interface JobsSlice {
@@ -118,6 +123,41 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
   isBookmarked: (id) => !!get().jobs.find((j) => j.id === id)?.bookmarked,
 
   setIngestedJobs: (incoming) => {
+    // Enrich each ingested job with frontend-only derived fields:
+    //   - avatarColor / avatarLabel from the canonical companyBrand()
+    //     map (so Stripe / OpenAI / Notion / Qonto / etc. render with
+    //     their proper brand). The Rust fallback is overridden.
+    //   - stats[]   from non-empty among (location, workMode, type) so
+    //     the JobDetail header has something to show
+    //   - about[]   split jdText on paragraph breaks (max 4 entries)
+    //     so the JobDetail body shows the actual description
+    //   - aiSummary / whyYouMatch are LEFT undefined intentionally —
+    //     those are CV-vs-JD AI outputs and get filled by the existing
+    //     match-analysis flow on demand.
+    const enrich = (j: Job): Job => {
+      const brand = companyBrand(j.company);
+      const stats: string[] = [];
+      if (j.location) stats.push(j.location);
+      if (j.workMode) stats.push(j.workMode);
+      if (j.type) stats.push(j.type);
+
+      const about = j.jdText
+        ? j.jdText
+            .split(/\n\n+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
+            .slice(0, 4)
+        : undefined;
+
+      return {
+        ...j,
+        avatarColor: brand.bg,
+        avatarLabel: brand.label,
+        stats: stats.length > 0 ? stats : j.stats,
+        about: about && about.length > 0 ? about : j.about,
+      };
+    };
+
     // Build a key → existing-job map for fast dedup lookup.
     const existing = get().jobs;
     const keyOf = (j: Job): string | null =>
@@ -132,7 +172,8 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
 
     let newCount = 0;
     const merged: Job[] = [...existing];
-    for (const inc of incoming) {
+    for (const raw of incoming) {
+      const inc = enrich(raw);
       const k = keyOf(inc);
       if (!k) {
         // No source on incoming → just append (shouldn't happen via ingestion).

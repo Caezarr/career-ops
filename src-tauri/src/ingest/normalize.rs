@@ -147,9 +147,9 @@ fn truncate_description(s: String) -> String {
     }
 }
 
-/// Quick-and-dirty HTML stripper. Good enough for ATS job postings;
-/// we accept that nested tags or scripts may leave artefacts (rare in
-/// the wild for these providers).
+/// Quick-and-dirty HTML stripper that preserves paragraph structure.
+/// The frontend splits the resulting string on `\n\n` to populate the
+/// `about[]` array shown in the job detail.
 ///
 /// Order matters: Greenhouse double-encodes `content` (HTML entities AROUND
 /// real HTML tags), so we decode entities first, then strip tags. We
@@ -163,9 +163,24 @@ fn strip_html(s: &str) -> String {
         .replace("&#39;", "'")
         .replace("&amp;", "&");
 
-    let mut out = String::with_capacity(decoded.len());
+    // Replace closing block tags + <br> with paragraph breaks BEFORE
+    // stripping, so we keep readable structure for `about[]`.
+    let with_breaks = decoded
+        .replace("</p>", "\n\n")
+        .replace("</li>", "\n")
+        .replace("<li>", "• ")
+        .replace("</h1>", "\n\n")
+        .replace("</h2>", "\n\n")
+        .replace("</h3>", "\n\n")
+        .replace("</div>", "\n")
+        .replace("<br>", "\n")
+        .replace("<br/>", "\n")
+        .replace("<br />", "\n");
+
+    // Strip remaining tags.
+    let mut out = String::with_capacity(with_breaks.len());
     let mut in_tag = false;
-    for c in decoded.chars() {
+    for c in with_breaks.chars() {
         match c {
             '<' => in_tag = true,
             '>' => in_tag = false,
@@ -174,8 +189,32 @@ fn strip_html(s: &str) -> String {
         }
     }
 
-    // Collapse whitespace runs.
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
+    // Collapse runs of inline whitespace, but preserve paragraph
+    // breaks. We do this line by line.
+    let normalised = out
+        .lines()
+        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    // Collapse 3+ consecutive newlines to a single double-newline,
+    // and trim outer whitespace.
+    let mut result = String::with_capacity(normalised.len());
+    let mut newline_run = 0usize;
+    for c in normalised.chars() {
+        if c == '\n' {
+            newline_run += 1;
+        } else {
+            if newline_run >= 2 {
+                result.push_str("\n\n");
+            } else if newline_run == 1 {
+                result.push('\n');
+            }
+            newline_run = 0;
+            result.push(c);
+        }
+    }
+    result.trim().to_string()
 }
 
 /// Convert an ISO 8601 timestamp into a human-friendly relative label.
