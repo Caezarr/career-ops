@@ -997,10 +997,11 @@ async fn jobteaser_auth_complete(
         let _ = main.emit("jobteaser-auth-complete", payload);
     }
 
-    // Auth roundtrip done — close the auth window if it's still open.
-    if let Some(win) = app.get_webview_window("jobteaser-auth") {
-        let _ = win.close();
-    }
+    // Auth roundtrip done. We DELIBERATELY keep the auth window
+    // alive so the bridge's XHR sniffer can keep logging requests as
+    // the user clicks around in the JT portal — those URLs feed JT-07
+    // (the scraper). The bridge banner flips to green "captured" and
+    // the user closes the window manually when done exploring.
 
     Ok(stored)
 }

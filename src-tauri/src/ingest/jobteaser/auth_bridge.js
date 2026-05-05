@@ -181,35 +181,10 @@
       window.location.pathname,
     );
 
-    const envelope = await findProfile();
-    if (!envelope) {
-      setStatus(
-        'logged in but no profile endpoint matched. Open DevTools console for details.',
-        'Tried: ' + PROFILE_ENDPOINTS.join(', '),
-        true,
-      );
-      // Even without a profile we ALLOW the user to commit by clicking
-      // capture again — but we need a slug. Fall back to URL host.
-      captureInProgress = false;
-      return;
-    }
-
-    const profile = deriveProfile(envelope);
-    if (!profile || !profile.career_center_slug) {
-      setStatus(
-        `profile @ ${envelope.endpoint} found but couldn't parse career_center.`,
-        'See console for the response shape.',
-        true,
-      );
-      console.log('[jobteaser-bridge] envelope was:', envelope.json);
-      captureInProgress = false;
-      return;
-    }
-
     if (!window.__TAURI_INTERNALS__) {
       setStatus(
         '__TAURI_INTERNALS__ not available — IPC bridge not injected.',
-        'Capability config issue.',
+        'Capability config issue — see capabilities/jobteaser.json.',
         true,
       );
       console.error('[jobteaser-bridge] no Tauri IPC bridge on this window');
@@ -217,9 +192,31 @@
       return;
     }
 
+    // Best-effort profile enrichment. If every endpoint 404s we
+    // STILL commit the session — JT's profile API path isn't part
+    // of the auth contract, just nice-to-have for labelling.
+    const envelope = await findProfile();
+    let profile = deriveProfile(envelope);
+
+    if (!profile || !profile.career_center_slug) {
+      // Fallback profile so we can commit anyway. The user can rename
+      // the source in Settings once it appears.
+      profile = {
+        career_center_slug: 'default',
+        career_center_name: null,
+        user_full_name: null,
+      };
+      console.log(
+        '[jobteaser-bridge] profile probe failed — committing with default slug',
+      );
+    }
+
     setStatus(
-      `captured profile from ${envelope.endpoint}`,
-      `slug=${profile.career_center_slug} · ${profile.user_full_name || '?'}`,
+      envelope
+        ? `captured profile from ${envelope.endpoint}`
+        : 'no profile endpoint matched — committing session anyway',
+      `slug=${profile.career_center_slug}` +
+        (profile.user_full_name ? ` · ${profile.user_full_name}` : ''),
     );
 
     const cookies = {
@@ -233,7 +230,24 @@
         cookies,
       });
       captured = true;
-      // Rust closes the window after persisting.
+
+      // Flip the banner to a "success + please navigate" state.
+      // Window stays open so the XHR sniffer can keep logging.
+      panel.style.background = '#16a34a';
+      statusEl.textContent =
+        'Career OS · session captured ✓ · click around the JT portal — every API call is logged for the next sprint';
+      detailEl.textContent = `slug=${profile.career_center_slug}`;
+      btn.textContent = 'Close window';
+      btn.style.background = '#0f172a';
+      btn.onclick = () => {
+        // Use Tauri's webview close if available, else window.close.
+        try {
+          window.close();
+        } catch {
+          // no-op
+        }
+      };
+      // Rust no longer auto-closes the window — by design.
     } catch (e) {
       const msg = e && e.message ? e.message : String(e);
       setStatus('capture failed', msg, true);
@@ -270,4 +284,58 @@
       lastUrl = window.location.href;
     }
   }, 500);
+
+  // ── XHR sniffer ─────────────────────────────────────────────────
+  // After auth captures, the user can keep clicking around in JT
+  // (search jobs, open a posting, filter by company…). Every fetch
+  // gets logged as [jobteaser-bridge:xhr] METHOD URL → STATUS so we
+  // can discover the real API surface for the scraper (JT-07).
+  // Enabled regardless of capture state — the more URLs we log, the
+  // better the next sprint.
+  try {
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url =
+        typeof input === 'string' ? input : input && input.url ? input.url : '';
+      const method = (init && init.method) || (input && input.method) || 'GET';
+      try {
+        const res = await origFetch(input, init);
+        if (url.includes('jobteaser') || url.startsWith('/')) {
+          console.log(
+            `[jobteaser-bridge:xhr] ${method} ${url} → ${res.status}`,
+          );
+        }
+        return res;
+      } catch (e) {
+        console.log(
+          `[jobteaser-bridge:xhr] ${method} ${url} → ERROR ${e && e.message}`,
+        );
+        throw e;
+      }
+    };
+
+    const OrigXHR = window.XMLHttpRequest;
+    window.XMLHttpRequest = function () {
+      const x = new OrigXHR();
+      const origOpen = x.open;
+      x.open = function (method, url) {
+        x.__xb_url = url;
+        x.__xb_method = method;
+        return origOpen.apply(x, arguments);
+      };
+      x.addEventListener('loadend', () => {
+        if (
+          x.__xb_url &&
+          (x.__xb_url.includes('jobteaser') || x.__xb_url.startsWith('/'))
+        ) {
+          console.log(
+            `[jobteaser-bridge:xhr] ${x.__xb_method} ${x.__xb_url} → ${x.status}`,
+          );
+        }
+      });
+      return x;
+    };
+  } catch (e) {
+    console.warn('[jobteaser-bridge] failed to install XHR sniffer:', e);
+  }
 })();
