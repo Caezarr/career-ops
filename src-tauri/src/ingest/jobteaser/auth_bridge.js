@@ -237,12 +237,29 @@
       });
       captured = true;
 
-      // Flip the banner to a "success + please navigate" state.
-      // Window stays open so the XHR sniffer can keep logging.
-      panel.style.background = '#16a34a';
+      // Flip the banner to a "scraping" state.
+      panel.style.background = '#0ea5e9';
       statusEl.textContent =
-        'Career OS · session captured ✓ · click around the JT portal — every API call is logged for the next sprint';
+        'Career OS · session captured ✓ · scraping job offers…';
       detailEl.textContent = `slug=${profile.careerCenterSlug}`;
+
+      // Kick off the in-WebView scrape. The auth window has the live
+      // session — we read JT's server-rendered job pages, extract
+      // __NEXT_DATA__, and forward to Rust.
+      scrapeJobs(profile.careerCenterSlug)
+        .then((count) => {
+          panel.style.background = '#16a34a';
+          statusEl.textContent =
+            count > 0
+              ? `Career OS · scraped ${count} job offers ✓`
+              : 'Career OS · session captured ✓ · no jobs returned';
+        })
+        .catch((err) => {
+          panel.style.background = '#dc2626';
+          statusEl.textContent =
+            'Career OS · scrape failed — see DevTools console for details';
+          console.error('[jt-scrape] failed:', err);
+        });
       btn.textContent = 'Close window';
       btn.style.background = '#0f172a';
       btn.onclick = async () => {
@@ -283,6 +300,193 @@
     detailEl.textContent = `auto-capture attempt #${polls}`;
     capture(false);
   }, 1000);
+
+  // ── In-WebView scraper ──────────────────────────────────────────
+  //
+  // JT renders job listings server-side as Next.js pages. We fetch
+  // `/fr/job-offers?page=N` (paginated), extract the __NEXT_DATA__
+  // payload, find the jobs array, map to a Rust-friendly shape,
+  // forward to `jobteaser_jobs_received`.
+  //
+  // Cookies are HttpOnly so we can't replay the session from Rust —
+  // but `fetch(..., { credentials: 'include' })` from this WebView
+  // sends them automatically.
+
+  const MAX_PAGES = 8; // safety cap — adjust later if real volume justifies more
+
+  async function scrapeJobs(slug) {
+    const allJobs = [];
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const url = `/fr/job-offers?page=${page}`;
+      let html;
+      try {
+        const r = await fetch(url, {
+          credentials: 'include',
+          headers: { Accept: 'text/html' },
+        });
+        if (!r.ok) {
+          console.warn(`[jt-scrape] page ${page} → HTTP ${r.status}`);
+          break;
+        }
+        html = await r.text();
+      } catch (e) {
+        console.error('[jt-scrape] fetch failed:', e);
+        break;
+      }
+
+      const data = extractNextData(html);
+      if (!data) {
+        console.warn('[jt-scrape] no __NEXT_DATA__ on', url);
+        break;
+      }
+
+      const jobs = findJobsArray(data);
+      if (!jobs || jobs.length === 0) {
+        console.log(`[jt-scrape] page ${page}: no jobs — stopping`);
+        break;
+      }
+      console.log(`[jt-scrape] page ${page}: ${jobs.length} jobs`);
+      for (const j of jobs) {
+        allJobs.push(mapJob(j, slug));
+      }
+    }
+
+    console.log(
+      `[jt-scrape] scraped ${allJobs.length} unique jobs total for slug=${slug}`,
+    );
+
+    if (allJobs.length > 0) {
+      await window.__TAURI_INTERNALS__.invoke('jobteaser_jobs_received', {
+        slug,
+        jobs: allJobs,
+      });
+    }
+    return allJobs.length;
+  }
+
+  function extractNextData(html) {
+    const m = html.match(
+      /<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (!m) return null;
+    try {
+      return JSON.parse(m[1]);
+    } catch (e) {
+      console.warn('[jt-scrape] __NEXT_DATA__ JSON parse failed:', e);
+      return null;
+    }
+  }
+
+  function getPath(obj, path) {
+    return path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+  }
+
+  function findJobsArray(data) {
+    // Try common Next.js + JT-typical paths first.
+    const paths = [
+      'props.pageProps.jobs',
+      'props.pageProps.jobOffers',
+      'props.pageProps.results',
+      'props.pageProps.initialJobs',
+      'props.pageProps.initialState.jobs',
+      'props.pageProps.data.jobs',
+      'props.pageProps.data.jobOffers',
+      'props.pageProps.searchResults.jobs',
+      'props.pageProps.search.results',
+    ];
+    for (const p of paths) {
+      const v = getPath(data, p);
+      if (Array.isArray(v) && v.length > 0) {
+        console.log(`[jt-scrape] jobs at: ${p} (${v.length})`);
+        return v;
+      }
+    }
+    // Fallback: walk the tree for any array of objects with title-like keys.
+    const found = walkForJobs(data);
+    if (found) {
+      console.log(`[jt-scrape] jobs via walk (${found.length})`);
+      return found;
+    }
+    console.warn(
+      '[jt-scrape] could not locate jobs array — top-level shape:',
+      Object.keys((data && data.props && data.props.pageProps) || {}),
+    );
+    return null;
+  }
+
+  function walkForJobs(obj, depth) {
+    depth = depth || 0;
+    if (depth > 6 || !obj || typeof obj !== 'object') return null;
+    if (Array.isArray(obj)) {
+      if (obj.length > 0 && obj[0] && typeof obj[0] === 'object') {
+        const keys = Object.keys(obj[0]);
+        const hasTitle = ['title', 'name', 'role', 'jobTitle', 'job_title'].some(
+          (k) => keys.includes(k),
+        );
+        const hasCompany = ['company', 'companyName', 'company_name', 'employer'].some(
+          (k) => keys.includes(k),
+        );
+        if (hasTitle && (hasCompany || obj.length > 5)) return obj;
+      }
+      return null;
+    }
+    for (const k of Object.keys(obj)) {
+      const v = walkForJobs(obj[k], depth + 1);
+      if (v) return v;
+    }
+    return null;
+  }
+
+  function mapJob(j, slug) {
+    const company = j.company || j.employer || {};
+    const location = j.location || j.workplace || {};
+    const contract = j.contract_type || j.contractType || j.contract || null;
+
+    // Build a sensible source URL — JT exposes either a slug or path.
+    let source_url =
+      j.absolute_url ||
+      j.url ||
+      j.path ||
+      j.href ||
+      (j.slug ? `https://${slug}.jobteaser.com/fr/job-offers/${j.slug}` : null) ||
+      (j.id ? `https://${slug}.jobteaser.com/fr/job-offers/${j.id}` : '');
+    if (source_url && source_url.startsWith('/')) {
+      source_url = `https://${slug}.jobteaser.com${source_url}`;
+    }
+
+    return {
+      sourceId: String(j.id || j.uuid || j.slug || j.reference || ''),
+      sourceUrl: source_url,
+      role: j.title || j.name || j.jobTitle || j.job_title || '',
+      company:
+        (typeof company === 'object' && (company.name || company.title)) ||
+        j.companyName ||
+        j.company_name ||
+        '',
+      location:
+        (typeof location === 'object' &&
+          (location.city || location.name || location.label)) ||
+        j.city ||
+        j.locationName ||
+        j.location_name ||
+        '',
+      description:
+        j.description ||
+        j.descriptionHtml ||
+        j.descriptionPlain ||
+        j.body ||
+        j.content ||
+        '',
+      employmentType: contract || null,
+      postedAt:
+        j.created_at ||
+        j.createdAt ||
+        j.published_at ||
+        j.publishedAt ||
+        j.first_published_at ||
+        null,
+    };
+  }
 
   // Some quality-of-life: log the URL on every navigation so we can
   // see in the console where the user lands after SSO.

@@ -16,7 +16,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useAppStore } from "../store";
+import type { Job } from "../store/types";
 import { addIngestSourceWithPersist } from "./ingest";
+import { saveIngestedJobsToDb } from "./ingestDb";
 
 interface JobTeaserAuthProfile {
   careerCenterSlug: string;
@@ -35,7 +37,7 @@ export async function openJobTeaserAuth(): Promise<void> {
  *  insert the source row + persist. Called from a top-level applier
  *  hook, not from individual components. */
 export async function subscribeJobTeaserAuth(): Promise<() => void> {
-  const unlisten = await listen<{ profile: JobTeaserAuthProfile }>(
+  const unlistenAuth = await listen<{ profile: JobTeaserAuthProfile }>(
     "jobteaser-auth-complete",
     async (evt) => {
       const profile = evt.payload.profile;
@@ -67,7 +69,51 @@ export async function subscribeJobTeaserAuth(): Promise<() => void> {
       });
     },
   );
-  return unlisten;
+
+  // The bridge scrapes /fr/job-offers right after auth and forwards
+  // a pre-mapped batch via this event. Merge into the jobs slice
+  // (existing dedup logic preserves bookmarks) and persist.
+  const unlistenJobs = await listen<{ slug: string; jobs: Job[] }>(
+    "jobteaser-jobs-received",
+    async (evt) => {
+      const { slug, jobs } = evt.payload;
+      if (!Array.isArray(jobs) || jobs.length === 0) return;
+
+      const result = useAppStore.getState().setIngestedJobs(jobs);
+      console.info(
+        `[jobteaser] received ${jobs.length} jobs for slug=${slug} → ${result.newCount} new`,
+      );
+
+      try {
+        const enriched = useAppStore.getState().jobs.filter(
+          (j) =>
+            j.source?.provider === "jobteaser" &&
+            j.source?.identifier === slug,
+        );
+        await saveIngestedJobsToDb(enriched);
+      } catch (e) {
+        console.warn("[jobteaser] failed to persist scraped jobs to SQLite:", e);
+      }
+
+      // Stamp last_synced_at on the matching IngestSource.
+      const src = useAppStore
+        .getState()
+        .ingestSources.find(
+          (s) => s.provider === "jobteaser" && s.identifier === slug,
+        );
+      if (src) {
+        useAppStore.getState().setIngestSourceState(src.id, {
+          lastSyncedAt: Date.now(),
+          lastError: undefined,
+        });
+      }
+    },
+  );
+
+  return () => {
+    unlistenAuth();
+    unlistenJobs();
+  };
 }
 
 /** Cheap check used by the Settings UI to decide whether to render

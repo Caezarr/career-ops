@@ -1027,6 +1027,35 @@ fn jobteaser_close_auth_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Receive a batch of scraped jobs from the in-WebView bridge.
+/// Each entry comes pre-mapped from JT's __NEXT_DATA__; we walk
+/// them through `normalize::to_ingested` to land in the canonical
+/// `IngestedJob` shape, then emit to the dashboard so the store
+/// merges them via `setIngestedJobs`.
+#[tauri::command]
+async fn jobteaser_jobs_received(
+    app: tauri::AppHandle,
+    slug: String,
+    jobs: Vec<ingest::jobteaser::scrape::WebviewScrapedJob>,
+) -> Result<usize, String> {
+    let raw_jobs = ingest::jobteaser::scrape::convert_webview_batch(jobs);
+    let count = raw_jobs.len();
+
+    let ingested: Vec<ingest::IngestedJob> = raw_jobs
+        .into_iter()
+        .map(|raw| ingest::normalize::to_ingested(raw, ingest::IngestProvider::JobTeaser, &slug))
+        .collect();
+
+    if let Some(main) = app.get_webview_window("main") {
+        let payload = serde_json::json!({ "slug": slug, "jobs": ingested });
+        main.emit("jobteaser-jobs-received", payload)
+            .map_err(|e| e.to_string())?;
+    }
+
+    tracing::info!("jobteaser: scraper delivered {} jobs for slug='{}'", count, slug);
+    Ok(count)
+}
+
 // ─── DB persistence (Phase 6) ────────────────────────────────────────
 
 #[tauri::command]
@@ -1214,6 +1243,7 @@ pub fn run() {
             jobteaser_auth_complete,
             jobteaser_has_session,
             jobteaser_close_auth_window,
+            jobteaser_jobs_received,
             // DB: ingest persistence (Phase 6)
             db_load_ingest_sources,
             db_upsert_ingest_source,
