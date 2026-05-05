@@ -940,6 +940,80 @@ fn ingest_get_builtin_sources() -> Vec<ingest::SourceSpec> {
     ingest::get_builtin_sources_list()
 }
 
+// ─── Job Teaser SSO (Phase JT) ───────────────────────────────────────
+
+/// Open Job Teaser's central sign-in page in a dedicated WebViewWindow.
+/// The window's initialization_script polls `document.cookie` after the
+/// user completes their school's SSO; once the JT session token is
+/// detected, JS calls `jobteaser_auth_complete` (below) with the
+/// captured cookies + the user's career-center profile.
+#[tauri::command]
+async fn jobteaser_auth_open(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    // If a window labelled `jobteaser-auth` already exists (user clicked
+    // twice), focus it instead of opening a duplicate.
+    if let Some(existing) = app.get_webview_window("jobteaser-auth") {
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let bridge_script = include_str!("./ingest/jobteaser/auth_bridge.js");
+
+    let url: tauri::Url = "https://www.jobteaser.com/fr/users/sign_in"
+        .parse()
+        .map_err(|e: <tauri::Url as std::str::FromStr>::Err| e.to_string())?;
+
+    WebviewWindowBuilder::new(&app, "jobteaser-auth", WebviewUrl::External(url))
+    .title("Sign in to Job Teaser")
+    .inner_size(900.0, 720.0)
+    .min_inner_size(640.0, 520.0)
+    .resizable(true)
+    .focused(true)
+    .initialization_script(bridge_script)
+    .build()
+    .map_err(|e| format!("open auth window: {}", e))?;
+
+    Ok(())
+}
+
+/// Called by the JS bridge once cookies + profile are captured.
+/// Persists to Keychain, returns the profile to the frontend so it
+/// can insert the IngestSource row + close the auth window.
+#[tauri::command]
+async fn jobteaser_auth_complete(
+    app: tauri::AppHandle,
+    profile: ingest::jobteaser::AuthProfile,
+    cookies: ingest::jobteaser::AuthCookies,
+) -> Result<ingest::jobteaser::AuthProfile, String> {
+    let stored = ingest::jobteaser::handle_auth_complete(profile, cookies)
+        .map_err(|e| e.to_string())?;
+
+    // Notify the main dashboard window so it can insert the IngestSource
+    // row + refresh Settings. Failure to emit is non-fatal — the next
+    // page reload will pick up the keychain-backed session anyway.
+    let payload = serde_json::json!({ "profile": &stored });
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit("jobteaser-auth-complete", payload);
+    }
+
+    // Auth roundtrip done — close the auth window if it's still open.
+    if let Some(win) = app.get_webview_window("jobteaser-auth") {
+        let _ = win.close();
+    }
+
+    Ok(stored)
+}
+
+/// Cheap check: does the user have stored session cookies for this
+/// career_center_slug? Used by Settings to render "Re-authenticate"
+/// instead of "Add school" when an entry already exists but a fetch
+/// returned 401.
+#[tauri::command]
+fn jobteaser_has_session(career_center_slug: String) -> bool {
+    ingest::jobteaser::auth::has_stored_session(&career_center_slug)
+}
+
 // ─── DB persistence (Phase 6) ────────────────────────────────────────
 
 #[tauri::command]
@@ -1122,6 +1196,10 @@ pub fn run() {
             ingest_run_all,
             ingest_health_check,
             ingest_get_builtin_sources,
+            // Job Teaser SSO auth flow
+            jobteaser_auth_open,
+            jobteaser_auth_complete,
+            jobteaser_has_session,
             // DB: ingest persistence (Phase 6)
             db_load_ingest_sources,
             db_upsert_ingest_source,

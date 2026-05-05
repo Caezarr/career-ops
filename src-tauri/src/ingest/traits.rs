@@ -14,6 +14,11 @@ pub enum IngestProvider {
     Ashby,
     #[serde(rename = "ycombinator")]
     YCombinator,
+    /// Job Teaser — the platform French Grandes Écoles use for their
+    /// school-network job feeds. Auth is via SSO inside an embedded
+    /// WebView; cookies persist in macOS Keychain.
+    #[serde(rename = "jobteaser")]
+    JobTeaser,
 }
 
 impl IngestProvider {
@@ -23,6 +28,7 @@ impl IngestProvider {
             IngestProvider::Lever => "lever",
             IngestProvider::Ashby => "ashby",
             IngestProvider::YCombinator => "ycombinator",
+            IngestProvider::JobTeaser => "jobteaser",
         }
     }
 
@@ -32,6 +38,7 @@ impl IngestProvider {
             "lever" => Some(Self::Lever),
             "ashby" => Some(Self::Ashby),
             "ycombinator" => Some(Self::YCombinator),
+            "jobteaser" => Some(Self::JobTeaser),
             _ => None,
         }
     }
@@ -79,6 +86,10 @@ pub enum IngestError {
     },
     #[error("Identifier empty or invalid for {0}")]
     BadIdentifier(&'static str),
+    /// 401/403 from an authenticated provider — frontend uses this
+    /// to surface a re-auth flow (e.g. "Re-authenticate to Job Teaser").
+    #[error("Authentication required for {0}")]
+    Unauthorised(&'static str),
 }
 
 impl serde::Serialize for IngestError {

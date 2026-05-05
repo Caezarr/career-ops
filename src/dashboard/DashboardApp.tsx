@@ -13,6 +13,7 @@ import { CommandPalette, ConfirmProvider, ToastProvider } from "./primitives";
 import { useApplyAppearance } from "./hooks/useApplyAppearance";
 import { useAutostart } from "./hooks/useAutostart";
 import { useSeedIngestSources } from "./hooks/useSeedIngestSources";
+import { useJobTeaserAuthListener } from "./hooks/useJobTeaserAuthListener";
 import { useCopilotEventBridge } from "./hooks/useCopilotSession";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
@@ -127,6 +128,14 @@ function IngestSourcesSeeder() {
   return null;
 }
 
+/** Listens once per dashboard window for the `jobteaser-auth-complete`
+ *  Tauri event so any successful SSO roundtrip lands as an IngestSource
+ *  row (or refreshes an existing row's error state). */
+function JobTeaserAuthListener() {
+  useJobTeaserAuthListener();
+  return null;
+}
+
 export function DashboardApp() {
   return (
     <div className="dashboard-root">
@@ -137,6 +146,7 @@ export function DashboardApp() {
             <AutostartApplier />
             <CopilotEventBridge />
             <IngestSourcesSeeder />
+            <JobTeaserAuthListener />
             <GlobalKeyboardShortcuts />
             <PageRouter />
             <CommandPaletteHost />

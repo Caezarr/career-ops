@@ -16,6 +16,7 @@ function defaultLabel(provider: IngestProvider, identifier: string): string {
     lever: "Lever",
     ashby: "Ashby",
     ycombinator: "Y Combinator",
+    jobteaser: "Job Teaser",
   }[provider];
   return `${cap} · ${providerLabel}`;
 }
@@ -32,6 +33,7 @@ export interface IngestSlice {
     provider: IngestProvider;
     identifier: string;
     label?: string;
+    schoolDisplayName?: string;
   }) => IngestSource;
   removeIngestSource: (id: string) => void;
   toggleIngestSource: (id: string) => void;
@@ -65,7 +67,7 @@ export const createIngestSlice: StateCreator<IngestSlice> = (set) => ({
   ingestSyncing: false,
   ingestLastSyncedAt: null,
 
-  addIngestSource: ({ provider, identifier, label }) => {
+  addIngestSource: ({ provider, identifier, label, schoolDisplayName }) => {
     const source: IngestSource = {
       id: uid("src"),
       provider,
@@ -73,6 +75,7 @@ export const createIngestSlice: StateCreator<IngestSlice> = (set) => ({
       label: label?.trim() || defaultLabel(provider, identifier.trim()),
       enabled: true,
       addedAt: Date.now(),
+      schoolDisplayName,
     };
     set((state) => ({ ingestSources: [...state.ingestSources, source] }));
     return source;

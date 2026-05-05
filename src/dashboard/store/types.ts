@@ -85,7 +85,12 @@ export interface Job {
 }
 
 // ─── Job ingestion (external boards) ────────────────────────────────────────
-export type IngestProvider = "greenhouse" | "lever" | "ashby" | "ycombinator";
+export type IngestProvider =
+  | "greenhouse"
+  | "lever"
+  | "ashby"
+  | "ycombinator"
+  | "jobteaser";
 
 export interface JobSource {
   provider: IngestProvider;
@@ -101,7 +106,8 @@ export interface JobSource {
 export interface IngestSource {
   id: string;
   provider: IngestProvider;
-  /** Board / company slug. Empty for YC. */
+  /** Board / company slug. Empty for YC. For Job Teaser this is the
+   *  user's `career_center_slug` captured at SSO time. */
   identifier: string;
   /** User-facing label (e.g., "Anthropic · Greenhouse"). */
   label: string;
@@ -109,6 +115,9 @@ export interface IngestSource {
   addedAt: number;
   lastSyncedAt?: number;
   lastError?: string;
+  /** Job Teaser only: the human-readable school name from the user's
+   *  profile (e.g., "Arts et Métiers · Career Center"). */
+  schoolDisplayName?: string;
 }
 
 export interface IngestRunError {
