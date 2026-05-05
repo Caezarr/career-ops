@@ -107,7 +107,141 @@ Local mode is **last resort** — quality drops, latency goes up to ~10s. The ov
 
 ---
 
-## 4. Day-by-day breakdown
+## 4. Micro-sprints (atomic tickets)
+
+### P6-01 · `stt/health.rs` — circuit-breaker per vendor
+**Est:** 2h · **Deps:** P2-02 · **PR-able:** ✅
+**Goal:** Track per-vendor health (3 consecutive errors → unhealthy for 60s).
+**Tasks:**
+- `Health` struct with `consecutive_errors`, `last_error_at`, `unhealthy_until`
+- Per-vendor `&'static AtomicHealth` shared across the runtime
+- `record_success()` / `record_error(reason)` / `is_healthy()`
+- Unit tests for the state machine
+**Acceptance:** 3 errors → unhealthy. After 60s → eligible again.
+**Output:** 1 commit.
+
+### P6-02 · `stt/assemblyai.rs` — Universal-Streaming WebSocket
+**Est:** 4h · **Deps:** P6-01 · **PR-able:** ✅
+**Goal:** Mirror the Deepgram interface so the router can swap them transparently.
+**Tasks:**
+- `tokio_tungstenite` client to AssemblyAI's WS endpoint
+- Same `TranscriptEvent` output shape as Deepgram's emitter
+- Auth from Keychain
+- Smoke test against a sample audio
+**Acceptance:** Smoke test produces transcribed text; output shape byte-identical to Deepgram's.
+**Output:** 1 commit.
+
+### P6-03 · `stt/router.rs` — health-driven dispatch
+**Est:** 3h · **Deps:** P6-02 · **PR-able:** ✅
+**Goal:** Pick the healthiest STT vendor; mid-session switch on failure.
+**Tasks:**
+- Priority order: Deepgram → AssemblyAI → Whisper.cpp (Whisper added in P6-06)
+- `dispatch(frames)` checks health, opens the right WebSocket
+- On failure mid-session: cancel current task, open the next vendor, replay last 1s of buffered audio
+**Acceptance:** Manually revoke Deepgram key → router switches to AssemblyAI within 5s.
+**Output:** 1 commit.
+
+### P6-04 · `llm/health.rs` + `llm/router.rs`
+**Est:** 3h · **Deps:** P4-01 · **PR-able:** ✅
+**Goal:** Same circuit-breaker pattern for LLMs.
+**Tasks:**
+- Reuse the `Health` abstraction from P6-01 (move to a shared `health.rs`?)
+- Router picks Anthropic by default; auto-switch on failure
+- Prompt cache resets on switch (different vendor, no cache)
+**Acceptance:** Tests for switch latency.
+**Output:** 1 commit.
+
+### P6-05 · `llm/openai.rs` — GPT-5/4o with same prompt contract
+**Est:** 4h · **Deps:** P6-04 + P4-03 · **PR-able:** ✅
+**Goal:** Drop-in replacement for Claude with identical bullet output schema.
+**Tasks:**
+- Chat Completions API streaming via SSE
+- Reuse the persona prompts from P3-06 (vendor-agnostic)
+- Same `Bullet` output via the parser from P4-05
+- Side-by-side test: Claude vs GPT-5 on 5 questions, manual review
+**Acceptance:** Quality parity within reasonable bounds; identical output schema.
+**Output:** 1 commit.
+
+### P6-06 · `whisper-rs` integration + lazy model preload
+**Est:** 4h · **Deps:** P6-03 · **PR-able:** ✅
+**Goal:** Local STT fallback when both clouds are unavailable.
+**Tasks:**
+- `whisper-rs` Cargo dep + small/medium multilingual model bundled (~150MB)
+- Lazy load on first Live Copilot start (with "Preloading speech model..." indicator)
+- STT router routes here when Deepgram + AssemblyAI both unhealthy
+- Quality acceptance: usable, not perfect; latency ~5x cloud
+**Acceptance:** Wifi off → Whisper.cpp transcribes locally with a "🔴 Local mode" badge in UI.
+**Output:** 1 commit.
+
+### P6-07 · Ollama detection + LLM router last-resort
+**Est:** 3h · **Deps:** P6-05 · **PR-able:** ✅
+**Goal:** Local LLM fallback when both cloud LLMs unavailable.
+**Tasks:**
+- Detect Ollama at `localhost:11434` on app start
+- If present + (`qwen2.5` OR `llama3.3`) model available → register as fallback
+- LLM router routes here as last resort
+- Graceful "install Ollama" message if missing
+**Acceptance:** Wifi off + Ollama running → end-to-end Copilot works fully offline.
+**Output:** 1 commit.
+
+### P6-08 · Pre-flight check UI matrix
+**Est:** 4h · **Deps:** P6-03 + P6-07 · **PR-able:** ✅
+**Goal:** Settings → Copilot → "Run pre-flight" with full check matrix.
+**Tasks:**
+- 8+ checks: mic perm, screen rec perm, accessibility perm, Deepgram auth, AssemblyAI auth, Anthropic auth, OpenAI auth, Whisper model loaded, Ollama detected (optional)
+- Visual matrix: green/red/amber + last-run timestamp + "Re-run" button
+- Surfaced AT THE START of every Live session — must pass before live mode unlocks
+**Acceptance:** All checks listable + actionable.
+**Output:** 1 commit.
+
+### P6-09 · 7s LLM watchdog + ⌘R retry
+**Est:** 2h · **Deps:** P4-08 · **PR-able:** ✅
+**Goal:** A runaway LLM call gets cancelled before the user gives up.
+**Tasks:**
+- Per-call watchdog timer (default 7s, user-configurable)
+- On expire: cancel future, show "Regenerate?" hint in overlay
+- ⌘R triggers retry (existing hotkey from P2-08)
+**Acceptance:** Synthetic 10s call cancelled at 7s; ⌘R works.
+**Output:** 1 commit.
+
+### P6-10 · Transcript JSONL writer
+**Est:** 2h · **Deps:** P2-03 · **PR-able:** ✅
+**Goal:** Per-session transcript on disk; never raw audio.
+**Tasks:**
+- Path: `~/Library/Application Support/com.caezarr.career-os/transcripts/<session_id>.jsonl`
+- One line per Transcript event + one line per Bullet event
+- Hard assertion in code (panic in debug, log in release): "transcripts/" path must NEVER receive `Vec<u8>` audio
+- Test: write 100 events, verify file shape
+**Acceptance:** Test passes; raw-audio assertion can't be bypassed.
+**Output:** 1 commit.
+
+### P6-11 · Past-sessions dashboard surface
+**Est:** 3h · **Deps:** P6-10 · **PR-able:** ✅
+**Goal:** User can review (and purge) past sessions.
+**Tasks:**
+- Dashboard → "Past sessions" panel — list of sessions sorted by date
+- Click → session detail: per-channel transcript + bullets shown vs questions
+- Settings → Privacy → "Delete all transcripts" button
+- Counter shows total disk usage
+**Acceptance:** Past session viewable; purge actually deletes everything.
+**Output:** 1 commit.
+
+### P6-12 · ZDR vendor verification + `PRIVACY-VENDORS.md` + README
+**Est:** 4h · **Deps:** all above · **PR-able:** ✅
+**Goal:** SHIPPABLE GATE — every vendor confirmed zero-data-retention.
+**Tasks:**
+- Verify Deepgram ZDR (likely opt-in tier — check key)
+- Verify AssemblyAI ZDR (account setting)
+- Verify Anthropic ZDR (enterprise tier; check if available for individual)
+- Verify OpenAI ZDR (account setting)
+- Document each in `.planning/research/PRIVACY-VENDORS.md` with screenshots / ToS quotes
+- README "Reliability + privacy" section accurate
+**Acceptance:** Every vendor has a verdict + evidence. README reflects truth.
+**Output:** Sprint closed. Live Copilot v1 mergeable to main + tagged.
+
+---
+
+## 5. Day-by-day breakdown
 
 ### Day 1 — STT health + AssemblyAI client
 

@@ -73,7 +73,96 @@ This is the **zero-hallucinations-on-CV guarantee** that the README promises.
 
 ---
 
-## 5. Day-by-day breakdown
+## 5. Micro-sprints (atomic tickets)
+
+### P4-01 · Anthropic streaming Messages API client + cache markers
+**Est:** 4h · **Deps:** — · **PR-able:** ✅
+**Goal:** Anthropic streaming client with prompt cache markers wired correctly.
+**Tasks:**
+- `src-tauri/src/llm/claude.rs` — Messages API streaming via SSE
+- `cache_control: { type: "ephemeral" }` markers on the system prompt
+- Auth from Keychain (existing `keyring` pattern from `ai/anthropic.rs`)
+- Smoke test: hello-world streaming response works
+**Acceptance:** Test prints streamed tokens; second call shows `cache_read_input_tokens > 0`.
+**Output:** 1 commit.
+
+### P4-02 · Cache hit verification (recon)
+**Est:** 1h · **Deps:** P4-01 · **PR-able:** ❌
+**Goal:** Verify the 90% cost discount lands in real conditions.
+**Tasks:**
+- Run 5 sequential calls with the same large system prompt
+- Log `cache_read_input_tokens` / `cache_creation_input_tokens` from each response
+- Confirm cache hit rate ≥80% from call #2 onward
+- Document in `.planning/research/CLAUDE-COSTS.md`
+**Acceptance:** Documented numbers; spend on a test session calculated end-to-end.
+**Output:** Recon doc, no code commit.
+
+### P4-03 · `prompt::build_system_prompt` + `build_user_prompt`
+**Est:** 3h · **Deps:** P3-05 · **PR-able:** ✅
+**Goal:** Deterministic builders for the LLM input.
+**Tasks:**
+- `llm/prompt.rs::build_system_prompt(snapshot)` — persona file + CV + JD + hard constraints
+- `build_user_prompt(question, language, persona)` — the per-question wrapper
+- Snapshot tests: same snapshot → same byte-exact prompt (regression guard)
+**Acceptance:** Snapshot tests for all 3 personas pass.
+**Output:** 1 commit.
+
+### P4-04 · Persona prompt template snapshot tests
+**Est:** 2h · **Deps:** P3-06 + P4-03 · **PR-able:** ✅
+**Goal:** Catch unintentional persona prompt drift.
+**Tasks:**
+- Golden output files in `src-tauri/tests/fixtures/prompts/`
+- For a fixed (CV, JD) pair across 3 personas → 3 snapshot files
+- `cargo test prompt_finance_snapshot`, `prompt_tech_ai_snapshot`, `prompt_consulting_snapshot`
+**Acceptance:** Tests fail loudly when prompts change unintentionally.
+**Output:** 1 commit + fixture files.
+
+### P4-05 · `bullets.rs` — output schema + streaming parser
+**Est:** 3h · **Deps:** P4-03 · **PR-able:** ✅
+**Goal:** Stream parser emits partial bullets as tokens arrive.
+**Tasks:**
+- `Bullet { text, refs: Vec<String>, validated: bool }`
+- Parser state machine: detect bullet starts (`•` or `→`), accumulate text, parse `[ref: CV.experience.<id>]` patterns
+- Emit `bullet_start`, `bullet_token`, `bullet_end` Tauri events with stable ordering
+**Acceptance:** Feed a known mock streaming response → 3 bullets emitted with correct refs.
+**Output:** 1 commit.
+
+### P4-06 · `validator.rs` — citation-ref enforcement
+**Est:** 3h · **Deps:** P4-05 · **PR-able:** ✅
+**Goal:** Drop bullets whose refs don't resolve in the snapshot.
+**Tasks:**
+- `validate_bullet(bullet, snapshot) -> Result<Bullet, ValidationError>`
+- For each `[ref: CV.experience.X]`, look up `X` in snapshot.experiences
+- Bullet with any unresolved ref → replaced with placeholder + warning event
+- Test with valid + intentionally-fake refs
+**Acceptance:** Fake `[ref: CV.experience.999]` → bullet dropped, warning event fired.
+**Output:** 1 commit.
+
+### P4-07 · Frontend overlay slot streaming render
+**Est:** 3h · **Deps:** P4-05 · **PR-able:** ✅
+**Goal:** Bullets appear token-by-token in the overlay's 3 slots.
+**Tasks:**
+- Subscribe to `bullet_start` / `bullet_token` / `bullet_end` events
+- 3 slots with token-stream rendering (typewriter effect)
+- On `bullet_end`: highlight ref tokens with [CV.exp.X] inline tooltip
+- Replacement state for validator drops (red border + "Insufficient evidence")
+**Acceptance:** Mock LLM response → 3 streaming bullets visible in overlay UI.
+**Output:** 1 commit.
+
+### P4-08 · E2E: QuestionEnd → bullets in <5s p95
+**Est:** 5h · **Deps:** all above + P2-06 · **PR-able:** ✅
+**Goal:** Sprint exit gate.
+**Tasks:**
+- Wire QuestionEnd event from Phase 2 → triggers `llm::generate(snapshot, question)` → streams to overlay
+- Latency profiler: log p50 / p95 from QuestionEnd to first-token, full-3-bullets-complete
+- Manual e2e with the user's real CV + 3 distinct JDs across all 3 personas
+- README "Live Copilot — LLM" section
+**Acceptance:** p95 first-token ≤2s, full bullets ≤5s. All 3 personas produce distinguishable output.
+**Output:** Sprint closed.
+
+---
+
+## 6. Day-by-day breakdown
 
 ### Day 1 — Anthropic client + prompt cache verification
 

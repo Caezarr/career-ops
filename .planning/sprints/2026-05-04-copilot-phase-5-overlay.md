@@ -70,7 +70,107 @@ The README promises "invisible to screen-share". macOS 15 (Sequoia) **broke** th
 
 ---
 
-## 4. Day-by-day breakdown
+## 4. Micro-sprints (atomic tickets)
+
+### P5-01 · Wire `copilot` window to `CopilotApp.tsx` with mock bullets
+**Est:** 3h · **Deps:** — · **PR-able:** ✅
+**Goal:** The transparent always-on-top window renders the overlay shell with mock data.
+**Tasks:**
+- Verify `tauri.conf.json::copilot` window config (already exists)
+- Wire `src/main.tsx` to route `#copilot` URL fragment to `<CopilotApp />`
+- Render 3 bullet slots, status badge, latency footer with hardcoded mock content
+- Position default top-right of primary display, 460x560
+**Acceptance:** `pnpm tauri dev` → both windows open; copilot window shows mock bullets.
+**Output:** 1 commit.
+
+### P5-02 · Drag handle + position memory per display
+**Est:** 2h · **Deps:** P5-01 · **PR-able:** ✅
+**Goal:** User can move the overlay; position survives reload.
+**Tasks:**
+- 8px draggable strip at the top of the overlay (Tauri `data-tauri-drag-region`)
+- On move, persist `(displayId, x, y)` to SQLite via new `overlay_position` table
+- On launch, restore position for the current display (fallback to top-right if display absent)
+**Acceptance:** Drag overlay → quit → relaunch → restored to drag position.
+**Output:** 1 commit.
+
+### P5-03 · Subscribe to bullet stream events from Phase 4
+**Est:** 2h · **Deps:** P4-07 + P5-01 · **PR-able:** ✅
+**Goal:** Overlay receives live bullets from the Phase 4 pipeline.
+**Tasks:**
+- Subscribe to `bullet_start` / `bullet_token` / `bullet_end` / `bullet_replaced` events
+- Replace mock with real streaming render
+- Handle ordering: bullets 1/2/3 fill correct slots based on event index
+**Acceptance:** Trigger Phase 4 manually → real bullets stream into the overlay.
+**Output:** 1 commit.
+
+### P5-04 · Status badge transitions
+**Est:** 2h · **Deps:** P5-03 · **PR-able:** ✅
+**Goal:** Visible state machine: idle → listening → recruiter-speaking → ready → generating → done.
+**Tasks:**
+- Subscribe to `audio_state` events (from Phase 1) + `Transcript` events (Phase 2) + bullet events (Phase 4)
+- 6 states with colour + icon + label
+- Animations: 150ms cross-fade between states
+**Acceptance:** During a real session, badge cycles through expected states without getting stuck.
+**Output:** 1 commit.
+
+### P5-05 · Swift sidecar `SCStream` lifecycle subscription
+**Est:** 3h · **Deps:** P1-04 · **PR-able:** ✅
+**Goal:** Detect when ANY screen-share starts on the system.
+**Tasks:**
+- Extend `SystemAudioCapture.swift` to also subscribe to `SCStream` start/stop notifications system-wide
+- Emit `screen_share_started` / `screen_share_stopped` to Rust via stdout protocol
+- Test against Zoom, Meet, Teams, OBS, Discord
+**Acceptance:** Start screen-share in any app → Rust receives the event within 500ms.
+**Output:** 1 commit.
+
+### P5-06 · Auto-mask / minimise on screen-share
+**Est:** 3h · **Deps:** P5-05 + P5-04 · **PR-able:** ✅
+**Goal:** When screen-share detected, overlay becomes invisible to the share.
+**Tasks:**
+- Settings → Copilot → "On screen-share: [Hide / Mask / Move to second display]" preference
+- Hide = `WebviewWindow::hide()`; Mask = render text as solid rectangles; Move = relocate
+- Restore on `screen_share_stopped`
+- Persistent toast on dashboard during screen-share so user knows overlay is hidden
+**Acceptance:** Start Zoom share → overlay disappears in <1s; end share → overlay returns.
+**Output:** 1 commit.
+
+### P5-07 · ⌘⇧G ghost-mode toggle + opacity setting
+**Est:** 3h · **Deps:** P5-04 · **PR-able:** ✅
+**Goal:** Manual user-driven invisibility.
+**Tasks:**
+- Global hotkey ⌘⇧G via `tauri-plugin-global-shortcut` toggles "ghost mode"
+- Ghost = text replaced with blanks; window stays in position
+- Settings → opacity slider (0.7-1.0); persists
+- Visual indicator on the dashboard window when ghost mode is on
+**Acceptance:** ⌘⇧G works from any app; opacity slider applies live.
+**Output:** 1 commit.
+
+### P5-08 · Pin-to-second-display + per-display memory
+**Est:** 3h · **Deps:** P5-02 · **PR-able:** ✅
+**Goal:** Power user routes overlay to a non-shared display.
+**Tasks:**
+- Detect attached displays via `tauri::Window::current_monitor()`
+- "Pin to display" picker in Settings → Copilot
+- Position memory keyed per display config: a (1display, 1920x1080) layout vs (2display, ...) layout remembers separately
+- Single-display Macs: option hidden, no broken state
+**Acceptance:** Pin to display 2 → overlay always opens on display 2 even after restart.
+**Output:** 1 commit.
+
+### P5-09 · COACH-02 pitch-perso generator + dashboard surface
+**Est:** 7h · **Deps:** P4-06 · **PR-able:** ✅
+**Goal:** Pre-interview pitch generator + ⌘P shortcut.
+**Tasks:**
+- `llm::pitch::generate(snapshot, target_role, tone)` — calls Claude with a pitch-specific prompt
+- Output: 60-90s deliverable text + bullet skeleton + "pause here" delivery cues
+- Dashboard surface: review screen + practice mode (read aloud, time it)
+- Reuse Phase 4's validator on the pitch output (no hallucinated CV facts)
+- ⌘P opens pitch in the overlay during a live session
+**Acceptance:** "Generate pitch for AE role at Anthropic" → coherent pitch with clear cues; validator catches synthetic refs.
+**Output:** Sprint closed.
+
+---
+
+## 5. Day-by-day breakdown
 
 ### Day 1 — Overlay window scaffolding
 

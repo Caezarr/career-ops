@@ -109,7 +109,119 @@ Updates at 30 fps from the Rust frame stream via Tauri events.
 
 ---
 
-## 4. Day-by-day breakdown
+## 4. Micro-sprints (atomic tickets)
+
+> Each = 2-5h, ships as one PR with title `[P1-NN] <title>`.
+
+### P1-01 · Pre-flight permission cards UI
+**Est:** 3h · **Deps:** — · **PR-able:** ✅
+**Goal:** Three cards on the Copilot page (Mic / Screen Recording / Accessibility) — green check / red X / amber.
+**Tasks:**
+- New component `CopilotPreflight.tsx` rendering 3 status cards
+- Tauri command `permissions_check()` returning `{ mic: bool, screen: bool, accessibility: bool }`
+- Click handler opens System Settings via Tauri's shell-open with deep link
+- Re-checks on app focus
+**Acceptance:** Open Copilot page → see 3 cards reflect current state; clicking opens correct macOS setting.
+**Output:** 1 commit, frontend + 1 Rust command.
+
+### P1-02 · `cpal` mic capture into Rust frame queue
+**Est:** 4h · **Deps:** — · **PR-able:** ✅
+**Goal:** Mic audio flows into a tagged frame queue.
+**Tasks:**
+- `src-tauri/src/audio/mic.rs` — `cpal::default_input_device()` stream
+- `Channel::Mic` enum variant + `Frame { channel, samples: Vec<i16>, ts: i64 }` struct
+- `crossbeam_channel::bounded(256)` queue, lock-free SPSC pattern
+- Tauri command `audio_start_mic()` / `audio_stop_mic()`
+**Acceptance:** Manual: speak into mic → frames flow into the queue at ~10/s (100ms). Verified via tracing log.
+**Output:** 1 commit, Rust only.
+
+### P1-03 · VU meter rendered from mic channel
+**Est:** 2h · **Deps:** P1-02 · **PR-able:** ✅
+**Goal:** User sees mic activity in real time.
+**Tasks:**
+- Rust task computes RMS over each frame, emits `audio_vu` Tauri event at 30 fps
+- Frontend `<VUMeter />` component subscribes and renders 30 bars
+- Theme-aware (cyan in light, brighter in dark)
+**Acceptance:** Speaking moves the bars; silence = quiet bars.
+**Output:** 1 commit.
+
+### P1-04 · Swift sidecar scaffold (`SystemAudioCapture.swift`)
+**Est:** 4h · **Deps:** — · **PR-able:** ✅
+**Goal:** Minimal Swift CLI that subscribes to ScreenCaptureKit audio and prints frame metadata.
+**Tasks:**
+- `src-tauri/swift/SystemAudioCapture.swift` — uses `SCStream` + `SCContentSharingPicker`
+- Streams audio frames over stdout as length-prefixed binary chunks
+- SIGTERM-clean shutdown
+- README: how to build manually for now
+**Acceptance:** Run `swift run SystemAudioCapture` from terminal → see `Frame: 1600 samples, 16kHz` printed every 100ms while a YouTube video plays.
+**Output:** 1 commit, Swift only, no Rust integration yet.
+
+### P1-05 · Tauri sidecar bundling + spawn from Rust
+**Est:** 3h · **Deps:** P1-04 · **PR-able:** ✅
+**Goal:** Sidecar lives inside the .app bundle and Rust spawns it on demand.
+**Tasks:**
+- `tauri.conf.json::bundle.externalBin` includes the Swift binary
+- Build script compiles Swift to a fat binary on `pnpm tauri build`
+- Rust uses `tauri::api::process::Command::new_sidecar` to spawn
+- Verify in a packaged .app on a clean Mac
+**Acceptance:** `pnpm tauri build` produces a .app that launches the sidecar without external Swift install.
+**Output:** 1 commit, build config + Rust spawn.
+
+### P1-06 · Sidecar stdout → Rust frame queue (`Channel::System`)
+**Est:** 3h · **Deps:** P1-05 · **PR-able:** ✅
+**Goal:** System audio frames join the same queue as mic, tagged differently.
+**Tasks:**
+- Rust reader thread: parses sidecar's length-prefixed binary chunks
+- Tags each as `Channel::System`, pushes to the same queue
+- Backpressure: if queue full, drop oldest frame + log warn
+**Acceptance:** Mic + system audio simultaneously visible in tracing log with correct channel tags.
+**Output:** 1 commit.
+
+### P1-07 · VU meter dual-channel
+**Est:** 1h · **Deps:** P1-03 + P1-06 · **PR-able:** ✅
+**Goal:** Two VU strips: cyan = mic, purple = system.
+**Tasks:**
+- Backend computes RMS per channel separately
+- Frontend renders two VU strips side-by-side
+**Acceptance:** Play YouTube → only system meter moves. Speak → only mic meter moves.
+**Output:** 1 commit.
+
+### P1-08 · First-launch permission wizard with deep-links
+**Est:** 3h · **Deps:** P1-01 · **PR-able:** ✅
+**Goal:** A fresh Mac user gets walked through the 3 permissions in order.
+**Tasks:**
+- Wizard modal that intercepts the first Copilot-page visit if any perm is missing
+- Per-perm card: explanation in plain language, "Open Settings" button, "Re-check" button
+- Don't skip if mic perm not granted (mic is the absolute minimum)
+**Acceptance:** Fresh install → wizard runs → all 3 cards green at the end.
+**Output:** 1 commit.
+
+### P1-09 · 16kHz mono int16 resampler + tests
+**Est:** 4h · **Deps:** P1-06 · **PR-able:** ✅
+**Goal:** Every frame leaving `audio.rs` is in the canonical Deepgram-ready format.
+**Tasks:**
+- `audio/resample.rs` — 48kHz → 16kHz with linear interpolation (good enough for STT)
+- Mono downmix from stereo if needed
+- `cargo test resample::test_48_to_16khz_synthetic` — generates a 1kHz sine, verifies output is also 1kHz at 16kHz sample rate
+- Apply resampler to BOTH channels at the queue boundary
+**Acceptance:** Tests pass; downstream consumers always receive 1600-sample i16 chunks at 16kHz mono.
+**Output:** 1 commit.
+
+### P1-10 · Sidecar crash recovery + backpressure + e2e test
+**Est:** 5h · **Deps:** P1-09 · **PR-able:** ✅
+**Goal:** Sprint exit gate.
+**Tasks:**
+- If Swift sidecar exits unexpectedly: log + restart once with 1s delay; if it crashes again, surface to UI
+- Pre-flight 5-second capture button on Copilot page reports peak mic + system VU
+- Auto-stop after 60min by default (configurable)
+- `cargo test --ignored audio_e2e_smoke` — captures 5s real audio, verifies frame counts on both channels
+- README "Live Copilot — audio capture" section
+**Acceptance:** Kill sidecar mid-capture → recovery in <2s; pre-flight button works; tests green.
+**Output:** Sprint closed.
+
+---
+
+## 5. Day-by-day breakdown
 
 ### Day 1 — Permissions UI + cpal mic capture
 

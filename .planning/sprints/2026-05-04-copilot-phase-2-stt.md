@@ -69,7 +69,105 @@ Question-end fires when **Signal A AND (B OR C)** are true.
 
 ---
 
-## 5. Day-by-day breakdown
+## 5. Micro-sprints (atomic tickets)
+
+### P2-01 · Deepgram WebSocket client (smoke test)
+**Est:** 4h · **Deps:** P1-10 · **PR-able:** ✅
+**Goal:** A `tokio_tungstenite` client connects to Deepgram, sends a synthetic linear16 buffer, prints the transcribed result.
+**Tasks:**
+- `src-tauri/src/stt/deepgram.rs` — connection + auth header (Keychain-loaded API key)
+- `cargo run --bin stt_smoke` reads a 5s WAV from `tests/fixtures/`, streams it, prints final transcripts
+- Handle Deepgram's `Final` / `Interim` event types
+**Acceptance:** Smoke binary produces "hello world" transcribed from the test WAV.
+**Output:** 1 commit; binary gated behind `--bin stt_smoke`.
+
+### P2-02 · Per-channel `stt::session` lifecycle
+**Est:** 4h · **Deps:** P2-01 · **PR-able:** ✅
+**Goal:** Two simultaneous Deepgram WebSockets — one per channel — fed from the Phase 1 frame queue.
+**Tasks:**
+- `stt/session.rs::start_session()` — spawns 2 connections + 2 forwarder tasks
+- Each forwarder reads frames matching its `Channel`, sends to the right WS
+- `stop_session()` graceful shutdown
+**Acceptance:** Manual: speak + play system audio → both transcripts visible in tracing logs separately.
+**Output:** 1 commit.
+
+### P2-03 · `Transcript` event emission to frontend
+**Est:** 2h · **Deps:** P2-02 · **PR-able:** ✅
+**Goal:** Frontend receives streaming transcripts.
+**Tasks:**
+- `Transcript { channel: "mic"|"system", text, isFinal: bool, ts: i64 }` event via `tauri::Manager::emit`
+- Both interim + final emitted; frontend can choose which to render
+- Throttle interim emissions to 10/s max to avoid React thrash
+**Acceptance:** Frontend `useEffect(() => listen('transcript', ...))` receives both channels.
+**Output:** 1 commit.
+
+### P2-04 · FR↔EN code-switch verification
+**Est:** 2h · **Deps:** P2-03 · **PR-able:** ❌
+**Goal:** Confirm Nova-3 multilingual handles mid-sentence code switching at acceptable quality.
+**Tasks:**
+- Record a 2min sample switching FR↔EN every 20s (Gabriel reads a script)
+- Run through the pipeline; manually transcribe ground truth
+- Compute word-error rate; if >10%, fall back to language-detected per-utterance routing
+- Log findings in `.planning/research/STT-NOTES.md`
+**Acceptance:** Either: WER ≤10% on multi mode (proceed), or fallback decision documented + tracked as P2-04.5 ticket.
+**Output:** Recon, no code commit (unless fallback decision triggers a follow-up MS).
+
+### P2-05 · Question-end detector — Signal A (utterance_end)
+**Est:** 2h · **Deps:** P2-02 · **PR-able:** ✅
+**Goal:** Detect Deepgram's native end-of-utterance event.
+**Tasks:**
+- Configure session with `endpointing=200&utterance_end_ms=1500`
+- Listen for `UtteranceEnd` event type
+- Surface as a Rust internal `DetectorSignal::UtteranceEnd { channel, last_text }`
+**Acceptance:** Speak a sentence + 1.5s silence → DetectorSignal fires once.
+**Output:** 1 commit.
+
+### P2-06 · Question-end detector — Signals B + C composition
+**Est:** 2h · **Deps:** P2-05 · **PR-able:** ✅
+**Goal:** Compose all three signals so we only fire on a *recruiter question*.
+**Tasks:**
+- Signal B: regex over the last_text — interrogative patterns + trailing `?`
+- Signal C: `channel == Channel::System`
+- `QuestionEnd { window: String }` event emitted only when A AND (B OR C) AND C are true
+- Manual override hotkeys (next MS) compensate for misses
+**Acceptance:** "Tell me about your last role?" from system → fires; user mumble "uhhh" → does NOT fire.
+**Output:** 1 commit.
+
+### P2-07 · Live two-column transcript UI
+**Est:** 3h · **Deps:** P2-03 · **PR-able:** ✅
+**Goal:** A clean live transcript view on the Copilot page.
+**Tasks:**
+- Two columns: System (left, gray) and Mic (right, cyan)
+- Auto-scroll to latest line; user can scroll up to read history
+- Status badge above: idle → listening → recruiter-speaking → ready (transitions wired in next MS)
+**Acceptance:** Real session → text appears in both columns with timestamps.
+**Output:** 1 commit.
+
+### P2-08 · Override hotkeys (⌘R, ⌘N, ⌘Z)
+**Est:** 3h · **Deps:** P2-06 + P2-07 · **PR-able:** ✅
+**Goal:** Cover detector misses with manual user overrides.
+**Tasks:**
+- ⌘R: regenerate (re-emit QuestionEnd with same window) — actually wired in Phase 4
+- ⌘N: skip the last detected question (no-op for now, surface as toast)
+- ⌘Z: mark "this IS a question" — manually emits QuestionEnd
+- Use `tauri-plugin-global-shortcut` (already in deps)
+**Acceptance:** ⌘Z fires QuestionEnd from any state; toast confirms.
+**Output:** 1 commit.
+
+### P2-09 · WebSocket reconnect + latency profile + README
+**Est:** 6h · **Deps:** all above · **PR-able:** ✅
+**Goal:** Sprint exit gate.
+**Tasks:**
+- Bounded retries (max 3, exponential backoff 1s/4s/9s) on WS drop
+- Persistent banner if 3 retries fail (Phase 6 handles failover)
+- Latency profiler in dev mode: log p50/p95 from frame-arrival to Transcript-event-emit
+- README "Live Copilot — STT" section explaining the pipeline + override hotkeys
+**Acceptance:** Drop wifi → reconnect within 5s; latency p95 <500ms on a clean connection.
+**Output:** Sprint closed.
+
+---
+
+## 6. Day-by-day breakdown
 
 ### Day 1 — Deepgram WebSocket scaffold
 

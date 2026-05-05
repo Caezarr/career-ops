@@ -16,23 +16,29 @@ sprints get a follow-up sprint, not "merge it anyway".
 Priority is **vertical** (top-down). When a higher-priority sprint blocks
 a lower one (e.g. audit before Live Copilot work), the order is fixed.
 
+> **Looking for atomic tickets?** Every epic below is decomposed into
+> 5-12 micro-sprints (each 2-4h, one PR). The flat ordered list across
+> all epics lives in [`MICRO-SPRINTS.md`](./MICRO-SPRINTS.md) — that's
+> the single source of truth for "what do I work on next".
+
 ---
 
 ## Lineup
 
-| # | Sprint | Priority | Est. | Status |
-|---|---|---|---|---|
-| 1 | **Job Teaser SSO** — school-jobs ingestion via authenticated WebView | 🔴 Critical | 4-5 d | 🟡 Spec'd, not started |
-| 2 | **Audit / Roast** — security audit, code quality, UX coverage, privacy posture | 🔴 Critical | 2 d | 🟡 Spec'd, not started |
-| 3 | **PRIV-01** — single-egress `cloud::Client` Rust refactor | 🟠 High | 1-2 d | 🟡 Spec'd as standalone task |
-| 4 | **Copilot Phase 1** — dual-channel audio capture (mic + ScreenCaptureKit) | 🟠 High | 5-7 d | 🟡 Spec'd, not started |
-| 5 | **Copilot Phase 2** — STT spine + question detection (Deepgram Nova-3) | 🟠 High | 5-7 d | 🟡 Spec'd, not started |
-| 6 | **Copilot Phase 3** — CV/JD ingestion + per-offer snapshot + ContextAssembler | 🟡 Med | 4-5 d | 🟡 Partial (CV manager exists, snapshot/Docling missing) |
-| 7 | **Copilot Phase 4** — LLM bullet generation + 3 domain personae | 🟡 Med | 4-5 d | 🟡 Spec'd, partially done (ATS analysis ships) |
-| 8 | **Copilot Phase 5** — Live UX overlay + screen-share masking + Pitch perso | 🟡 Med | 4-5 d | 🟡 Overlay UI exists, pipeline not wired |
-| 9 | **Copilot Phase 6 (SHIPPABLE GATE)** — failover + watchdog + degraded mode | 🟡 Med | 5-7 d | 🟡 Spec'd, not started |
+| # | Sprint | Priority | µ-sprints | Hours | Status |
+|---|---|---|---|---|---|
+| 1 | **Job Teaser SSO** — school-jobs via authenticated WebView | 🔴 Critical | 12 (`JT-01` → `JT-12`) | 36h | 🟡 Spec'd |
+| 2 | **Audit / Roast** — security, code quality, privacy posture, drift | 🔴 Critical | 8 (`AU-01` → `AU-08`) | 16h | 🟡 Spec'd |
+| 3 | **PRIV-01** — single-egress `cloud::Client` Rust refactor | 🟠 High | 5 (`PR1-01` → `PR1-05`) | 12h | 🟡 Triggered by AU-08 |
+| 4 | **Copilot Phase 1** — dual-channel audio capture | 🟠 High | 10 (`P1-01` → `P1-10`) | 32h | 🟡 Spec'd |
+| 5 | **Copilot Phase 2** — STT spine + question detection | 🟠 High | 9 (`P2-01` → `P2-09`) | 28h | 🟡 Spec'd |
+| 6 | **Copilot Phase 3** — CV/JD + per-offer snapshot + ContextAssembler | 🟡 Med | 7 (`P3-01` → `P3-07`) | 22h | 🟡 Partial |
+| 7 | **Copilot Phase 4** — LLM bullets + personae + citation validator | 🟡 Med | 8 (`P4-01` → `P4-08`) | 24h | 🟡 Spec'd, partial |
+| 8 | **Copilot Phase 5** — overlay + stealth + Pitch perso | 🟡 Med | 9 (`P5-01` → `P5-09`) | 28h | 🟡 Spec'd |
+| 9 | **Copilot Phase 6 (SHIPPABLE GATE)** — failover + watchdog + degraded | 🟡 Med | 12 (`P6-01` → `P6-12`) | 38h | 🟡 Spec'd |
+| | **TOTAL** | | **88** | **~236h** | |
 
-**Total time-to-Live-Copilot-ship:** ~5-6 weeks once we start the Copilot track (after Job Teaser + Audit).
+(236h is serial-best-case. Realistic with reviews + bug fixes: 280-320h ≈ 7-8 weeks at 40h/wk.)
 
 ---
 

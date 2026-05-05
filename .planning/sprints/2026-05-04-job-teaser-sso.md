@@ -147,7 +147,145 @@ Curated list — the ones with the strongest French Grandes Écoles networks:
 
 ---
 
-## 7. Day-by-day breakdown
+## 7. Micro-sprints (atomic tickets)
+
+> Each micro-sprint = 2-4 h, ships as one PR with title `[JT-NN] <title>`.
+> The day-by-day breakdown below groups them into a calendar view.
+
+### JT-01 · Manual exploration: HEC + ESSEC + ESCP endpoint shapes
+**Est:** 4h · **Deps:** — · **PR-able:** ❌ (recon only)
+**Goal:** Lock the spec by verifying real cookie names + endpoint URLs against ≥3 schools.
+**Tasks:**
+- Open Safari DevTools, log into HEC's Job Teaser as Gabriel
+- Capture .har → save at `.planning/research/jobteaser-har/hec.har` (gitignored, local only)
+- Document in §3 of this doc: real session cookie names, the `/api/...` endpoint that lists jobs, pagination pattern
+- Repeat for ESSEC + ESCP (or 2 schools accessible via friends)
+**Acceptance:** §3 + §4 of this doc updated with concrete URLs + cookie names; ≥1 working .har capture per tested school exists locally
+**Output:** spec updates only, no code commit.
+
+### JT-02 · Add `IngestProvider::JobTeaser` enum variant + frontend type
+**Est:** 1h · **Deps:** JT-01 · **PR-able:** ✅
+**Goal:** Extend the existing `IngestProvider` taxonomy without breaking other providers.
+**Tasks:**
+- `src-tauri/src/ingest/traits.rs`: add `JobTeaser` to enum + `as_str` / `from_str` arms
+- `src/dashboard/store/types.ts`: extend the `IngestProvider` union
+- Update `mod.rs::run_source` match — for now return `Err(NotImplemented)` for the new variant
+- `cargo check` + `pnpm exec tsc -b` clean
+**Acceptance:** TS + Rust compile; `IngestProvider::JobTeaser` recognised everywhere it appears.
+**Output:** 1 commit, ~30 lines diff.
+
+### JT-03 · `IngestSource.subdomain` + `schoolDisplayName` fields
+**Est:** 1h · **Deps:** JT-02 · **PR-able:** ✅
+**Goal:** Make `IngestSource` carry the JT-specific fields without breaking the existing curated providers.
+**Tasks:**
+- `types.ts`: add optional `subdomain?: string` and `schoolDisplayName?: string`
+- Document in the type comment: only set when `provider === 'jobteaser'`
+- `addIngestSource` action accepts the new fields
+- Update SQLite migration `0002_job_ingestion.sql` schema OR add `0003` migration adding the columns to `ingest_source`
+**Acceptance:** Existing sources still work; new fields nullable; migration runs clean on a fresh DB.
+**Output:** 1 commit, frontend + Rust + migration.
+
+### JT-04 · Tauri command to open auth WebViewWindow
+**Est:** 3h · **Deps:** JT-03 · **PR-able:** ✅
+**Goal:** Open a transient WebView pointing at the school's SSO landing.
+**Tasks:**
+- `tauri.conf.json`: declare a `jobteaser-auth` window, hidden by default, decorations on (user needs OS chrome to navigate IdP UIs)
+- `src-tauri/src/ingest/jobteaser/mod.rs` (new module) + `auth.rs` stub
+- New Tauri command `jobteaser_auth_open(subdomain: String)` — shows the window, navigates to `https://<sub>.jobteaser.com/login`
+- Register in `invoke_handler!`
+**Acceptance:** Calling `invoke('jobteaser_auth_open', { subdomain: 'hec' })` from the frontend pops the SSO page in a new window.
+**Output:** 1 commit; window opens but does not yet capture cookies.
+
+### JT-05 · JS bridge: poll `document.cookie` + emit `auth-cookies-found`
+**Est:** 3h · **Deps:** JT-04 · **PR-able:** ✅
+**Goal:** Detect when the user has finished SSO + extract the session token.
+**Tasks:**
+- Use the window's `initialization_script` to inject a small JS poller (every 500ms) that checks for the JT-01-confirmed cookie name(s)
+- When found, call `window.__TAURI__.event.emit('auth-cookies-found', { cookies, profile })` — also fetch `/api/me` from inside the page to grab the user's display name
+- Add a tiny "Detecting…" overlay at the top of the auth window so the user knows the app is watching
+**Acceptance:** Manual test: log into HEC → within 1s after redirect, the event fires in the Rust listener with the right cookie + profile.
+**Output:** 1 commit; cookies surfaced, not yet stored.
+
+### JT-06 · Rust handler: store cookies in Keychain via `keyring`
+**Est:** 2h · **Deps:** JT-05 · **PR-able:** ✅
+**Goal:** Persist session cookies securely + insert the source row.
+**Tasks:**
+- Listen for `auth-cookies-found` in the Rust runtime
+- Serialize the cookie set as JSON, store under Keychain key `career-os.jobteaser.<sub>.session`
+- Call `addIngestSource` with provider=jobteaser, subdomain, schoolDisplayName from profile
+- Save to SQLite via the existing `db_upsert_ingest_source`
+- Close the auth window via `WebviewWindow::close()`
+**Acceptance:** After SSO completes, source row appears in Settings → Job Sources; `security find-generic-password -s "career-os.jobteaser.hec.session"` shows the saved cookie.
+**Output:** 1 commit; full auth roundtrip works for ≥1 school.
+
+### JT-07 · `scrape.rs::fetch(subdomain)` — paginated authenticated GET
+**Est:** 4h · **Deps:** JT-06 · **PR-able:** ✅
+**Goal:** Pull the actual job feed using the stored cookies.
+**Tasks:**
+- Read cookies from Keychain at fetch time
+- Build the `reqwest::Client` with a cookie store seeded from the saved session
+- Walk the paginated endpoint until empty (cap 50 pages = 2500 jobs max)
+- Map each posting → `RawJob` (reuse the existing struct from `traits.rs`)
+- 401/403 → return a structured `IngestError::Unauthorised` so the caller can trigger re-auth
+- Use `cloud::Client` if PRIV-01 has shipped, else match the existing pattern (TODO in code)
+**Acceptance:** `cargo test --ignored jobteaser_fetch_one_page` runs against a real session, returns ≥1 RawJob.
+**Output:** 1 commit; tests gated behind `--ignored` (need real auth).
+
+### JT-08 · Wire `IngestProvider::JobTeaser` branch in `mod.rs::run_source`
+**Est:** 2h · **Deps:** JT-07 · **PR-able:** ✅
+**Goal:** Make Job Teaser pulls participate in the unified ingest pipeline.
+**Tasks:**
+- `mod.rs::run_source` JobTeaser arm calls `jobteaser::scrape::fetch(identifier)` (identifier = subdomain)
+- Backfill `company` field on RawJob: companies on Job Teaser are heterogeneous, so use the actual company per-posting (not the school name)
+- "Sync all jobs" auto-includes any enabled JT sources; per-source error handling already covers JT failures
+**Acceptance:** Click Sync All on Jobs page → JT jobs flow in alongside Greenhouse/Lever/Ashby/YC; bookmarks survive re-sync via existing dedup.
+**Output:** 1 commit; first end-to-end flow.
+
+### JT-09 · Settings → "+ Add school" picker (10 schools curated)
+**Est:** 3h · **Deps:** JT-04 · **PR-able:** ✅
+**Goal:** UI for picking a school + opening the auth flow.
+**Tasks:**
+- New section in `JobSourcesCard.tsx`: above the existing "Add a custom slug" row, show a "+ Add school" button with school picker
+- Picker = dropdown of 10 (HEC, ESSEC, ESCP, Sciences Po, EM Lyon, EDHEC, Polytechnique, ENSAE, INSEAD, CentraleSupélec) + "Other"
+- Click → calls `jobteaser_auth_open` with the subdomain
+- Toast: "Sign in to <School> in the new window"
+**Acceptance:** Visual: button + picker rendered, clicking opens auth window; users can identify which school they're adding.
+**Output:** 1 commit; UI-only diff.
+
+### JT-10 · Per-source re-auth flow (401 → reopen WebView)
+**Est:** 2h · **Deps:** JT-08 + JT-09 · **PR-able:** ✅
+**Goal:** When a session expires, surface a clear path back to working state.
+**Tasks:**
+- When `scrape::fetch` returns `IngestError::Unauthorised`, set `lastError: "Re-authentication required"` on the source row
+- `JobSourcesCard` source row: if `lastError` matches that string, render a "🔄 Re-authenticate" button instead of just the error
+- Clicking re-runs `jobteaser_auth_open(subdomain)` → JT-05/06 do their thing again, refreshing the cookies in place
+**Acceptance:** Manually delete the JT cookie via Keychain Access → Sync → row turns red with the button → click → SSO opens, completes, row goes green.
+**Output:** 1 commit.
+
+### JT-11 · "School not listed?" custom subdomain input
+**Est:** 1h · **Deps:** JT-09 · **PR-able:** ✅
+**Goal:** Cover the long tail of Job-Teaser-using schools.
+**Tasks:**
+- "Other" choice in the school picker reveals a free-text subdomain input + "Validate" button
+- "Validate" → opens auth window for `https://<input>.jobteaser.com/login`. If the page 404s, show a clear error.
+- A successful auth → uses the input as the subdomain and "User-supplied" as the school display name (Profile-fetch on success will overwrite)
+**Acceptance:** A Job-Teaser-using school not in the curated 10 can still be added.
+**Output:** 1 commit.
+
+### JT-12 · Smoke test + README + sprint exit
+**Est:** 3h · **Deps:** all above · **PR-able:** ✅
+**Goal:** Sprint exit gate.
+**Tasks:**
+- `cargo test --ignored jobteaser_smoke` — uses a `JT_SESSION_COOKIE` env var to validate parser against a real response
+- README → "Job Teaser" section explaining auth flow + privacy posture
+- Commit `.planning/research/PITFALLS.md` update with anything learned during JT-01 (cookie names, school redirects, etc.)
+- Final manual run-through of all acceptance criteria (§9 above)
+**Acceptance:** All criteria in §9 met. PR #X opened with the demo recording attached.
+**Output:** Sprint closed.
+
+---
+
+## 8. Day-by-day breakdown
 
 ### Day 1 — Exploration + spec lock
 
@@ -199,7 +337,7 @@ Curated list — the ones with the strongest French Grandes Écoles networks:
 
 ---
 
-## 8. Risks + mitigations
+## 9. Risks + mitigations
 
 | Risk | Severity | Mitigation |
 |---|---|---|
@@ -212,7 +350,7 @@ Curated list — the ones with the strongest French Grandes Écoles networks:
 
 ---
 
-## 9. Acceptance criteria
+## 10. Acceptance criteria
 
 - [ ] In Settings → Job Sources, click "+ Add school" → pick HEC → SSO window opens
 - [ ] Complete SSO in the window → window auto-closes within 1s of cookie capture
@@ -225,7 +363,7 @@ Curated list — the ones with the strongest French Grandes Écoles networks:
 
 ---
 
-## 10. Privacy posture
+## 11. Privacy posture
 
 - ✅ Cookies in Keychain only — never in SQLite, never bundled, never logged
 - ✅ Session-stored locally per user-Mac-account — no cloud sync
@@ -235,7 +373,7 @@ Curated list — the ones with the strongest French Grandes Écoles networks:
 
 ---
 
-## 11. Workflow
+## 12. Workflow
 
 - **Branch:** `feat/job-teaser-sso`, off latest main
 - **Commits:** one per task T*, atomic

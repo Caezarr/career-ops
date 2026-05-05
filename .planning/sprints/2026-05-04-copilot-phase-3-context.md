@@ -45,7 +45,87 @@ The CV manager UI already exists. This sprint makes the parsing + context-assemb
 
 ---
 
-## 3. Day-by-day breakdown
+## 3. Micro-sprints (atomic tickets)
+
+### P3-01 · Docling Python sidecar bundling
+**Est:** 4h · **Deps:** — · **PR-able:** ✅
+**Goal:** Docling runs from inside the .app bundle without external Python install.
+**Tasks:**
+- PyInstaller bundle of Docling → standalone executable (~150MB)
+- `tauri.conf.json::bundle.externalBin` registers it
+- Build script for CI / local: `swift run` no longer needed
+- Smoke test: spawn the sidecar, send a tiny PDF on stdin, parse JSON output
+**Acceptance:** `pnpm tauri build` produces a .app that parses a sample CV without external Python.
+**Output:** 1 commit.
+
+### P3-02 · CV upload → Docling → structured JSON in `cv` table
+**Est:** 3h · **Deps:** P3-01 · **PR-able:** ✅
+**Goal:** A real PDF upload produces structured experience/education/skills sections.
+**Tasks:**
+- Extend `cv` SQLite table with `parsed_json BLOB` column (migration 0003)
+- New Tauri command `cv_parse_with_docling(cv_id)` — spawns sidecar, parses, persists
+- Frontend CV preview reads the JSON and renders structured sections (replace today's mock)
+**Acceptance:** Upload Gabriel's real CV → see correct experience timeline, skill tags, education.
+**Output:** 1 commit.
+
+### P3-03 · JD parser: sections + keyword extraction
+**Est:** 3h · **Deps:** — · **PR-able:** ✅
+**Goal:** A pasted JD becomes `{ about, responsibilities, requirements, nice_to_have, benefits, keywords[] }`.
+**Tasks:**
+- `src-tauri/src/context/jd_parser.rs` — heuristic regex split on common section headers
+- Keyword extraction: capitalised tokens + multi-word phrases from the requirements section
+- Cap keywords at top-30 by frequency
+- `cargo test jd_parse_anthropic_listing` snapshot test
+**Acceptance:** Test passes for a known Anthropic JD; structure visible in War Room JD section.
+**Output:** 1 commit.
+
+### P3-04 · `interview_snapshot` table + immutable creation
+**Est:** 3h · **Deps:** P3-02 + P3-03 · **PR-able:** ✅
+**Goal:** Per-offer snapshot freezes (cv_id, jd_id, persona) so contexts never bleed.
+**Tasks:**
+- Migration 0004: `interview_snapshot { id, cv_id, jd_id, persona, created_at, snapshot_json }`
+- `db::snapshot::create(cv_id, jd_id, persona)` — copies CV JSON + JD JSON into a frozen blob
+- Tauri command `snapshot_create_for_session`
+- DB index on (cv_id, jd_id) for cheap lookup
+**Acceptance:** Starting a Live session creates one row; viewing the row in DB shows immutable JSON.
+**Output:** 1 commit.
+
+### P3-05 · `assembler.rs::build(snapshot_id) → LlmContext`
+**Est:** 3h · **Deps:** P3-04 · **PR-able:** ✅
+**Goal:** Produce the LLM-ready context object.
+**Tasks:**
+- `LlmContext` struct (cv_summary, cv_experiences, jd_text, jd_keywords, persona, language)
+- Each `Experience` has stable ID `exp.<idx>` for citation refs
+- Truncate JD to 4k tokens (rough char count); summarise CV experiences to ≤1k tokens via deterministic bullet extraction
+- Auto-detect language from JD (FR vs EN) using simple heuristics
+**Acceptance:** Deterministic — same input ⇒ same output; round-trip test in `cargo test`.
+**Output:** 1 commit.
+
+### P3-06 · 3 persona prompt templates
+**Est:** 3h · **Deps:** — · **PR-able:** ✅
+**Goal:** Finance / Tech-AI / Consulting persona prompt files reviewed and committed.
+**Tasks:**
+- `src-tauri/prompts/persona-finance.md`
+- `src-tauri/prompts/persona-tech-ai.md`
+- `src-tauri/prompts/persona-consulting.md`
+- Each ~500 words: system instructions, style, framework (STAR / MECE / Pyramid), tone
+- Documented in `.planning/research/PROMPTS.md`
+**Acceptance:** All 3 reviewed by the user; committed as readable text.
+**Output:** 1 commit, prompts only.
+
+### P3-07 · Wire start-Live-Copilot button + snapshot test
+**Est:** 3h · **Deps:** P3-05 + P3-06 · **PR-able:** ✅
+**Goal:** Sprint exit gate.
+**Tasks:**
+- Copilot page: pick CV + Job + persona → "Start Live" button creates snapshot via P3-04 + builds context via P3-05
+- `cargo test context::no_bleed_between_snapshots` — assert two consecutive sessions produce distinct snapshot_ids and don't share state
+- README "Live Copilot — context" section explaining the snapshot model
+**Acceptance:** Test passes + manual flow: switch jobs mid-session = brand new context.
+**Output:** Sprint closed.
+
+---
+
+## 4. Day-by-day breakdown
 
 ### Day 1 — Docling sidecar
 

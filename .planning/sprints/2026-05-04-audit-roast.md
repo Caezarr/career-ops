@@ -133,7 +133,104 @@ Older docs reference the original "Interview Copilot" scope. Some are still vali
 
 ---
 
-## 3. Day-by-day breakdown
+## 3. Micro-sprints (atomic tickets)
+
+> Each = 1-3 h. Most are pure recon (no code commit) — outputs feed `AUDIT.md`.
+
+### AU-01 · Run `gitleaks` + `cargo audit` + `pnpm audit`
+**Est:** 1h · **Deps:** — · **PR-able:** ❌
+**Goal:** Surface any leaked secrets in git history + known CVEs in deps.
+**Tasks:**
+- `gitleaks detect --source . --no-banner` over the full repo + log clean / dirty
+- `cd src-tauri && cargo audit` — list any RUSTSEC-* with severity
+- `pnpm audit --prod` — same exercise; `--audit-level=moderate` floor
+- Append findings to `.planning/audit-2026-05/AUDIT.md` under `§Security`
+**Acceptance:** All three commands run; verdict (PASS / FINDINGS) recorded with file:line for every hit.
+**Output:** AUDIT.md draft, no code change.
+
+### AU-02 · Inventory `#[tauri::command]` + grade input validation
+**Est:** 2h · **Deps:** — · **PR-able:** ❌
+**Goal:** Confirm no command takes raw user input that can become path traversal / SQL injection / shell injection.
+**Tasks:**
+- `grep -rn "#\[tauri::command\]" src-tauri/src/` — list every command
+- For each: identify input params + grade `safe / sanitised / risky / unknown`
+- Risky ones: write a 1-line test (`cargo test cmd_<name>_rejects_traversal`) BEFORE the audit lands
+- Findings → AUDIT.md `§Security § Tauri commands`
+**Acceptance:** Every command has a verdict in the table; risky ones have a test gating them.
+**Output:** AUDIT.md update + (optionally) a `cmd_*_safety_tests.rs` file.
+
+### AU-03 · PRIV-01 violation inventory
+**Est:** 1h · **Deps:** — · **PR-able:** ❌
+**Goal:** Confirm the existing 9-site list is exhaustive.
+**Tasks:**
+- `grep -rn "reqwest::Client::builder\|reqwest::Client::new" src-tauri/src/` — exhaustive list
+- Cross-check with the existing list in this doc's §2.2; flag any new sites
+- Decide: tackle in this audit (≤½ d available) or trigger Epic 3 (PRIV-01) sprint
+- Append to AUDIT.md `§PRIV-01`
+**Acceptance:** `egress_no_leaks_test.rs` test that uses `include_str!` + grep over `src-tauri/src` written and FAILS today (proves the test catches violations).
+**Output:** AUDIT.md update + 1 failing test (will pass after Epic 3).
+
+### AU-04 · Dead-code sweep
+**Est:** 2h · **Deps:** — · **PR-able:** ❌
+**Goal:** Find anything exported but unused — store actions, components, Tauri commands, TS types.
+**Tasks:**
+- `grep -rn "TODO\|FIXME\|XXX\|HACK" src/ src-tauri/src/` — verdict per match (kill / track / fix)
+- Find unused store actions: `grep -L "actionName" src/dashboard/components` for each action defined in slices
+- Find dead components: every file in `components/*` that's not imported anywhere
+- Find unused Tauri commands: every command in `invoke_handler!` not invoked from frontend
+- TS: `tsc --noUnusedLocals --noUnusedParameters` and address findings
+- AUDIT.md `§Dead code`
+**Acceptance:** Every flagged item has a verdict; items marked "kill" are deleted in this micro-sprint.
+**Output:** AUDIT.md update + 1 commit deleting verified-dead code.
+
+### AU-05 · Per-page reality matrix (7 surfaces)
+**Est:** 3h · **Deps:** — · **PR-able:** ❌
+**Goal:** For each surface, document real / mock / broken — no marketing language.
+**Tasks:**
+- Open each page: Dashboard, Jobs, Applications, War Room, CV, Prep, Live Copilot
+- Click every interactive element. Take a screenshot. Note any broken interaction.
+- For each row, fill: backing layer (DB / API / mock), known gaps, README vs. reality delta
+- Save screenshots under `.planning/audit-2026-05/screenshots/`
+- AUDIT.md `§Per-page functionality` with the matrix
+**Acceptance:** 7 rows × {backing, mock, gaps, screenshot}. No "TBD".
+**Output:** AUDIT.md update + screenshots committed.
+
+### AU-06 · Privacy claims verification (6 README claims)
+**Est:** 2h · **Deps:** AU-03 · **PR-able:** ❌
+**Goal:** Every README privacy bullet either passes verification or gets removed/softened.
+**Tasks:**
+- Walk through each claim from §2.5 of this doc (raw audio / local persistence / cloud::Client / Keychain / ZDR / PII-stripped logger)
+- For each: state how it's verified, paste evidence (file:line, command output, etc.)
+- If FAIL: open a follow-up micro-sprint OR weaken the README claim in the same commit
+- AUDIT.md `§Privacy claims`
+**Acceptance:** Every claim is PASS or the README has been edited in this commit to no longer make the claim.
+**Output:** AUDIT.md + (optionally) README.md commit.
+
+### AU-07 · `.planning/` drift annotations
+**Est:** 1h · **Deps:** — · **PR-able:** ✅
+**Goal:** Stale planning docs from the original "Interview Copilot" pivot get a "(2026-05 status)" marker.
+**Tasks:**
+- Read each of `PROJECT.md`, `REQUIREMENTS.md`, `ROADMAP.md`, `research/*.md`
+- Add inline `> **2026-05-05 status:** done / partial / pending — see XYZ` markers
+- DON'T rewrite — just annotate, so the historical context stays clean
+**Acceptance:** Every document in `.planning/` (except `sprints/`) has at least one freshness annotation.
+**Output:** 1 commit, doc edits only.
+
+### AU-08 · Write `AUDIT.md` final + §Roast + open follow-up sprints
+**Est:** 4h · **Deps:** AU-01 → AU-07 · **PR-able:** ✅
+**Goal:** Sprint exit gate. Honest, prioritised, actionable.
+**Tasks:**
+- Stitch together AUDIT.md final from all the per-MS appends
+- Write the §Roast section as if presenting to a hostile reviewer (see §6 of this doc)
+- Punch list table: severity × effort × status, sorted by severity
+- For every 🔴 not fixed inline: spawn a follow-up micro-sprint (add to MICRO-SPRINTS.md)
+- For every 🟠: schedule into next 2 sprints
+**Acceptance:** AUDIT.md complete; all 🔴 either fixed or have a tracked follow-up; the §Roast doesn't pull punches.
+**Output:** Sprint closed. Audit findings linked from BACKLOG.md.
+
+---
+
+## 4. Day-by-day breakdown
 
 ### Day 1 — Reconnaissance
 
@@ -151,7 +248,7 @@ Older docs reference the original "Interview Copilot" scope. Some are still vali
 
 ---
 
-## 4. AUDIT.md structure (deliverable)
+## 5. AUDIT.md structure (deliverable)
 
 ```markdown
 # AUDIT — 2026-05-{05}
