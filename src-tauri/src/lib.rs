@@ -1015,6 +1015,18 @@ fn jobteaser_has_session(career_center_slug: String) -> bool {
     ingest::jobteaser::auth::has_stored_session(&career_center_slug)
 }
 
+/// Close the JT auth window — invoked from the bridge's "Close window"
+/// button after capture. WebKit blocks `window.close()` on
+/// programmatically-opened windows in this context, so we route it
+/// through a Tauri command.
+#[tauri::command]
+fn jobteaser_close_auth_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("jobteaser-auth") {
+        win.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 // ─── DB persistence (Phase 6) ────────────────────────────────────────
 
 #[tauri::command]
@@ -1201,6 +1213,7 @@ pub fn run() {
             jobteaser_auth_open,
             jobteaser_auth_complete,
             jobteaser_has_session,
+            jobteaser_close_auth_window,
             // DB: ingest persistence (Phase 6)
             db_load_ingest_sources,
             db_upsert_ingest_source,

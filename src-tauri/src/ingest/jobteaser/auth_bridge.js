@@ -201,15 +201,19 @@
     let profile = deriveProfile(envelope);
 
     if (!profile || !profile.careerCenterSlug) {
-      // Fallback profile so we can commit anyway. The user can rename
-      // the source in Settings once it appears.
+      // Fallback: derive the slug from the post-auth URL host.
+      // After SSO the user lands on `<school>.jobteaser.com` (e.g.
+      // `ensam.jobteaser.com`) — the subdomain is the school slug.
+      const host = (window.location.hostname || '').toLowerCase();
+      const m = host.match(/^([a-z0-9-]+)\.jobteaser\.com$/);
+      const fallbackSlug = m && m[1] !== 'www' ? m[1] : 'default';
       profile = {
-        careerCenterSlug: 'default',
+        careerCenterSlug: fallbackSlug,
         careerCenterName: null,
         userFullName: null,
       };
       console.log(
-        '[jobteaser-bridge] profile probe failed — committing with default slug',
+        `[jobteaser-bridge] profile probe failed — using subdomain-derived slug '${fallbackSlug}'`,
       );
     }
 
@@ -241,12 +245,15 @@
       detailEl.textContent = `slug=${profile.careerCenterSlug}`;
       btn.textContent = 'Close window';
       btn.style.background = '#0f172a';
-      btn.onclick = () => {
-        // Use Tauri's webview close if available, else window.close.
+      btn.onclick = async () => {
+        // WebKit blocks window.close() on programmatically-opened
+        // windows. Route the close through a dedicated Tauri command.
         try {
-          window.close();
-        } catch {
-          // no-op
+          await window.__TAURI_INTERNALS__.invoke(
+            'jobteaser_close_auth_window',
+          );
+        } catch (e) {
+          console.warn('[jobteaser-bridge] close failed:', e);
         }
       };
       // Rust no longer auto-closes the window — by design.
@@ -300,6 +307,12 @@
       const url =
         typeof input === 'string' ? input : input && input.url ? input.url : '';
       const method = (init && init.method) || (input && input.method) || 'GET';
+      // CRITICAL: do not interfere with Tauri's internal IPC bridge —
+      // window.fetch is what __TAURI_INTERNALS__.invoke uses under the
+      // hood. Wrapping it broke the auth roundtrip (see PR #20 discussion).
+      if (url.startsWith('ipc://')) {
+        return origFetch(input, init);
+      }
       try {
         const res = await origFetch(input, init);
         if (url.includes('jobteaser') || url.startsWith('/')) {
