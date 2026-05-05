@@ -142,7 +142,7 @@
       root.organization ||
       {};
 
-    const career_center_slug =
+    const slug =
       center.slug ||
       center.identifier ||
       center.code ||
@@ -153,15 +153,17 @@
         .replace(/^www$/, '') ||
       'jobteaser';
 
+    // CamelCase keys so the Rust deserialiser (rename_all =
+    // "camelCase") accepts them straight off the IPC.
     return {
-      career_center_slug: String(career_center_slug || 'jobteaser').trim(),
-      career_center_name:
+      careerCenterSlug: String(slug || 'jobteaser').trim(),
+      careerCenterName:
         center.name ||
         center.display_name ||
         center.title ||
         root.school_name ||
         null,
-      user_full_name:
+      userFullName:
         root.full_name ||
         [root.first_name, root.last_name].filter(Boolean).join(' ') ||
         root.name ||
@@ -198,13 +200,13 @@
     const envelope = await findProfile();
     let profile = deriveProfile(envelope);
 
-    if (!profile || !profile.career_center_slug) {
+    if (!profile || !profile.careerCenterSlug) {
       // Fallback profile so we can commit anyway. The user can rename
       // the source in Settings once it appears.
       profile = {
-        career_center_slug: 'default',
-        career_center_name: null,
-        user_full_name: null,
+        careerCenterSlug: 'default',
+        careerCenterName: null,
+        userFullName: null,
       };
       console.log(
         '[jobteaser-bridge] profile probe failed — committing with default slug',
@@ -215,13 +217,13 @@
       envelope
         ? `captured profile from ${envelope.endpoint}`
         : 'no profile endpoint matched — committing session anyway',
-      `slug=${profile.career_center_slug}` +
-        (profile.user_full_name ? ` · ${profile.user_full_name}` : ''),
+      `slug=${profile.careerCenterSlug}` +
+        (profile.userFullName ? ` · ${profile.userFullName}` : ''),
     );
 
     const cookies = {
-      raw_cookie: document.cookie || '',
-      captured_at: Date.now(),
+      rawCookie: document.cookie || '',
+      capturedAt: Date.now(),
     };
 
     try {
@@ -236,7 +238,7 @@
       panel.style.background = '#16a34a';
       statusEl.textContent =
         'Career OS · session captured ✓ · click around the JT portal — every API call is logged for the next sprint';
-      detailEl.textContent = `slug=${profile.career_center_slug}`;
+      detailEl.textContent = `slug=${profile.careerCenterSlug}`;
       btn.textContent = 'Close window';
       btn.style.background = '#0f172a';
       btn.onclick = () => {

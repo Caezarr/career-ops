@@ -21,6 +21,7 @@ use crate::ingest::traits::{IngestError, IngestProvider};
 /// seeded `reqwest::Client`. Specific cookie names vary per school
 /// (some schools keep their IdP cookie, others rely on JT's session).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AuthCookies {
     /// Raw `document.cookie` string captured after auth — newline-
     /// separated `name=value` pairs as JT exposes them.
