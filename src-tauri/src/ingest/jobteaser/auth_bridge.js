@@ -500,6 +500,139 @@
     return null;
   }
 
+  const PAGINATE_MAX_PAGES = 30;
+  const PAGINATE_WAIT_MS = 1500;
+
+  /** Walk through every paginated page of the current view.
+   *
+   *   1. autoscrollAndCollect on the current page (handles in-page
+   *      lazy loading, virtualization).
+   *   2. Look for a "next page" button. If found and enabled:
+   *      click → wait for the URL or the visible card hrefs to
+   *      change → loop.
+   *   3. If no next button visible, stop.
+   *
+   *  Map<href, job> is shared across pages so duplicates are free.
+   */
+  async function paginateAndCollect(slug) {
+    const collected = new Map();
+    let pageIdx = 1;
+
+    while (pageIdx <= PAGINATE_MAX_PAGES) {
+      // Always scroll-collect the current page first — handles any
+      // lazy-load INSIDE a single page.
+      const before = collected.size;
+      const pageMap = await autoscrollAndCollect(slug);
+      for (const [href, job] of pageMap) {
+        if (!collected.has(href)) collected.set(href, job);
+      }
+      const newOnPage = collected.size - before;
+      console.log(
+        `[jt-paginate] page ${pageIdx}: +${newOnPage} (cumulative ${collected.size})`,
+      );
+
+      const nextBtn = findNextPageButton();
+      if (!nextBtn) {
+        console.log(`[jt-paginate] no next-page button after page ${pageIdx}`);
+        break;
+      }
+
+      // Snapshot a sentinel href so we can detect the page change.
+      const firstLinkBefore =
+        document
+          .querySelector(
+            'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
+          )
+          ?.getAttribute('href') || '';
+
+      console.log(`[jt-paginate] clicking next → page ${pageIdx + 1}`);
+      try {
+        nextBtn.click();
+      } catch (e) {
+        console.warn('[jt-paginate] click failed:', e);
+        break;
+      }
+
+      // Wait for either URL change OR first-card href change.
+      const changed = await waitForPageChange(firstLinkBefore, PAGINATE_WAIT_MS);
+      if (!changed) {
+        console.warn(
+          '[jt-paginate] page did not change after click — stopping',
+        );
+        break;
+      }
+
+      pageIdx++;
+    }
+    console.log(
+      `[jt-paginate] done at page ${pageIdx}: ${collected.size} unique jobs`,
+    );
+    return collected;
+  }
+
+  /** Find a visible+enabled next-page control. JT pagination is
+   *  rendered with various aria-labels across skins / locales:
+   *  "Page suivante", "Next page", or just an icon-only button
+   *  with rel="next" or data-testid="*-next". */
+  function findNextPageButton() {
+    const sels = [
+      '[data-testid*="next-page"]',
+      '[data-testid*="pagination-next"]',
+      '[data-testid="next"]',
+      'a[rel="next"]',
+      'button[aria-label*="suivant" i]',
+      'button[aria-label*="next" i]',
+      'a[aria-label*="suivant" i]',
+      'a[aria-label*="next" i]',
+      // Numbered pagination — pick the link whose text is the
+      // current-page-+1 if we can guess.
+    ];
+    for (const sel of sels) {
+      for (const el of document.querySelectorAll(sel)) {
+        if (el.disabled) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && el.offsetParent !== null) return el;
+      }
+    }
+    // Fallback: numeric pagination — find a `[aria-current="page"]`
+    // and click its sibling that's currentPage+1.
+    const current = document.querySelector('[aria-current="page"]');
+    if (current) {
+      const text = current.textContent.trim();
+      const num = parseInt(text, 10);
+      if (Number.isFinite(num)) {
+        for (const el of document.querySelectorAll(
+          'a, button, [role="button"]',
+        )) {
+          if (parseInt((el.textContent || '').trim(), 10) === num + 1) {
+            const r = el.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0 && el.offsetParent !== null) return el;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /** Resolve true once either the URL changes OR the first job link
+   *  is different from the snapshot. Resolves false on timeout. */
+  async function waitForPageChange(firstLinkBefore, timeoutMs) {
+    const urlBefore = window.location.href;
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (window.location.href !== urlBefore) return true;
+      const firstLinkNow =
+        document
+          .querySelector(
+            'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
+          )
+          ?.getAttribute('href') || '';
+      if (firstLinkNow && firstLinkNow !== firstLinkBefore) return true;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    return false;
+  }
+
   async function scrapeJobs(slug, opts) {
     opts = opts || {};
     const allJobs = [];
@@ -540,9 +673,15 @@
     // scrapeLiveDom at the end only sees the LAST viewport's worth.
     // autoscrollAndCollect captures each card the first time it's
     // visible, accumulating in a Map.
-    const collected = await autoscrollAndCollect(slug);
+    //
+    // BUT — JT uses CLASSIC PAGINATION (page 1/2/3 buttons), not
+    // infinite scroll. So scroll alone caps at 22 (= page size).
+    // paginateAndCollect wraps autoscrollAndCollect: scrape current
+    // page, click "next page", wait for re-render, scrape, repeat
+    // until no next-page button is visible.
+    const collected = await paginateAndCollect(slug);
     for (const job of collected.values()) allJobs.push(job);
-    console.log(`[jt-scrape] strategy=scroll-collect: ${allJobs.length} jobs`);
+    console.log(`[jt-scrape] strategy=paginate+scroll: ${allJobs.length} jobs`);
 
     // ── Strategy 2: fetch + __NEXT_DATA__ across pages ─────────────
     if (allJobs.length === 0) {
