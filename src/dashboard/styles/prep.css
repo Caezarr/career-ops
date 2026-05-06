@@ -856,8 +856,14 @@
   text-align: center;
 }
 .dashboard-root .prep-stat-box--completion .prep-stat-box__label {
+  /* "COMPLETION" is a single 10-char word — can't wrap. Tighten
+     typography so it fits the narrowest 1fr column without
+     clipping, even at 0.04em letter-spacing on uppercase. */
+  font-size: 10px;
+  letter-spacing: 0.02em;
   align-self: stretch;
   text-align: left;
+  white-space: nowrap;
 }
 .dashboard-root .prep-stat-box__completion {
   display: flex;
