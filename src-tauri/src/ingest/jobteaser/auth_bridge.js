@@ -93,52 +93,6 @@
   }
   mountPanel();
 
-  // ── Resume hook ─────────────────────────────────────────────────
-  // If the previous load triggered a navigation to /fr/job-offers
-  // (see scrapeJobs), the bridge re-injects on the new page and we
-  // pick the scrape back up here — without re-doing the auth probe.
-  let resumeSlug = null;
-  try {
-    resumeSlug = sessionStorage.getItem('careerOsJtScrapeSlug');
-  } catch {}
-
-  if (resumeSlug && !isOnLoginPage()) {
-    console.log('[jobteaser-bridge] resuming scrape after navigation:', resumeSlug);
-    setStatus('resuming scrape after navigation…', `slug=${resumeSlug}`);
-    panel.style.background = '#0ea5e9';
-    // Defer slightly so the page's own scripts get a chance to render
-    // the first batch of cards.
-    setTimeout(() => {
-      scrapeJobs(resumeSlug)
-        .then((count) => {
-          panel.style.background = '#16a34a';
-          statusEl.textContent =
-            count > 0
-              ? `Career OS · scraped ${count} job offers ✓`
-              : 'Career OS · scrape returned 0 jobs (check filters?)';
-          btn.textContent = 'Close window';
-          btn.style.background = '#0f172a';
-          btn.onclick = async () => {
-            try {
-              await window.__TAURI_INTERNALS__.invoke(
-                'jobteaser_close_auth_window',
-              );
-            } catch (e) {
-              console.warn('[jobteaser-bridge] close failed:', e);
-            }
-          };
-        })
-        .catch((err) => {
-          panel.style.background = '#dc2626';
-          statusEl.textContent =
-            'Career OS · scrape failed — see DevTools console for details';
-          console.error('[jt-scrape] resume failed:', err);
-        });
-    }, 1500);
-    // Skip the auth flow — already authed before navigation.
-    return;
-  }
-
   // ── Login state detection ────────────────────────────────────────
   function isOnLoginPage() {
     const p = window.location.pathname;
@@ -831,5 +785,58 @@
     };
   } catch (e) {
     console.warn('[jobteaser-bridge] failed to install XHR sniffer:', e);
+  }
+
+  // ── Resume hook (must be last — uses const + function decls
+  //   defined throughout this IIFE) ───────────────────────────────
+  // If the previous load triggered a navigation to /fr/job-offers
+  // (see scrapeJobs), the bridge re-injects on the new page and
+  // we pick the scrape back up here without re-doing the auth
+  // probe. Live-on-test 2026-05-05: TDZ bug if you put this earlier
+  // in the IIFE — the const declarations for AUTOSCROLL_* haven't
+  // executed yet when scrapeJobs(resumeSlug) reaches them.
+  let resumeSlug = null;
+  try {
+    resumeSlug = sessionStorage.getItem('careerOsJtScrapeSlug');
+  } catch {}
+
+  if (resumeSlug && !isOnLoginPage()) {
+    console.log(
+      '[jobteaser-bridge] resuming scrape after navigation:',
+      resumeSlug,
+    );
+    setStatus('resuming scrape after navigation…', `slug=${resumeSlug}`);
+    panel.style.background = '#0ea5e9';
+    captured = true; // suppresses the auth-poll setInterval
+
+    // Defer slightly so the page's own scripts get a chance to
+    // render the first batch of cards before we start scrolling.
+    setTimeout(() => {
+      scrapeJobs(resumeSlug)
+        .then((count) => {
+          panel.style.background = '#16a34a';
+          statusEl.textContent =
+            count > 0
+              ? `Career OS · scraped ${count} job offers ✓`
+              : 'Career OS · scrape returned 0 jobs (check filters?)';
+          btn.textContent = 'Close window';
+          btn.style.background = '#0f172a';
+          btn.onclick = async () => {
+            try {
+              await window.__TAURI_INTERNALS__.invoke(
+                'jobteaser_close_auth_window',
+              );
+            } catch (e) {
+              console.warn('[jobteaser-bridge] close failed:', e);
+            }
+          };
+        })
+        .catch((err) => {
+          panel.style.background = '#dc2626';
+          statusEl.textContent =
+            'Career OS · scrape failed — see DevTools console for details';
+          console.error('[jt-scrape] resume failed:', err);
+        });
+    }, 1500);
   }
 })();
