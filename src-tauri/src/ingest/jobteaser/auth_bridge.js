@@ -316,38 +316,79 @@
 
   async function scrapeJobs(slug) {
     const allJobs = [];
-    for (let page = 1; page <= MAX_PAGES; page++) {
-      const url = `/fr/job-offers?page=${page}`;
-      let html;
-      try {
-        const r = await fetch(url, {
-          credentials: 'include',
-          headers: { Accept: 'text/html' },
-        });
-        if (!r.ok) {
-          console.warn(`[jt-scrape] page ${page} → HTTP ${r.status}`);
+
+    // ── Strategy 1: scrape the LIVE DOM ───────────────────────────
+    // After auth the user usually lands on /fr/job-offers — a fully
+    // rendered page. Reading the DOM beats fetching a fresh HTML
+    // page (which may render client-side and be empty).
+    const liveJobs = scrapeLiveDom();
+    if (liveJobs.length > 0) {
+      console.log(`[jt-scrape] strategy=live-dom: ${liveJobs.length} jobs`);
+      for (const j of liveJobs) allJobs.push(mapJob(j, slug));
+    }
+
+    // ── Strategy 2: fetch + __NEXT_DATA__ across pages ─────────────
+    if (allJobs.length === 0) {
+      for (let page = 1; page <= MAX_PAGES; page++) {
+        const url = `/fr/job-offers?page=${page}`;
+        let html;
+        try {
+          const r = await fetch(url, {
+            credentials: 'include',
+            headers: { Accept: 'text/html' },
+          });
+          console.log(
+            `[jt-scrape] GET ${url} → ${r.status} (${r.headers.get('content-length') || '?'} bytes)`,
+          );
+          if (!r.ok) break;
+          html = await r.text();
+        } catch (e) {
+          console.error('[jt-scrape] fetch failed:', e);
           break;
         }
-        html = await r.text();
-      } catch (e) {
-        console.error('[jt-scrape] fetch failed:', e);
-        break;
-      }
 
-      const data = extractNextData(html);
-      if (!data) {
-        console.warn('[jt-scrape] no __NEXT_DATA__ on', url);
-        break;
-      }
+        // Log a snippet of the response so we can see if cookies
+        // worked (logged-out HTML shouts "Connexion" everywhere).
+        if (page === 1) {
+          const titleMatch = html.match(/<title>([^<]+)<\/title>/);
+          console.log(
+            `[jt-scrape] page 1 title: "${titleMatch ? titleMatch[1] : '?'}", html length: ${html.length}`,
+          );
+        }
 
-      const jobs = findJobsArray(data);
-      if (!jobs || jobs.length === 0) {
-        console.log(`[jt-scrape] page ${page}: no jobs — stopping`);
-        break;
-      }
-      console.log(`[jt-scrape] page ${page}: ${jobs.length} jobs`);
-      for (const j of jobs) {
-        allJobs.push(mapJob(j, slug));
+        const data = extractNextData(html);
+        if (!data) {
+          console.warn('[jt-scrape] no __NEXT_DATA__ on', url);
+          // Inspect what JSON-bearing tags ARE in the page so we can
+          // adapt next iteration.
+          const scripts = [
+            ...html.matchAll(
+              /<script(?:[^>]*type="application\/(?:json|ld\+json)")?[^>]*id="([^"]+)"/g,
+            ),
+          ].map((m) => m[1]);
+          console.log(
+            `[jt-scrape] script ids in HTML: ${scripts.join(', ') || '(none)'}`,
+          );
+          break;
+        }
+
+        // Log the shape so I can wire the right path next iteration.
+        if (page === 1) {
+          const topKeys = Object.keys(data || {});
+          const propsKeys = Object.keys(data.props || {});
+          const pageKeys = Object.keys((data.props && data.props.pageProps) || {});
+          console.log(
+            `[jt-scrape] __NEXT_DATA__ shape: top=[${topKeys}] props=[${propsKeys}] pageProps=[${pageKeys}]`,
+          );
+        }
+
+        const jobs = findJobsArray(data);
+        if (!jobs || jobs.length === 0) {
+          console.log(`[jt-scrape] page ${page}: no jobs — stopping`);
+          break;
+        }
+        console.log(`[jt-scrape] page ${page}: ${jobs.length} jobs`);
+        for (const j of jobs) allJobs.push(mapJob(j, slug));
       }
     }
 
@@ -362,6 +403,65 @@
       });
     }
     return allJobs.length;
+  }
+
+  /** Try to read jobs from the currently rendered DOM. Looks for
+   *  common JT card patterns; logs what it finds for diagnosis. */
+  function scrapeLiveDom() {
+    const candidates = [
+      '[data-testid*="job-card"]',
+      '[data-testid*="job-offer"]',
+      '[data-testid*="JobCard"]',
+      'article[class*="job"]',
+      'a[href*="/job-offers/"]',
+      'li[class*="job"]',
+    ];
+    for (const sel of candidates) {
+      const nodes = document.querySelectorAll(sel);
+      if (nodes.length === 0) continue;
+      console.log(
+        `[jt-scrape] live-dom selector "${sel}" matched ${nodes.length} nodes`,
+      );
+      const rows = Array.from(nodes)
+        .map((n) => domNodeToJob(n))
+        .filter((r) => r && r.title && r.url);
+      if (rows.length > 0) return rows;
+    }
+    console.log(
+      `[jt-scrape] live-dom: no candidate selector matched. Sample classes nearby: ${
+        Array.from(document.querySelectorAll('[class*="job"]'))
+          .slice(0, 5)
+          .map((n) => n.className)
+          .join(' | ') || '(none)'
+      }`,
+    );
+    return [];
+  }
+
+  function domNodeToJob(n) {
+    // The card is either an <a> or contains an <a>. Find the link to
+    // the posting.
+    const link = n.tagName === 'A' ? n : n.querySelector('a[href*="/job-offers/"]');
+    if (!link) return null;
+    const url = link.href;
+    const m = url.match(/\/job-offers\/(\d+|[\w-]+)/);
+    const id = m ? m[1] : url.split('?')[0];
+    const text = (n.textContent || '').trim();
+    // Cards often have title in <h2>/<h3>/<strong>.
+    const titleEl = n.querySelector('h2, h3, h4, [class*="title"]');
+    const title = (titleEl && titleEl.textContent.trim()) || text.split('\n')[0].slice(0, 200);
+    // Best-effort company / location pull.
+    const companyEl = n.querySelector('[class*="company"], [class*="employer"]');
+    const locationEl = n.querySelector('[class*="location"], [class*="place"]');
+    return {
+      id,
+      slug: id,
+      url,
+      title,
+      company: { name: companyEl ? companyEl.textContent.trim() : '' },
+      location: { city: locationEl ? locationEl.textContent.trim() : '' },
+      description: '',
+    };
   }
 
   function extractNextData(html) {
