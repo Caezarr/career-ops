@@ -313,21 +313,92 @@
   // sends them automatically.
 
   const MAX_PAGES = 8; // safety cap — adjust later if real volume justifies more
-  const AUTOSCROLL_MAX_ROUNDS = 60; // ~60 rounds * 800ms = 48s ceiling
-  const AUTOSCROLL_STABLE_THRESHOLD = 4; // stop after N stable rounds in a row
+  const AUTOSCROLL_MAX_ROUNDS = 80; // ~80 rounds * 700ms = 56s ceiling
+  const AUTOSCROLL_STABLE_THRESHOLD = 5; // stop after N stable rounds in a row
 
-  /** Scroll the page in chunks until the count of job-offer links
-   *  stops growing for AUTOSCROLL_STABLE_THRESHOLD rounds. JT lazy-
-   *  loads cards as you reach the bottom of the viewport. */
+  /** Force more job cards to render by combining three signals:
+   *
+   *   1. `scrollIntoView` on the LAST job link — works even when the
+   *      lazy-load container isn't the window (JT often nests the
+   *      list inside a div with overflow-y:scroll).
+   *   2. window.scrollBy as a belt-and-braces.
+   *   3. Click any visible "Voir plus" / "Charger plus" / "Show more"
+   *      button — some JT skins use a button instead of infinite
+   *      scroll.
+   *
+   *  Stops when card count is stable for AUTOSCROLL_STABLE_THRESHOLD
+   *  rounds OR we hit the round ceiling.
+   *
+   *  First round logs the page's scrollable containers so we can
+   *  see if there's a non-window scroll target we should hit
+   *  directly. */
   async function autoscrollUntilStable() {
     let lastCount = countJobLinks();
     let stable = 0;
     let rounds = 0;
     console.log(`[jt-scrape] autoscroll start: ${lastCount} links visible`);
 
+    // One-shot diagnostic — log the obvious scroll containers so we
+    // can target them in v2 if the simple strategies underperform.
+    const scrollContainers = Array.from(
+      document.querySelectorAll('*'),
+    ).filter((el) => {
+      if (el === document.documentElement || el === document.body) return false;
+      const cs = getComputedStyle(el);
+      return (
+        (cs.overflowY === 'auto' || cs.overflowY === 'scroll') &&
+        el.scrollHeight > el.clientHeight + 50
+      );
+    });
+    if (scrollContainers.length > 0) {
+      console.log(
+        `[jt-scrape] inner scroll containers found: ${scrollContainers
+          .slice(0, 5)
+          .map(
+            (el) =>
+              `${el.tagName.toLowerCase()}.${(el.className || '')
+                .toString()
+                .slice(0, 30)}`,
+          )
+          .join(' | ')}`,
+      );
+    }
+
     while (rounds < AUTOSCROLL_MAX_ROUNDS && stable < AUTOSCROLL_STABLE_THRESHOLD) {
+      // Strategy A: bring the LAST job link into view. This pokes
+      // any IntersectionObserver / lazy-load that JT has on the
+      // listing — works even when the scrollable parent isn't window.
+      const links = document.querySelectorAll(
+        'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
+      );
+      if (links.length > 0) {
+        try {
+          links[links.length - 1].scrollIntoView({
+            block: 'end',
+            behavior: 'instant',
+          });
+        } catch {
+          // Older Safari fallback.
+          links[links.length - 1].scrollIntoView(false);
+        }
+      }
+
+      // Strategy B: window scroll as a fallback.
       window.scrollBy(0, Math.max(window.innerHeight * 0.85, 600));
-      await new Promise((r) => setTimeout(r, 800));
+
+      // Strategy C: also nudge any inner scroll container we found.
+      for (const c of scrollContainers) {
+        c.scrollTop = c.scrollHeight;
+      }
+
+      // Strategy D: click "load more"-style buttons if present.
+      const loadMore = findLoadMoreButton();
+      if (loadMore) {
+        console.log('[jt-scrape] clicking load-more button');
+        loadMore.click();
+      }
+
+      await new Promise((r) => setTimeout(r, 700));
       const next = countJobLinks();
       if (next === lastCount) {
         stable++;
@@ -336,7 +407,7 @@
         lastCount = next;
       }
       rounds++;
-      if (rounds % 5 === 0) {
+      if (rounds % 4 === 0 || (next > lastCount - 5 && next !== lastCount)) {
         console.log(
           `[jt-scrape] autoscroll round ${rounds}: ${lastCount} links (stable=${stable}/${AUTOSCROLL_STABLE_THRESHOLD})`,
         );
@@ -351,6 +422,29 @@
     return document.querySelectorAll(
       'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
     ).length;
+  }
+
+  /** Find a visible button whose text suggests it loads more results.
+   *  We tolerate FR ("Voir plus", "Charger plus") + EN ("Show more",
+   *  "Load more") + button[aria-label*="more"]. */
+  function findLoadMoreButton() {
+    const candidates = document.querySelectorAll(
+      'button, a[role="button"], [data-testid*="load-more"], [data-testid*="show-more"]',
+    );
+    for (const el of candidates) {
+      const text = (el.textContent || '').toLowerCase().trim();
+      const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+      if (
+        /voir plus|charger plus|afficher plus|plus d.offres|load more|show more|more results/.test(
+          text + ' ' + aria,
+        )
+      ) {
+        const r = el.getBoundingClientRect();
+        // Must be visible (non-zero size, on-screen).
+        if (r.width > 0 && r.height > 0 && el.offsetParent !== null) return el;
+      }
+    }
+    return null;
   }
 
   async function scrapeJobs(slug) {
