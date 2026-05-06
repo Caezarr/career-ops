@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel in-flight runs on the same ref when a new push lands — saves
+# minutes and avoids merging a stale "green" tick on the wrong commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (TypeScript / Vite)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Type-check (tsc)
+        run: pnpm exec tsc -b
+
+      - name: Build (vite)
+        run: pnpm build
+
+  rust:
+    name: Rust (clippy / check / test)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: src-tauri
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # We do NOT enforce `cargo fmt --check` yet — many existing files
+      # don't match rustfmt's defaults. Add it once the codebase is
+      # rustfmt-clean (separate PR).
+      # - name: Format check
+      #   run: cargo fmt --all -- --check
+
+      - name: Clippy (warnings as errors)
+        # `--all-targets` covers tests + examples; --no-deps keeps the
+        # signal focused on our code, not third-party crates.
+        run: cargo clippy --all-targets --no-deps -- -D warnings
+
+      - name: Cargo check
+        run: cargo check --all-targets
+
+      - name: Cargo test
+        run: cargo test --all -- --test-threads=1

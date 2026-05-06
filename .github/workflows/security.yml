@@ -1,0 +1,72 @@
+name: Security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Daily 06:00 UTC scan so a fresh advisory landing on a published
+    # transitive dep gets surfaced even when no PR is in flight.
+    - cron: "0 6 * * *"
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  pnpm-audit:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # `--audit-level high` matches our CI policy: HIGH and CRITICAL
+      # advisories fail the build; LOW/MEDIUM warn but don't block.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level high --prod
+
+  secret-scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  priv01-egress-guard:
+    name: PRIV-01 single-egress guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Forbid ad-hoc reqwest::Client::builder() outside cloud.rs
+        # Currently 9 sites violate PRIV-01 (audit 2026-05-05 HIGH #1).
+        # The actual `cloud::Client` refactor is tracked as a separate
+        # sprint — when it lands, flip this from `|| true` to `&& exit 1`.
+        run: |
+          set -euo pipefail
+          violations=$(git grep -n 'reqwest::Client::builder()' \
+            -- 'src-tauri/src/' ':!src-tauri/src/cloud.rs' || true)
+          count=$(echo "$violations" | grep -c . || true)
+          echo "PRIV-01 reqwest::Client::builder() sites: $count"
+          echo "$violations"
+          # TODO: enforce after cloud::Client refactor lands.
+          # exit $([ "$count" -le 0 ] && echo 0 || echo 1)

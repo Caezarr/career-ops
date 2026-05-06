@@ -152,7 +152,8 @@ First launch walks you through Microphone, Screen Recording, and Accessibility p
 
 ```bash
 pnpm tauri dev      # dev with hot reload
-pnpm tauri build    # signed/notarised .dmg
+pnpm tauri build    # produces an unsigned .dmg (Gatekeeper will block on first launch)
+pnpm typecheck      # tsc -b --noEmit
 pnpm build          # frontend-only build (vite + tsc)
 cargo test          # Rust tests
 ```

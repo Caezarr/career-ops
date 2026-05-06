@@ -20,11 +20,20 @@ use crate::ingest::traits::{IngestError, IngestProvider};
 /// string verbatim so the scraper can replay it via a `cookie_store`-
 /// seeded `reqwest::Client`. Specific cookie names vary per school
 /// (some schools keep their IdP cookie, others rely on JT's session).
+///
+/// Security note (audit 2026-05-05 CRITICAL #2): we used to ship
+/// `document.cookie` over IPC and persist it forever. That value
+/// CANNOT replay JT auth (HttpOnly cookies aren't visible to JS) so
+/// it was dead weight that exposed analytics IDs / Cloudflare bot
+/// tokens / A/B-test buckets to permanent local storage. Now we
+/// only persist the timestamp; the WebKit data store keeps the
+/// real session in its own sandbox where the bridge re-uses it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthCookies {
-    /// Raw `document.cookie` string captured after auth — newline-
-    /// separated `name=value` pairs as JT exposes them.
+    /// Sentinel — kept on the wire to preserve the bridge contract,
+    /// but ignored by the Rust handler. Bridge sends "present".
+    #[serde(default)]
     pub raw_cookie: String,
     /// Wall-clock when capture happened (epoch ms).
     pub captured_at: i64,
@@ -64,7 +73,18 @@ pub fn store_cookies_in_keychain(
     cookies: &AuthCookies,
 ) -> Result<(), IngestError> {
     let account = keychain_account(&profile.career_center_slug);
-    let payload = serde_json::to_string(cookies).map_err(|e| IngestError::Parse {
+
+    // Security audit 2026-05-05 CRITICAL #2: scrub the cookie value
+    // before persistence. The bridge captures `document.cookie` for
+    // backwards-compat with the IPC contract but the value is
+    // useless (HttpOnly cookies aren't visible to JS) AND a privacy
+    // exposure (analytics IDs, A/B buckets, Cloudflare bot tokens).
+    // We persist only the timestamp.
+    let scrubbed = AuthCookies {
+        raw_cookie: String::new(),
+        captured_at: cookies.captured_at,
+    };
+    let payload = serde_json::to_string(&scrubbed).map_err(|e| IngestError::Parse {
         provider: "jobteaser",
         message: format!("serialize cookies: {}", e),
     })?;
