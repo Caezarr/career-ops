@@ -519,13 +519,17 @@
     let pageIdx = 1;
 
     while (pageIdx <= PAGINATE_MAX_PAGES) {
-      // Always scroll-collect the current page first — handles any
-      // lazy-load INSIDE a single page.
       const before = collected.size;
-      const pageMap = await autoscrollAndCollect(slug);
-      for (const [href, job] of pageMap) {
-        if (!collected.has(href)) collected.set(href, job);
-      }
+
+      // JT shows ALL cards for the current page in DOM at once. We
+      // do a single fast snapshot + one polite scroll to the bottom
+      // (in case anything is below the fold), then a final snapshot.
+      // No long autoscroll loop — that wasted ~3 rounds per page.
+      snapshotVisibleJobs(collected, slug);
+      window.scrollTo(0, document.body.scrollHeight);
+      await new Promise((r) => setTimeout(r, 250));
+      snapshotVisibleJobs(collected, slug);
+
       const newOnPage = collected.size - before;
       console.log(
         `[jt-paginate] page ${pageIdx}: +${newOnPage} (cumulative ${collected.size})`,
