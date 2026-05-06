@@ -1,4 +1,4 @@
-import { ExternalLink, MapPin } from "lucide-react";
+import { ExternalLink, MapPin, Briefcase } from "lucide-react";
 import {
   Modal,
   ModalBody,
@@ -8,6 +8,8 @@ import {
 import { open as openExternal } from "@tauri-apps/plugin-shell";
 import CompanyAvatar from "../CompanyAvatar";
 import { companyMeta } from "../../data/companyMeta";
+import { useAppStore } from "../../store";
+import type { Job } from "../../store/types";
 
 interface CompanyModalProps {
   open: boolean;
@@ -24,6 +26,10 @@ interface CompanyModalProps {
    *  shows a "View posting" button that opens it in the user's
    *  default browser. */
   postingUrl?: string;
+  /** ID of the job currently shown in the JobDetail panel — we
+   *  exclude it from the "Open positions" list so the user only
+   *  sees OTHER offers from the same company. */
+  currentJobId?: string;
 }
 
 export default function CompanyModal({
@@ -35,7 +41,21 @@ export default function CompanyModal({
   sector,
   stage,
   postingUrl,
+  currentJobId,
 }: CompanyModalProps) {
+  // Hooks first — never bail before all hooks have run, otherwise we
+  // violate the rules-of-hooks on the modal's open/close cycle.
+  const setSelectedJob = useAppStore((s) => s.setSelectedJob);
+  const otherJobs = useAppStore((s) =>
+    company
+      ? s.jobs.filter(
+          (j) =>
+            j.company.trim().toLowerCase() === company.trim().toLowerCase() &&
+            j.id !== currentJobId,
+        )
+      : [],
+  );
+
   if (!company || company === "Unknown") return null;
 
   // Fall back to curated company meta when the caller doesn't pass
@@ -79,6 +99,45 @@ export default function CompanyModal({
                 </span>
               )}
             </div>
+          )}
+
+          {otherJobs.length > 0 && (
+            <section className="ds-company-modal__positions">
+              <h4 className="ds-company-modal__section-title">
+                <Briefcase size={14} />
+                <span>
+                  {otherJobs.length} other open{" "}
+                  {otherJobs.length === 1 ? "position" : "positions"}
+                </span>
+              </h4>
+              <ul className="ds-company-modal__positions-list">
+                {otherJobs.slice(0, 12).map((j: Job) => (
+                  <li key={j.id} className="ds-company-modal__position">
+                    <button
+                      type="button"
+                      className="ds-company-modal__position-btn"
+                      onClick={() => {
+                        setSelectedJob(j.id);
+                        onClose();
+                      }}
+                    >
+                      <span className="ds-company-modal__position-role">
+                        {j.role}
+                      </span>
+                      <span className="ds-company-modal__position-meta">
+                        {[j.location, j.type].filter(Boolean).join(" · ")}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {otherJobs.length > 12 && (
+                <div className="ds-company-modal__positions-more">
+                  + {otherJobs.length - 12} more — search by{" "}
+                  <strong>{company}</strong> in the Jobs page
+                </div>
+              )}
+            </section>
           )}
         </div>
       </ModalBody>

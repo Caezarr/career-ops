@@ -147,7 +147,7 @@ export default function JobDetail() {
 
       {job.about && job.about.length > 0 && (
         <section className="job-detail__about">
-          <h3 className="job-detail__section-title">About {job.company}</h3>
+          <h3 className="job-detail__section-title">About this offer</h3>
           {job.about.map((p, i) => (
             <p key={i} className="job-detail__about-text">
               {p}
@@ -243,6 +243,7 @@ export default function JobDetail() {
         sector={job.sector}
         stage={job.companyStage}
         postingUrl={job.source?.sourceUrl}
+        currentJobId={job.id}
       />
     </aside>
   );
