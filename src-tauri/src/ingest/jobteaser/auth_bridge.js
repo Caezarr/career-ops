@@ -248,42 +248,19 @@
       });
       captured = true;
 
-      // Flip the banner to a "scraping" state.
-      panel.style.background = '#0ea5e9';
+      // V2 UX: don't auto-scrape. The user wants to browse JT, apply
+      // filters (contract type, location, sector, …) and only then
+      // tell us "go". Banner waits for an explicit "Start scrape"
+      // click.
+      panel.style.background = '#16a34a';
       statusEl.textContent =
-        'Career OS · session captured ✓ · scraping job offers…';
+        'Career OS · session captured ✓ · apply your filters in JT then click Start scrape';
       detailEl.textContent = `slug=${profile.careerCenterSlug}`;
 
-      // Kick off the in-WebView scrape. The auth window has the live
-      // session — we read JT's server-rendered job pages, extract
-      // __NEXT_DATA__, and forward to Rust.
-      scrapeJobs(profile.careerCenterSlug)
-        .then((count) => {
-          panel.style.background = '#16a34a';
-          statusEl.textContent =
-            count > 0
-              ? `Career OS · scraped ${count} job offers ✓`
-              : 'Career OS · session captured ✓ · no jobs returned';
-        })
-        .catch((err) => {
-          panel.style.background = '#dc2626';
-          statusEl.textContent =
-            'Career OS · scrape failed — see DevTools console for details';
-          console.error('[jt-scrape] failed:', err);
-        });
-      btn.textContent = 'Close window';
-      btn.style.background = '#0f172a';
-      btn.onclick = async () => {
-        // WebKit blocks window.close() on programmatically-opened
-        // windows. Route the close through a dedicated Tauri command.
-        try {
-          await window.__TAURI_INTERNALS__.invoke(
-            'jobteaser_close_auth_window',
-          );
-        } catch (e) {
-          console.warn('[jobteaser-bridge] close failed:', e);
-        }
-      };
+      btn.textContent = 'Start scrape';
+      btn.style.background = '#8b5cf6'; // back to the primary purple
+      btn.onclick = () =>
+        runScrapeAndConfigureBanner(profile.careerCenterSlug, panel, btn);
       // Rust no longer auto-closes the window — by design.
     } catch (e) {
       const msg = e && e.message ? e.message : String(e);
@@ -650,27 +627,9 @@
     //   scroll; without this we only see the first 4-15 jobs that
     //   happen to be in the viewport.
     //
-    //   We use sessionStorage to survive the navigation: the bridge
-    //   re-injects on every page load, sees the flag, and runs the
-    //   scrape there instead of re-doing the auth roundtrip.
-    //
-    //   `opts.skipNavigation` lets the user trigger a manual scrape
-    //   from whatever URL they're currently on (via the "Re-scrape
-    //   this page" button) — useful when the default /fr/job-offers
-    //   redirects to a saved-search the user wants to bypass.
-    if (
-      !opts.skipNavigation &&
-      (window.location.pathname !== '/fr/job-offers' ||
-        window.location.search.length > 0)
-    ) {
-      try {
-        sessionStorage.setItem('careerOsJtScrapeSlug', slug);
-      } catch {}
-      console.log('[jt-scrape] navigating to clean /fr/job-offers');
-      // The bridge will re-init on the new page and pick up where we left.
-      window.location.assign('/fr/job-offers');
-      return 0; // scrape resumes after navigation
-    }
+    // V2: scrape from WHEREVER the user is. We never auto-navigate
+    // anymore — the user picks the filters / contract type / page
+    // and explicitly clicks "Start scrape", and we honour that.
 
     // Combined scroll+snapshot. JT virtualizes the listing — older
     // cards get unmounted as you scroll past, so a one-shot
@@ -1114,82 +1073,60 @@
     console.warn('[jobteaser-bridge] failed to install XHR sniffer:', e);
   }
 
-  // ── Resume hook (must be last — uses const + function decls
-  //   defined throughout this IIFE) ───────────────────────────────
-  // If the previous load triggered a navigation to /fr/job-offers
-  // (see scrapeJobs), the bridge re-injects on the new page and
-  // we pick the scrape back up here without re-doing the auth
-  // probe. Live-on-test 2026-05-05: TDZ bug if you put this earlier
-  // in the IIFE — the const declarations for AUTOSCROLL_* haven't
-  // executed yet when scrapeJobs(resumeSlug) reaches them.
-  let resumeSlug = null;
-  try {
-    resumeSlug = sessionStorage.getItem('careerOsJtScrapeSlug');
-  } catch {}
-
-  if (resumeSlug && !isOnLoginPage()) {
-    console.log(
-      '[jobteaser-bridge] resuming scrape after navigation:',
-      resumeSlug,
-    );
-    setStatus('resuming scrape after navigation…', `slug=${resumeSlug}`);
+  // ── Scrape orchestrator (called from the "Start scrape" button) ──
+  // Runs scrapeJobs and morphs the banner through the full life
+  // cycle: scraping → done (with re-scrape + close buttons).
+  // Defined here, AT THE END of the IIFE, so all `const` it
+  // references (AUTOSCROLL_*, PAGINATE_*) are already initialized.
+  // Hoisting via `function name()` keeps it callable from the
+  // capture handler that fires earlier.
+  // eslint-disable-next-line no-inner-declarations
+  function runScrapeAndConfigureBanner(slug) {
     panel.style.background = '#0ea5e9';
-    captured = true; // suppresses the auth-poll setInterval
+    statusEl.textContent =
+      `Career OS · scraping ${window.location.pathname}…`;
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
 
-    // Defer slightly so the page's own scripts get a chance to
-    // render the first batch of cards before we start scrolling.
-    setTimeout(() => {
-      scrapeJobs(resumeSlug)
-        .then((count) => {
-          panel.style.background = '#16a34a';
-          statusEl.textContent =
-            count > 0
-              ? `Career OS · scraped ${count} job offers ✓ · navigate then "Re-scrape" for more`
-              : 'Career OS · scrape returned 0 jobs · navigate to a different page and "Re-scrape"';
-          // Show the "Re-scrape this page" secondary button — user
-          // can navigate to a richer URL (e.g. unfilter saved searches,
-          // browse companies, all-internships tab) and click to scrape
-          // from there. The same slug is reused.
-          btn2.style.display = 'inline-block';
-          btn2.onclick = () => {
-            panel.style.background = '#0ea5e9';
-            statusEl.textContent = `Career OS · re-scraping ${window.location.pathname}…`;
-            btn2.style.display = 'none';
-            scrapeJobs(resumeSlug, { skipNavigation: true })
-              .then((c) => {
-                panel.style.background = '#16a34a';
-                statusEl.textContent =
-                  c > 0
-                    ? `Career OS · scraped ${c} more job offers ✓`
-                    : 'Career OS · 0 new jobs on this page';
-                btn2.style.display = 'inline-block';
-              })
-              .catch((err) => {
-                panel.style.background = '#dc2626';
-                statusEl.textContent =
-                  'Career OS · re-scrape failed — see DevTools';
-                console.error('[jt-scrape] manual re-scrape failed:', err);
-                btn2.style.display = 'inline-block';
-              });
-          };
-          btn.textContent = 'Close window';
-          btn.style.background = '#0f172a';
-          btn.onclick = async () => {
-            try {
-              await window.__TAURI_INTERNALS__.invoke(
-                'jobteaser_close_auth_window',
-              );
-            } catch (e) {
-              console.warn('[jobteaser-bridge] close failed:', e);
-            }
-          };
-        })
-        .catch((err) => {
-          panel.style.background = '#dc2626';
-          statusEl.textContent =
-            'Career OS · scrape failed — see DevTools console for details';
-          console.error('[jt-scrape] resume failed:', err);
-        });
-    }, 1500);
+    scrapeJobs(slug, { skipNavigation: true })
+      .then((count) => {
+        panel.style.background = '#16a34a';
+        statusEl.textContent =
+          count > 0
+            ? `Career OS · scraped ${count} job offers ✓ · change filters then "Re-scrape" for more`
+            : 'Career OS · 0 jobs on this page · change filters then "Re-scrape"';
+        // Show secondary "Re-scrape this page" button.
+        btn2.style.display = 'inline-block';
+        btn2.onclick = () => runScrapeAndConfigureBanner(slug);
+        // Primary button now closes the window.
+        btn.textContent = 'Close window';
+        btn.style.background = '#0f172a';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.onclick = async () => {
+          try {
+            await window.__TAURI_INTERNALS__.invoke(
+              'jobteaser_close_auth_window',
+            );
+          } catch (e) {
+            console.warn('[jobteaser-bridge] close failed:', e);
+          }
+        };
+      })
+      .catch((err) => {
+        panel.style.background = '#dc2626';
+        statusEl.textContent =
+          'Career OS · scrape failed — see DevTools console for details';
+        console.error('[jt-scrape] failed:', err);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+      });
   }
+
+  // Stale-flag cleanup: a previous version's auto-navigation flag
+  // may still be in sessionStorage. V2 doesn't auto-navigate, so
+  // the flag is meaningless — wipe it.
+  try {
+    sessionStorage.removeItem('careerOsJtScrapeSlug');
+  } catch {}
 })();
