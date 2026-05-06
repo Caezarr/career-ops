@@ -848,30 +848,23 @@
   margin-top: 2px;
 }
 
+/* Completion box uses a centred donut with the percentage rendered
+   INSIDE the ring (CircularProgress showLabel=true). No side text
+   to overflow — the cell stays clean at any column width. */
+.dashboard-root .prep-stat-box--completion {
+  align-items: center;
+  text-align: center;
+}
+.dashboard-root .prep-stat-box--completion .prep-stat-box__label {
+  align-self: stretch;
+  text-align: left;
+}
 .dashboard-root .prep-stat-box__completion {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 2px;
-  /* Allow the box to shrink below the donut+text intrinsic width.
-     Without this the row pushes past its grid track. */
+  justify-content: center;
+  margin-top: 4px;
   min-width: 0;
-}
-
-.dashboard-root .prep-stat-box__completion .prep-stat-box__value {
-  margin-top: 0;
-  /* Same treatment as the donut row: shrink before overflowing.
-     Slightly smaller typography here so "62%" fits next to the
-     donut even at the narrowest breakpoint. */
-  font-size: 18px;
-  line-height: 1.05;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dashboard-root .prep-stat-box__completion > :first-child {
-  flex-shrink: 0;
 }
 
 /* Improvement chart */
