@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ExternalLink, MapPin, Briefcase } from "lucide-react";
 import {
   Modal,
@@ -45,16 +46,25 @@ export default function CompanyModal({
 }: CompanyModalProps) {
   // Hooks first — never bail before all hooks have run, otherwise we
   // violate the rules-of-hooks on the modal's open/close cycle.
+  // Read the full jobs array via a stable selector so the array
+  // reference only changes when the store mutates — then useMemo
+  // the filter so we don't allocate a new array on every render.
+  // (The earlier inline-filter selector returned a fresh array on
+  // every store update, which churned the modal hard enough to
+  // crash render under a 5000-job catalogue.)
   const setSelectedJob = useAppStore((s) => s.setSelectedJob);
-  const otherJobs = useAppStore((s) =>
-    company
-      ? s.jobs.filter(
-          (j) =>
-            j.company.trim().toLowerCase() === company.trim().toLowerCase() &&
-            j.id !== currentJobId,
-        )
-      : [],
-  );
+  const allJobs = useAppStore((s) => s.jobs);
+  const otherJobs = useMemo(() => {
+    if (!company) return [];
+    const target = company.trim().toLowerCase();
+    return allJobs.filter(
+      (j) =>
+        j &&
+        typeof j.company === "string" &&
+        j.company.trim().toLowerCase() === target &&
+        j.id !== currentJobId,
+    );
+  }, [allJobs, company, currentJobId]);
 
   if (!company || company === "Unknown") return null;
 
