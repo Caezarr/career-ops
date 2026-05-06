@@ -405,15 +405,59 @@
     return allJobs.length;
   }
 
-  /** Try to read jobs from the currently rendered DOM. Looks for
-   *  common JT card patterns; logs what it finds for diagnosis. */
+  /** Try to read jobs from the currently rendered DOM.
+   *
+   *  Strategy: anchors to a JT job posting follow the URL pattern
+   *  `/fr/job-offers/<id-or-slug>` (with or without further path).
+   *  Those links are the most stable signal. We collect every such
+   *  link, group by their target href (so multiple links to the
+   *  same posting collapse), then for each unique posting walk up
+   *  to the closest sensible card container and pull title +
+   *  company + location.
+   *
+   *  Falls back to data-testid / class-based scans only if the
+   *  href approach turns up nothing (e.g. JT switches anchor to a
+   *  button + JS onclick at some point). */
   function scrapeLiveDom() {
+    // 1) Find every link that points to an individual posting.
+    const linkNodes = document.querySelectorAll(
+      'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
+    );
+    console.log(
+      `[jt-scrape] live-dom: ${linkNodes.length} <a href*="/job-offers/"> links found`,
+    );
+
+    if (linkNodes.length > 0) {
+      // Dedup by href — JT often renders 2+ links per card (image,
+      // title, "Voir l'offre" CTA…) all pointing at the same job.
+      const byHref = new Map();
+      for (const a of linkNodes) {
+        if (!byHref.has(a.href)) byHref.set(a.href, a);
+      }
+      console.log(
+        `[jt-scrape] live-dom: ${byHref.size} unique job links after dedup`,
+      );
+
+      const rows = [];
+      for (const a of byHref.values()) {
+        const card = a.closest(
+          '[data-testid*="job"], [class*="JobCard"], [class*="jobCard"], article, li, [role="article"]',
+        ) || a.parentElement || a;
+        const job = domNodeToJob(card, a);
+        if (job && job.title && job.url) rows.push(job);
+      }
+      console.log(
+        `[jt-scrape] live-dom: ${rows.length} jobs mapped from links`,
+      );
+      if (rows.length > 0) return rows;
+    }
+
+    // 2) Fallback: testid / class scans (kept from earlier iteration).
     const candidates = [
       '[data-testid*="job-card"]',
       '[data-testid*="job-offer"]',
       '[data-testid*="JobCard"]',
       'article[class*="job"]',
-      'a[href*="/job-offers/"]',
       'li[class*="job"]',
     ];
     for (const sel of candidates) {
@@ -427,29 +471,52 @@
         .filter((r) => r && r.title && r.url);
       if (rows.length > 0) return rows;
     }
+
+    // 3) Diagnostic dump: tell me what testids JT actually uses so
+    // I can write a precise selector next iteration.
+    const allTestIds = new Set();
+    for (const n of document.querySelectorAll('[data-testid]')) {
+      const v = n.getAttribute('data-testid');
+      if (v && /job|offer|card|posting/i.test(v)) allTestIds.add(v);
+    }
     console.log(
-      `[jt-scrape] live-dom: no candidate selector matched. Sample classes nearby: ${
-        Array.from(document.querySelectorAll('[class*="job"]'))
-          .slice(0, 5)
-          .map((n) => n.className)
-          .join(' | ') || '(none)'
+      `[jt-scrape] live-dom: no jobs. Visible job-ish data-testids: ${
+        Array.from(allTestIds).slice(0, 20).join(' | ') || '(none)'
+      }`,
+    );
+    console.log(
+      `[jt-scrape] live-dom: visible classes containing "job": ${
+        Array.from(
+          new Set(
+            Array.from(document.querySelectorAll('[class*="job"]'))
+              .slice(0, 15)
+              .map((n) => n.className),
+          ),
+        ).join(' | ') || '(none)'
       }`,
     );
     return [];
   }
 
-  function domNodeToJob(n) {
-    // The card is either an <a> or contains an <a>. Find the link to
-    // the posting.
-    const link = n.tagName === 'A' ? n : n.querySelector('a[href*="/job-offers/"]');
+  function domNodeToJob(n, providedLink) {
+    // Caller can pass the canonical link (the one from the
+    // dedup-by-href map). Otherwise we rediscover one inside the node.
+    const link =
+      providedLink ||
+      (n.tagName === 'A' ? n : n.querySelector('a[href*="/job-offers/"]'));
     if (!link) return null;
     const url = link.href;
-    const m = url.match(/\/job-offers\/(\d+|[\w-]+)/);
+    const m = url.match(/\/job-offers\/([\w-]+)/);
     const id = m ? m[1] : url.split('?')[0];
     const text = (n.textContent || '').trim();
-    // Cards often have title in <h2>/<h3>/<strong>.
+    // Cards often have title in <h2>/<h3>/<strong> or class*="title".
+    // Fallback: link's own text (the canonical link is usually the
+    // title CTA).
     const titleEl = n.querySelector('h2, h3, h4, [class*="title"]');
-    const title = (titleEl && titleEl.textContent.trim()) || text.split('\n')[0].slice(0, 200);
+    const title =
+      (titleEl && titleEl.textContent.trim()) ||
+      (link.textContent && link.textContent.trim()) ||
+      text.split('\n')[0].slice(0, 200);
     // Best-effort company / location pull.
     const companyEl = n.querySelector('[class*="company"], [class*="employer"]');
     const locationEl = n.querySelector('[class*="location"], [class*="place"]');
