@@ -332,14 +332,30 @@
    *  First round logs the page's scrollable containers so we can
    *  see if there's a non-window scroll target we should hit
    *  directly. */
-  async function autoscrollUntilStable() {
-    let lastCount = countJobLinks();
+  /** Combined scroll+collect for virtualized lists.
+   *
+   *  JT only keeps ~22 cards in DOM at any moment — older ones get
+   *  unmounted as we scroll past. So we MUST snapshot each card the
+   *  first time we see it, BEFORE it disappears. We use a Map keyed
+   *  by canonical href as the natural dedup mechanism.
+   *
+   *  Stops when the unique-href count is stable for THRESHOLD rounds
+   *  in a row — meaning recent scrolls are no longer revealing new
+   *  postings.
+   *
+   *  Returns the collected job snapshots as `Map<href, jobObj>`.
+   */
+  async function autoscrollAndCollect(slug) {
+    const collected = new Map();
+    snapshotVisibleJobs(collected, slug);
+
+    let lastCount = collected.size;
     let stable = 0;
     let rounds = 0;
-    console.log(`[jt-scrape] autoscroll start: ${lastCount} links visible`);
+    console.log(`[jt-scrape] autoscroll start: ${lastCount} unique jobs collected`);
 
     // One-shot diagnostic — log the obvious scroll containers so we
-    // can target them in v2 if the simple strategies underperform.
+    // can target them directly in v3 if the simple strategies miss.
     const scrollContainers = Array.from(
       document.querySelectorAll('*'),
     ).filter((el) => {
@@ -365,9 +381,7 @@
     }
 
     while (rounds < AUTOSCROLL_MAX_ROUNDS && stable < AUTOSCROLL_STABLE_THRESHOLD) {
-      // Strategy A: bring the LAST job link into view. This pokes
-      // any IntersectionObserver / lazy-load that JT has on the
-      // listing — works even when the scrollable parent isn't window.
+      // Strategy A: scrollIntoView on the LAST visible link.
       const links = document.querySelectorAll(
         'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
       );
@@ -378,20 +392,19 @@
             behavior: 'instant',
           });
         } catch {
-          // Older Safari fallback.
           links[links.length - 1].scrollIntoView(false);
         }
       }
 
-      // Strategy B: window scroll as a fallback.
+      // Strategy B: window scroll fallback.
       window.scrollBy(0, Math.max(window.innerHeight * 0.85, 600));
 
-      // Strategy C: also nudge any inner scroll container we found.
+      // Strategy C: max-scroll inner containers.
       for (const c of scrollContainers) {
         c.scrollTop = c.scrollHeight;
       }
 
-      // Strategy D: click "load more"-style buttons if present.
+      // Strategy D: click "Voir plus"-style buttons.
       const loadMore = findLoadMoreButton();
       if (loadMore) {
         console.log('[jt-scrape] clicking load-more button');
@@ -399,23 +412,52 @@
       }
 
       await new Promise((r) => setTimeout(r, 700));
-      const next = countJobLinks();
-      if (next === lastCount) {
+
+      // Snapshot whatever's now in the DOM — accumulates across rounds.
+      snapshotVisibleJobs(collected, slug);
+
+      if (collected.size === lastCount) {
         stable++;
       } else {
         stable = 0;
-        lastCount = next;
+        lastCount = collected.size;
       }
       rounds++;
-      if (rounds % 4 === 0 || (next > lastCount - 5 && next !== lastCount)) {
+      if (rounds % 4 === 0) {
         console.log(
-          `[jt-scrape] autoscroll round ${rounds}: ${lastCount} links (stable=${stable}/${AUTOSCROLL_STABLE_THRESHOLD})`,
+          `[jt-scrape] autoscroll round ${rounds}: ${collected.size} unique jobs (stable=${stable}/${AUTOSCROLL_STABLE_THRESHOLD})`,
         );
       }
     }
     console.log(
-      `[jt-scrape] autoscroll done at round ${rounds}: ${lastCount} job links`,
+      `[jt-scrape] autoscroll done at round ${rounds}: ${collected.size} unique jobs collected`,
     );
+    return collected;
+  }
+
+  /** Snapshot every currently-visible job card into `collected`.
+   *  Keyed by canonical href so re-scans don't duplicate. */
+  function snapshotVisibleJobs(collected, slug) {
+    const links = document.querySelectorAll(
+      'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
+    );
+    const byHref = new Map();
+    for (const a of links) {
+      if (!byHref.has(a.href)) byHref.set(a.href, a);
+    }
+    for (const [href, a] of byHref) {
+      if (collected.has(href)) continue;
+      const card =
+        a.closest(
+          '[data-testid*="job"], [class*="JobCard"], [class*="jobCard"], article, li, [role="article"]',
+        ) ||
+        a.parentElement ||
+        a;
+      const job = domNodeToJob(card, a);
+      if (job && job.title && job.url) {
+        collected.set(href, mapJob(job, slug));
+      }
+    }
   }
 
   function countJobLinks() {
@@ -471,13 +513,14 @@
       return 0; // scrape resumes after navigation
     }
 
-    await autoscrollUntilStable();
-
-    const liveJobs = scrapeLiveDom();
-    if (liveJobs.length > 0) {
-      console.log(`[jt-scrape] strategy=live-dom: ${liveJobs.length} jobs`);
-      for (const j of liveJobs) allJobs.push(mapJob(j, slug));
-    }
+    // Combined scroll+snapshot. JT virtualizes the listing — older
+    // cards get unmounted as you scroll past, so a one-shot
+    // scrapeLiveDom at the end only sees the LAST viewport's worth.
+    // autoscrollAndCollect captures each card the first time it's
+    // visible, accumulating in a Map.
+    const collected = await autoscrollAndCollect(slug);
+    for (const job of collected.values()) allJobs.push(job);
+    console.log(`[jt-scrape] strategy=scroll-collect: ${allJobs.length} jobs`);
 
     // ── Strategy 2: fetch + __NEXT_DATA__ across pages ─────────────
     if (allJobs.length === 0) {
@@ -553,10 +596,35 @@
     } catch {}
 
     if (allJobs.length > 0) {
-      await window.__TAURI_INTERNALS__.invoke('jobteaser_jobs_received', {
-        slug,
-        jobs: allJobs,
-      });
+      // Chunk the IPC payload — Tauri's custom-protocol fetch can hit
+      // access-control errors on large bodies (saw "Not allowed to
+      // request resource" on a single 22-job batch). Tauri falls back
+      // to postMessage, but smaller batches sidestep the issue and
+      // give us partial-success even if one batch errors.
+      const CHUNK = 10;
+      let sent = 0;
+      for (let i = 0; i < allJobs.length; i += CHUNK) {
+        const batch = allJobs.slice(i, i + CHUNK);
+        const payloadBytes = JSON.stringify(batch).length;
+        try {
+          await window.__TAURI_INTERNALS__.invoke('jobteaser_jobs_received', {
+            slug,
+            jobs: batch,
+          });
+          sent += batch.length;
+          console.log(
+            `[jt-scrape] sent batch ${i / CHUNK + 1}: ${batch.length} jobs (${payloadBytes} bytes)`,
+          );
+        } catch (e) {
+          console.warn(
+            `[jt-scrape] batch ${i / CHUNK + 1} failed (${payloadBytes} bytes):`,
+            e,
+          );
+        }
+      }
+      console.log(
+        `[jt-scrape] total: ${sent}/${allJobs.length} jobs delivered to Rust`,
+      );
     }
     return allJobs.length;
   }
