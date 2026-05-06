@@ -1,17 +1,29 @@
-import { Star, Users, Globe2, MapPin } from "lucide-react";
+import { ExternalLink, MapPin } from "lucide-react";
 import {
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
 } from "../../primitives";
+import { open as openExternal } from "@tauri-apps/plugin-shell";
 import CompanyAvatar from "../CompanyAvatar";
+import { companyMeta } from "../../data/companyMeta";
 
 interface CompanyModalProps {
   open: boolean;
   onClose: () => void;
   company: string | null;
   location?: string;
+  /** Logo URL (when ingested from a provider that exposed one). */
+  logoUrl?: string;
+  /** Sector pill — falls back to companyMeta lookup if not provided. */
+  sector?: string;
+  /** Stage pill — falls back to companyMeta lookup. */
+  stage?: string;
+  /** External link to the original posting. When set, the modal
+   *  shows a "View posting" button that opens it in the user's
+   *  default browser. */
+  postingUrl?: string;
 }
 
 export default function CompanyModal({
@@ -19,8 +31,19 @@ export default function CompanyModal({
   onClose,
   company,
   location,
+  logoUrl,
+  sector,
+  stage,
+  postingUrl,
 }: CompanyModalProps) {
-  if (!company) return null;
+  if (!company || company === "Unknown") return null;
+
+  // Fall back to curated company meta when the caller doesn't pass
+  // sector / stage explicitly (e.g. clicking a company avatar in
+  // the Pipeline view, where we don't carry job objects).
+  const meta = companyMeta(company);
+  const effectiveSector = sector ?? meta.sector;
+  const effectiveStage = stage ?? meta.stage;
 
   return (
     <Modal open={open} onClose={onClose} size="md" ariaLabel={`About ${company}`}>
@@ -28,46 +51,50 @@ export default function CompanyModal({
       <ModalBody>
         <div className="ds-company-modal">
           <div className="ds-company-modal__header">
-            <CompanyAvatar company={company} size={64} />
+            <CompanyAvatar company={company} size={64} logoUrl={logoUrl} />
             <div className="ds-company-modal__head-text">
               <div className="ds-company-modal__name">{company}</div>
-              <div className="ds-company-modal__rating">
-                <Star size={13} color="#f59e0b" fill="#f59e0b" />
-                <span>4.6</span>
-                <span className="ds-form-hint">(430 reviews)</span>
+            </div>
+          </div>
+
+          {location && (
+            <div className="ds-company-modal__facts">
+              <div className="ds-company-modal__fact">
+                <MapPin size={14} className="ds-company-modal__fact-icon" />
+                <span>{location}</span>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="ds-company-modal__facts">
-            <div className="ds-company-modal__fact">
-              <Users size={14} className="ds-company-modal__fact-icon" />
-              <span>300–500 employees</span>
+          {(effectiveSector || effectiveStage) && (
+            <div className="ds-company-modal__pills">
+              {effectiveStage && (
+                <span className="stat-pill stat-pill--neutral">
+                  {effectiveStage}
+                </span>
+              )}
+              {effectiveSector && (
+                <span className="stat-pill stat-pill--indigo">
+                  {effectiveSector}
+                </span>
+              )}
             </div>
-            <div className="ds-company-modal__fact">
-              <MapPin size={14} className="ds-company-modal__fact-icon" />
-              <span>{location ?? "Paris, France"}</span>
-            </div>
-            <div className="ds-company-modal__fact">
-              <Globe2 size={14} className="ds-company-modal__fact-icon" />
-              <span>{`${company.toLowerCase().replace(/\s+/g, "")}.com`}</span>
-            </div>
-          </div>
-
-          <p className="ds-company-modal__copy">
-            {company} is a fast-growing company building modern products for
-            ambitious teams. Backed by tier-1 investors and known for a strong
-            engineering culture and clear product values.
-          </p>
-
-          <div className="ds-company-modal__pills">
-            <span className="stat-pill stat-pill--neutral">Series C</span>
-            <span className="stat-pill stat-pill--indigo">Fintech</span>
-            <span className="stat-pill stat-pill--purple">B2B SaaS</span>
-          </div>
+          )}
         </div>
       </ModalBody>
       <ModalFooter>
+        {postingUrl && (
+          <button
+            type="button"
+            className="ds-btn"
+            onClick={() => {
+              void openExternal(postingUrl).catch(() => {});
+            }}
+          >
+            <ExternalLink size={14} />
+            <span style={{ marginLeft: 6 }}>View posting</span>
+          </button>
+        )}
         <button type="button" className="ds-btn ds-btn--primary" onClick={onClose}>
           Close
         </button>

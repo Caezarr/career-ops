@@ -872,11 +872,45 @@
 
     // Company name + location: best-effort with class hints.
     const companyEl = n.querySelector(
-      '[class*="company"], [class*="employer"], [data-testid*="company"]',
+      '[class*="company"], [class*="employer"], [data-testid*="company"], [data-testid*="organization"]',
     );
     const locationEl = n.querySelector(
       '[class*="location"], [class*="place"], [data-testid*="location"], [data-testid*="city"]',
     );
+
+    // Fallback company extraction: JT cards often expose the company
+    // name as the IMG's alt attribute, OR as the second short text
+    // line of the card right under the title.
+    let companyName = companyEl ? companyEl.textContent.trim() : '';
+    if (!companyName) {
+      // Try every <img> alt — logos almost always carry the company.
+      for (const img of n.querySelectorAll('img')) {
+        const alt = img.getAttribute('alt');
+        if (alt && alt.trim().length > 1 && alt.length < 80 && alt !== title) {
+          companyName = alt.trim();
+          break;
+        }
+      }
+    }
+    if (!companyName) {
+      // Walk text-bearing children: title is line 1, company is the
+      // next short non-location, non-contract line.
+      const lines = (n.textContent || '')
+        .split(/\n+/)
+        .map((s) => s.trim())
+        .filter(
+          (s) =>
+            s.length > 1 &&
+            s.length < 80 &&
+            s !== title &&
+            !/^(stage|cdi|cdd|alternance|apprentissage|internship|permanent|fixed-term|vie)$/i.test(
+              s,
+            ) &&
+            !/^[\d/\-.: ]+$/.test(s) &&
+            !/^[€$£]/.test(s),
+        );
+      if (lines.length > 0) companyName = lines[0];
+    }
 
     // Contract type — chip / badge usually has class*="contract" or
     // explicit data-testid. Fallback: scan card text for known FR/EN
@@ -913,7 +947,11 @@
     let description = (n.textContent || '')
       .replace(/\s+/g, ' ')
       .trim();
-    for (const remove of [title, ...(companyEl ? [companyEl.textContent.trim()] : []), ...(locationEl ? [locationEl.textContent.trim()] : [])]) {
+    for (const remove of [
+      title,
+      companyName,
+      ...(locationEl ? [locationEl.textContent.trim()] : []),
+    ]) {
       if (remove && remove.length > 2) {
         description = description.split(remove).join(' ').trim();
       }
@@ -925,7 +963,7 @@
       slug: id,
       url,
       title,
-      company: { name: companyEl ? companyEl.textContent.trim() : '' },
+      company: { name: companyName },
       location: { city: locationEl ? locationEl.textContent.trim() : '' },
       description,
       contractType: contractType || '',
