@@ -64,8 +64,19 @@
   btn.style.cssText =
     'background:#8b5cf6;color:#fff;border:none;padding:6px 12px;' +
     'border-radius:6px;cursor:pointer;font:inherit;font-weight:600;';
+  // Secondary button — only shown after a successful scrape so the
+  // user can navigate to a different URL (different filter / "all
+  // offers" tab / company page) and re-scrape from there.
+  const btn2 = document.createElement('button');
+  btn2.type = 'button';
+  btn2.textContent = 'Re-scrape this page';
+  btn2.style.cssText =
+    'background:#475569;color:#fff;border:none;padding:6px 12px;' +
+    'border-radius:6px;cursor:pointer;font:inherit;font-weight:600;' +
+    'margin-right:8px;display:none;';
   panel.appendChild(statusEl);
   panel.appendChild(detailEl);
+  panel.appendChild(btn2);
   panel.appendChild(btn);
 
   function setStatus(msg, detail, isError) {
@@ -489,8 +500,13 @@
     return null;
   }
 
-  async function scrapeJobs(slug) {
+  async function scrapeJobs(slug, opts) {
+    opts = opts || {};
     const allJobs = [];
+
+    console.log(
+      `[jt-scrape] scraping at: ${window.location.href} (skipNavigation=${!!opts.skipNavigation})`,
+    );
 
     // ── Strategy 1: navigate to clean /fr/job-offers + auto-scroll
     //   + scrape the live DOM. JT lazy-loads job cards as you
@@ -500,9 +516,15 @@
     //   We use sessionStorage to survive the navigation: the bridge
     //   re-injects on every page load, sees the flag, and runs the
     //   scrape there instead of re-doing the auth roundtrip.
+    //
+    //   `opts.skipNavigation` lets the user trigger a manual scrape
+    //   from whatever URL they're currently on (via the "Re-scrape
+    //   this page" button) — useful when the default /fr/job-offers
+    //   redirects to a saved-search the user wants to bypass.
     if (
-      window.location.pathname !== '/fr/job-offers' ||
-      window.location.search.length > 0
+      !opts.skipNavigation &&
+      (window.location.pathname !== '/fr/job-offers' ||
+        window.location.search.length > 0)
     ) {
       try {
         sessionStorage.setItem('careerOsJtScrapeSlug', slug);
@@ -979,8 +1001,34 @@
           panel.style.background = '#16a34a';
           statusEl.textContent =
             count > 0
-              ? `Career OS · scraped ${count} job offers ✓`
-              : 'Career OS · scrape returned 0 jobs (check filters?)';
+              ? `Career OS · scraped ${count} job offers ✓ · navigate then "Re-scrape" for more`
+              : 'Career OS · scrape returned 0 jobs · navigate to a different page and "Re-scrape"';
+          // Show the "Re-scrape this page" secondary button — user
+          // can navigate to a richer URL (e.g. unfilter saved searches,
+          // browse companies, all-internships tab) and click to scrape
+          // from there. The same slug is reused.
+          btn2.style.display = 'inline-block';
+          btn2.onclick = () => {
+            panel.style.background = '#0ea5e9';
+            statusEl.textContent = `Career OS · re-scraping ${window.location.pathname}…`;
+            btn2.style.display = 'none';
+            scrapeJobs(resumeSlug, { skipNavigation: true })
+              .then((c) => {
+                panel.style.background = '#16a34a';
+                statusEl.textContent =
+                  c > 0
+                    ? `Career OS · scraped ${c} more job offers ✓`
+                    : 'Career OS · 0 new jobs on this page';
+                btn2.style.display = 'inline-block';
+              })
+              .catch((err) => {
+                panel.style.background = '#dc2626';
+                statusEl.textContent =
+                  'Career OS · re-scrape failed — see DevTools';
+                console.error('[jt-scrape] manual re-scrape failed:', err);
+                btn2.style.display = 'inline-block';
+              });
+          };
           btn.textContent = 'Close window';
           btn.style.background = '#0f172a';
           btn.onclick = async () => {
