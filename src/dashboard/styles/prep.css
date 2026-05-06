@@ -800,7 +800,10 @@
 
 .dashboard-root .prep-progress__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* minmax(0, 1fr) so each column can shrink below its intrinsic
+     content width — without it the third column was pushed past
+     its track and the donut + percent bled out the right edge. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -848,12 +851,27 @@
 .dashboard-root .prep-stat-box__completion {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-top: 2px;
+  /* Allow the box to shrink below the donut+text intrinsic width.
+     Without this the row pushes past its grid track. */
+  min-width: 0;
 }
 
 .dashboard-root .prep-stat-box__completion .prep-stat-box__value {
   margin-top: 0;
+  /* Same treatment as the donut row: shrink before overflowing.
+     Slightly smaller typography here so "62%" fits next to the
+     donut even at the narrowest breakpoint. */
+  font-size: 18px;
+  line-height: 1.05;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-root .prep-stat-box__completion > :first-child {
+  flex-shrink: 0;
 }
 
 /* Improvement chart */
