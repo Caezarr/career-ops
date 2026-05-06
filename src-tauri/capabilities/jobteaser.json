@@ -1,0 +1,15 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "jobteaser-auth",
+  "description": "Allow the JT auth WebView to invoke a narrow set of Tauri commands so the bridge script can finalize SSO capture. Scoped to JT's domain only.",
+  "windows": ["jobteaser-auth"],
+  "remote": {
+    "urls": ["https://*.jobteaser.com/*", "https://jobteaser.com/*"]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:event:default",
+    "core:webview:default"
+  ]
+}

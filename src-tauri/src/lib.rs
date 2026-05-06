@@ -940,6 +940,122 @@ fn ingest_get_builtin_sources() -> Vec<ingest::SourceSpec> {
     ingest::get_builtin_sources_list()
 }
 
+// ─── Job Teaser SSO (Phase JT) ───────────────────────────────────────
+
+/// Open Job Teaser's central sign-in page in a dedicated WebViewWindow.
+/// The window's initialization_script polls `document.cookie` after the
+/// user completes their school's SSO; once the JT session token is
+/// detected, JS calls `jobteaser_auth_complete` (below) with the
+/// captured cookies + the user's career-center profile.
+#[tauri::command]
+async fn jobteaser_auth_open(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    // If a window labelled `jobteaser-auth` already exists (user clicked
+    // twice), focus it instead of opening a duplicate.
+    if let Some(existing) = app.get_webview_window("jobteaser-auth") {
+        let _ = existing.set_focus();
+        return Ok(());
+    }
+
+    let bridge_script = include_str!("./ingest/jobteaser/auth_bridge.js");
+
+    let url: tauri::Url = "https://www.jobteaser.com/fr/users/sign_in"
+        .parse()
+        .map_err(|e: <tauri::Url as std::str::FromStr>::Err| e.to_string())?;
+
+    WebviewWindowBuilder::new(&app, "jobteaser-auth", WebviewUrl::External(url))
+    .title("Sign in to Job Teaser")
+    .inner_size(900.0, 720.0)
+    .min_inner_size(640.0, 520.0)
+    .resizable(true)
+    .focused(true)
+    .initialization_script(bridge_script)
+    .build()
+    .map_err(|e| format!("open auth window: {}", e))?;
+
+    Ok(())
+}
+
+/// Called by the JS bridge once cookies + profile are captured.
+/// Persists to Keychain, returns the profile to the frontend so it
+/// can insert the IngestSource row + close the auth window.
+#[tauri::command]
+async fn jobteaser_auth_complete(
+    app: tauri::AppHandle,
+    profile: ingest::jobteaser::AuthProfile,
+    cookies: ingest::jobteaser::AuthCookies,
+) -> Result<ingest::jobteaser::AuthProfile, String> {
+    let stored = ingest::jobteaser::handle_auth_complete(profile, cookies)
+        .map_err(|e| e.to_string())?;
+
+    // Notify the main dashboard window so it can insert the IngestSource
+    // row + refresh Settings. Failure to emit is non-fatal — the next
+    // page reload will pick up the keychain-backed session anyway.
+    let payload = serde_json::json!({ "profile": &stored });
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit("jobteaser-auth-complete", payload);
+    }
+
+    // Auth roundtrip done. We DELIBERATELY keep the auth window
+    // alive so the bridge's XHR sniffer can keep logging requests as
+    // the user clicks around in the JT portal — those URLs feed JT-07
+    // (the scraper). The bridge banner flips to green "captured" and
+    // the user closes the window manually when done exploring.
+
+    Ok(stored)
+}
+
+/// Cheap check: does the user have stored session cookies for this
+/// career_center_slug? Used by Settings to render "Re-authenticate"
+/// instead of "Add school" when an entry already exists but a fetch
+/// returned 401.
+#[tauri::command]
+fn jobteaser_has_session(career_center_slug: String) -> bool {
+    ingest::jobteaser::auth::has_stored_session(&career_center_slug)
+}
+
+/// Close the JT auth window — invoked from the bridge's "Close window"
+/// button after capture. WebKit blocks `window.close()` on
+/// programmatically-opened windows in this context, so we route it
+/// through a Tauri command.
+#[tauri::command]
+fn jobteaser_close_auth_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("jobteaser-auth") {
+        win.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Receive a batch of scraped jobs from the in-WebView bridge.
+/// Each entry comes pre-mapped from JT's __NEXT_DATA__; we walk
+/// them through `normalize::to_ingested` to land in the canonical
+/// `IngestedJob` shape, then emit to the dashboard so the store
+/// merges them via `setIngestedJobs`.
+#[tauri::command]
+async fn jobteaser_jobs_received(
+    app: tauri::AppHandle,
+    slug: String,
+    jobs: Vec<ingest::jobteaser::scrape::WebviewScrapedJob>,
+) -> Result<usize, String> {
+    let raw_jobs = ingest::jobteaser::scrape::convert_webview_batch(jobs);
+    let count = raw_jobs.len();
+
+    let ingested: Vec<ingest::IngestedJob> = raw_jobs
+        .into_iter()
+        .map(|raw| ingest::normalize::to_ingested(raw, ingest::IngestProvider::JobTeaser, &slug))
+        .collect();
+
+    if let Some(main) = app.get_webview_window("main") {
+        let payload = serde_json::json!({ "slug": slug, "jobs": ingested });
+        main.emit("jobteaser-jobs-received", payload)
+            .map_err(|e| e.to_string())?;
+    }
+
+    tracing::info!("jobteaser: scraper delivered {} jobs for slug='{}'", count, slug);
+    Ok(count)
+}
+
 // ─── DB persistence (Phase 6) ────────────────────────────────────────
 
 #[tauri::command]
@@ -1122,6 +1238,12 @@ pub fn run() {
             ingest_run_all,
             ingest_health_check,
             ingest_get_builtin_sources,
+            // Job Teaser SSO auth flow
+            jobteaser_auth_open,
+            jobteaser_auth_complete,
+            jobteaser_has_session,
+            jobteaser_close_auth_window,
+            jobteaser_jobs_received,
             // DB: ingest persistence (Phase 6)
             db_load_ingest_sources,
             db_upsert_ingest_source,

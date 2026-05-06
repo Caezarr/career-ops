@@ -62,17 +62,19 @@ export default function ProgressCard() {
           <span className="prep-stat-box__trend">↑ {averageScore.trend}</span>
         </div>
 
-        <div className="prep-stat-box">
+        <div className="prep-stat-box prep-stat-box--completion">
           <span className="prep-stat-box__label">Completion</span>
           <div className="prep-stat-box__completion">
+            {/* Use the donut's centred label rather than a side
+                <span> — keeps the cell narrow even when the column
+                shrinks below ~100px. */}
             <CircularProgress
               value={completion}
-              size={28}
-              stroke={4}
+              size={56}
+              stroke={6}
               color="indigo"
-              showLabel={false}
+              showLabel
             />
-            <span className="prep-stat-box__value">{completion}%</span>
           </div>
         </div>
       </div>

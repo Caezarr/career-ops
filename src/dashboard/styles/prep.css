@@ -800,7 +800,10 @@
 
 .dashboard-root .prep-progress__stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* minmax(0, 1fr) so each column can shrink below its intrinsic
+     content width — without it the third column was pushed past
+     its track and the donut + percent bled out the right edge. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -845,15 +848,29 @@
   margin-top: 2px;
 }
 
+/* Completion box uses a centred donut with the percentage rendered
+   INSIDE the ring (CircularProgress showLabel=true). No side text
+   to overflow — the cell stays clean at any column width. */
+.dashboard-root .prep-stat-box--completion {
+  align-items: center;
+  text-align: center;
+}
+.dashboard-root .prep-stat-box--completion .prep-stat-box__label {
+  /* "COMPLETION" is a single 10-char word — can't wrap. Tighten
+     typography so it fits the narrowest 1fr column without
+     clipping, even at 0.04em letter-spacing on uppercase. */
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  align-self: stretch;
+  text-align: left;
+  white-space: nowrap;
+}
 .dashboard-root .prep-stat-box__completion {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 2px;
-}
-
-.dashboard-root .prep-stat-box__completion .prep-stat-box__value {
-  margin-top: 0;
+  justify-content: center;
+  margin-top: 4px;
+  min-width: 0;
 }
 
 /* Improvement chart */

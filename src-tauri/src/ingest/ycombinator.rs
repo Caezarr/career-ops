@@ -226,6 +226,7 @@ fn into_raw(j: WaasJob) -> RawJob {
         // the frontend can derive companyStage (e.g. "S25" → "Seed").
         posted_at,
         company_batch: j.company_batch,
+        company_logo_url: None,
     }
 }
 

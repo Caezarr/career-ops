@@ -652,26 +652,33 @@
 }
 
 /* Footer actions */
+/* Footer: 4 buttons (Save / War Room / View posting / Apply) need to
+   stay inside the panel even when it's narrow. Wrap to a second row
+   instead of overflowing. Apply now stays primary by being last and
+   filling remaining space on its row. */
 .dashboard-root .job-detail__footer {
   display: flex;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
   padding: 16px 24px 24px;
   margin-top: auto;
+  min-width: 0;
 }
 
 .dashboard-root .job-detail__save {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--text-1);
-  padding: 11px 18px;
+  padding: 9px 14px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   transition: background 120ms ease, border-color 120ms ease;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .dashboard-root .job-detail__save:hover {
@@ -679,18 +686,20 @@
 }
 
 .dashboard-root .job-detail__apply {
-  flex: 1;
+  flex: 1 1 140px;
+  min-width: 120px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--indigo);
   color: #ffffff;
-  padding: 11px 22px;
+  padding: 9px 16px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
   transition: background 120ms ease;
+  white-space: nowrap;
 }
 
 .dashboard-root .job-detail__apply:hover {
@@ -704,7 +713,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 11px 16px;
+  padding: 9px 14px;
   border-radius: 8px;
   font-size: 12.5px;
   font-weight: 600;
@@ -713,6 +722,7 @@
   border: 1px solid transparent;
   transition: filter 120ms ease, border-color 120ms ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .dashboard-root .job-detail__war-room:hover {
   filter: brightness(0.97);

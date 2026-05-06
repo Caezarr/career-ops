@@ -21,6 +21,7 @@
 pub mod ashby;
 pub mod builtin_sources;
 pub mod greenhouse;
+pub mod jobteaser;
 pub mod lever;
 pub mod normalize;
 pub mod traits;
@@ -71,6 +72,7 @@ pub async fn run_source(
             jobs
         }
         IngestProvider::YCombinator => ycombinator::fetch(identifier).await?,
+        IngestProvider::JobTeaser => jobteaser::fetch(identifier).await?,
     };
 
     let jobs: Vec<IngestedJob> = raw_jobs

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, RefreshCw, AlertCircle, CheckCircle2, GraduationCap } from 'lucide-react';
 import { useAppStore } from '../../store';
 import type { IngestProvider, IngestSource } from '../../store/types';
 import {
@@ -8,6 +8,7 @@ import {
   removeIngestSourceWithPersist,
   toggleIngestSourceWithPersist,
 } from '../../lib/ingest';
+import { openJobTeaserAuth } from '../../lib/jobteaser';
 import { useToast } from '../../primitives';
 import Toggle from './Toggle';
 
@@ -53,6 +54,7 @@ const PROVIDER_LABELS: Record<IngestProvider, string> = {
   lever: 'Lever',
   ashby: 'Ashby',
   ycombinator: 'Y Combinator',
+  jobteaser: 'Job Teaser',
 };
 
 function formatLastSynced(ts?: number): string {
@@ -84,7 +86,7 @@ export default function JobSourcesCard() {
       acc[s.provider].push(s);
       return acc;
     },
-    { greenhouse: [], lever: [], ashby: [], ycombinator: [] },
+    { greenhouse: [], lever: [], ashby: [], ycombinator: [], jobteaser: [] },
   );
 
   async function handleTestAndAdd() {
@@ -145,7 +147,34 @@ export default function JobSourcesCard() {
         </span>
       </div>
 
-      {/* ── Add new source ───────────────────────────────────────── */}
+      {/* ── Job Teaser (school SSO) ──────────────────────────────── */}
+      <div className="job-sources__jt">
+        <div className="job-sources__jt-row">
+          <GraduationCap size={18} className="job-sources__jt-icon" />
+          <div className="job-sources__jt-text">
+            <div className="job-sources__jt-title">School Job Teaser</div>
+            <div className="job-sources__jt-subtitle">
+              Sign in with your school account (HEC, ESSEC, ENSAM, Sciences Po…) — Career OS captures
+              your session locally so your school-network jobs join the public feed. Cookies stay in
+              macOS Keychain.
+            </div>
+          </div>
+          <button
+            type="button"
+            className="job-sources__jt-btn"
+            onClick={() => {
+              void openJobTeaserAuth().catch((e) =>
+                toast.error(`Couldn't open Job Teaser: ${e instanceof Error ? e.message : String(e)}`),
+              );
+            }}
+          >
+            <Plus size={14} />
+            Add school
+          </button>
+        </div>
+      </div>
+
+      {/* ── Add new source (Greenhouse / Lever / Ashby / YC) ─────── */}
       <div className="job-sources__add">
         <div className="job-sources__add-row">
           <select

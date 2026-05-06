@@ -50,6 +50,12 @@ pub struct IngestedJob {
     /// postings. Used by the frontend to derive `companyStage`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub company_batch: Option<String>,
+    /// Absolute URL of the company logo. Currently populated only by
+    /// the Job Teaser bridge scraper (extracted from the listing
+    /// card's <img>). Other providers leave it None and the
+    /// frontend keeps using `companyBrand()` / initials.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub company_logo_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,6 +119,7 @@ pub fn to_ingested(raw: RawJob, provider: IngestProvider, identifier: &str) -> I
             fetched_at: now_ms,
         },
         company_batch: raw.company_batch,
+        company_logo_url: raw.company_logo_url,
     }
 }
 

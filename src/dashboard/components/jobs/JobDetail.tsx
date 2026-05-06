@@ -10,7 +10,9 @@ import {
   Bookmark,
   ArrowRight,
   Target,
+  ExternalLink,
 } from 'lucide-react';
+import { open as openExternal } from '@tauri-apps/plugin-shell';
 import CompanyAvatar from '../CompanyAvatar';
 import InfoTag from './InfoTag';
 import StatPill from './StatPill';
@@ -84,7 +86,7 @@ export default function JobDetail() {
       </div>
 
       <div className="job-detail__company">
-        <CompanyAvatar company={job.company} size={44} />
+        <CompanyAvatar company={job.company} size={44} logoUrl={job.companyLogoUrl} />
         <div className="job-detail__company-text">
           <div className="job-detail__role">
             <span>{job.role}</span>
@@ -145,7 +147,7 @@ export default function JobDetail() {
 
       {job.about && job.about.length > 0 && (
         <section className="job-detail__about">
-          <h3 className="job-detail__section-title">About {job.company}</h3>
+          <h3 className="job-detail__section-title">About this offer</h3>
           {job.about.map((p, i) => (
             <p key={i} className="job-detail__about-text">
               {p}
@@ -191,10 +193,36 @@ export default function JobDetail() {
           <Target size={14} />
           <span>War Room</span>
         </button>
+        {job.source?.sourceUrl && (
+          <button
+            type="button"
+            className="job-detail__war-room"
+            onClick={() => {
+              void openExternal(job.source!.sourceUrl).catch((e) =>
+                toast.error(`Couldn't open: ${e instanceof Error ? e.message : String(e)}`),
+              );
+            }}
+            title="Open the original posting in your default browser"
+          >
+            <ExternalLink size={14} />
+            <span>View posting</span>
+          </button>
+        )}
         <button
           type="button"
           className="job-detail__apply"
-          onClick={() => setApplyOpen(true)}
+          onClick={() => {
+            // External providers (JT etc.) — open the canonical URL in
+            // the default browser. Hand-created jobs fall back to the
+            // ApplyModal for tracking.
+            if (job.source?.sourceUrl) {
+              void openExternal(job.source.sourceUrl).catch((e) =>
+                toast.error(`Couldn't open: ${e instanceof Error ? e.message : String(e)}`),
+              );
+            } else {
+              setApplyOpen(true);
+            }
+          }}
         >
           <span>Apply now</span>
           <ArrowRight size={14} />
@@ -211,6 +239,11 @@ export default function JobDetail() {
         onClose={() => setCompanyOpen(false)}
         company={job.company}
         location={job.location}
+        logoUrl={job.companyLogoUrl}
+        sector={job.sector}
+        stage={job.companyStage}
+        postingUrl={job.source?.sourceUrl}
+        currentJobId={job.id}
       />
     </aside>
   );

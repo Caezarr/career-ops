@@ -240,6 +240,8 @@ export async function addIngestSourceWithPersist(input: {
   provider: IngestProvider;
   identifier: string;
   label?: string;
+  /** Job Teaser only — passed through to IngestSource. */
+  schoolDisplayName?: string;
 }) {
   const source = useAppStore.getState().addIngestSource(input);
   try {
