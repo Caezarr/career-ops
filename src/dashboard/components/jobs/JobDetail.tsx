@@ -84,7 +84,7 @@ export default function JobDetail() {
       </div>
 
       <div className="job-detail__company">
-        <CompanyAvatar company={job.company} size={44} />
+        <CompanyAvatar company={job.company} size={44} logoUrl={job.companyLogoUrl} />
         <div className="job-detail__company-text">
           <div className="job-detail__role">
             <span>{job.role}</span>

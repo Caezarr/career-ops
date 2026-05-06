@@ -58,7 +58,7 @@ export default function JobListItem({
       onClick={onSelect}
       onKeyDown={handleKeyDown}
     >
-      <CompanyAvatar company={job.company} size={36} />
+      <CompanyAvatar company={job.company} size={36} logoUrl={job.companyLogoUrl} />
 
       <div className="job-row__main">
         <div className="job-row__role">

@@ -70,6 +70,11 @@ pub struct RawJob {
     /// populated by YC postings (e.g. "S25", "W26"). Used by the
     /// frontend to derive `companyStage`.
     pub company_batch: Option<String>,
+    /// Absolute URL to the company's logo. Currently set by the
+    /// Job Teaser bridge scraper (extracted from the card's <img>);
+    /// other providers leave it None and the frontend falls back to
+    /// `companyBrand()` or initials.
+    pub company_logo_url: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]

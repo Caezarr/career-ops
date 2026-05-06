@@ -856,18 +856,70 @@
     const url = link.href;
     const m = url.match(/\/job-offers\/([\w-]+)/);
     const id = m ? m[1] : url.split('?')[0];
-    const text = (n.textContent || '').trim();
-    // Cards often have title in <h2>/<h3>/<strong> or class*="title".
-    // Fallback: link's own text (the canonical link is usually the
-    // title CTA).
+
+    // Title: heading element first, then the link's own text, then
+    // the first non-empty text line of the card.
     const titleEl = n.querySelector('h2, h3, h4, [class*="title"]');
     const title =
       (titleEl && titleEl.textContent.trim()) ||
       (link.textContent && link.textContent.trim()) ||
-      text.split('\n')[0].slice(0, 200);
-    // Best-effort company / location pull.
-    const companyEl = n.querySelector('[class*="company"], [class*="employer"]');
-    const locationEl = n.querySelector('[class*="location"], [class*="place"]');
+      ((n.textContent || '').trim().split('\n')[0] || '').slice(0, 200);
+
+    // Company logo — look for an <img> inside the card. JT uses
+    // lazy-load (data-src / srcset) plus regular src. Take whatever
+    // resolves to an absolute URL. Skip transparent placeholders.
+    const logoUrl = extractLogoFromCard(n);
+
+    // Company name + location: best-effort with class hints.
+    const companyEl = n.querySelector(
+      '[class*="company"], [class*="employer"], [data-testid*="company"]',
+    );
+    const locationEl = n.querySelector(
+      '[class*="location"], [class*="place"], [data-testid*="location"], [data-testid*="city"]',
+    );
+
+    // Contract type — chip / badge usually has class*="contract" or
+    // explicit data-testid. Fallback: scan card text for known FR/EN
+    // contract keywords.
+    const contractEl = n.querySelector(
+      '[class*="contract" i], [data-testid*="contract"], [class*="employment" i]',
+    );
+    let contractType = contractEl ? contractEl.textContent.trim() : '';
+    if (!contractType) {
+      const cardText = (n.textContent || '').toLowerCase();
+      for (const word of [
+        'stage',
+        'alternance',
+        'apprentissage',
+        'cdi',
+        'cdd',
+        'internship',
+        'apprenticeship',
+        'permanent',
+        'fixed-term',
+        'volontariat',
+        'vie',
+      ]) {
+        if (cardText.includes(word)) {
+          contractType = word.charAt(0).toUpperCase() + word.slice(1);
+          break;
+        }
+      }
+    }
+
+    // Description: gather the visible text of the card, strip the
+    // bits we already captured (title, company, location, contract).
+    // Cap at ~600 chars — JT cards usually expose 1-3 short lines.
+    let description = (n.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    for (const remove of [title, ...(companyEl ? [companyEl.textContent.trim()] : []), ...(locationEl ? [locationEl.textContent.trim()] : [])]) {
+      if (remove && remove.length > 2) {
+        description = description.split(remove).join(' ').trim();
+      }
+    }
+    description = description.replace(/\s+/g, ' ').trim().slice(0, 600);
+
     return {
       id,
       slug: id,
@@ -875,8 +927,50 @@
       title,
       company: { name: companyEl ? companyEl.textContent.trim() : '' },
       location: { city: locationEl ? locationEl.textContent.trim() : '' },
-      description: '',
+      description,
+      contractType: contractType || '',
+      companyLogoUrl: logoUrl || '',
     };
+  }
+
+  /** Pull an absolute logo URL from any <img> inside the card.
+   *  JT lazy-loads logos via data-src + srcset; takes the first
+   *  resolvable, non-placeholder source. */
+  function extractLogoFromCard(card) {
+    const imgs = card.querySelectorAll('img');
+    for (const img of imgs) {
+      const candidates = [
+        img.getAttribute('src'),
+        img.getAttribute('data-src'),
+        img.getAttribute('data-original'),
+      ];
+      // srcset is a comma-separated list; take the FIRST URL.
+      const srcset = img.getAttribute('srcset') || '';
+      if (srcset) {
+        candidates.push(srcset.split(',')[0].trim().split(' ')[0]);
+      }
+      for (const c of candidates) {
+        if (!c) continue;
+        // Skip 1x1 transparent placeholders & obvious decorations.
+        if (
+          c.startsWith('data:') ||
+          c.includes('1x1') ||
+          c.includes('placeholder') ||
+          c.includes('blank.gif')
+        ) {
+          continue;
+        }
+        // Resolve to absolute URL via the <img>'s `src` resolution
+        // semantics (img.src always returns absolute).
+        try {
+          const u = new URL(c, window.location.origin);
+          return u.toString();
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return '';
   }
 
   function extractNextData(html) {
@@ -1000,6 +1094,8 @@
         j.publishedAt ||
         j.first_published_at ||
         null,
+      // V2 enrichment from the card DOM — see domNodeToJob.
+      companyLogoUrl: j.companyLogoUrl || j.logoUrl || j.logo || '',
     };
   }
 

@@ -161,6 +161,7 @@ fn into_raw(j: AshbyJob) -> RawJob {
         employment_type: j.employment_type.map(humanise_employment),
         posted_at: j.published_at,
         company_batch: None,
+        company_logo_url: None,
     }
 }
 

@@ -45,6 +45,10 @@ pub struct WebviewScrapedJob {
     pub employment_type: Option<String>,
     #[serde(default)]
     pub posted_at: Option<String>,
+    /// Absolute URL of the company logo, extracted from the card
+    /// `<img>` by the bridge. Empty when the card doesn't expose one.
+    #[serde(default)]
+    pub company_logo_url: String,
 }
 
 /// Map a `Vec<WebviewScrapedJob>` (from the bridge) into the
@@ -79,6 +83,11 @@ pub fn convert_webview_batch(batch: Vec<WebviewScrapedJob>) -> Vec<RawJob> {
             employment_type: j.employment_type,
             posted_at: j.posted_at,
             company_batch: None,
+            company_logo_url: if j.company_logo_url.is_empty() {
+                None
+            } else {
+                Some(j.company_logo_url)
+            },
         })
         .collect()
 }

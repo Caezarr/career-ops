@@ -159,6 +159,7 @@ fn into_raw(j: LeverJob) -> RawJob {
         employment_type: j.categories.commitment,
         posted_at,
         company_batch: None,
+        company_logo_url: None,
     }
 }
 

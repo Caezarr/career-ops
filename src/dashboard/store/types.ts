@@ -82,6 +82,11 @@ export interface Job {
   companyStage?: string;
   /** YC batch identifier (e.g. "S25", "W26") — only set for YC postings. */
   companyBatch?: string;
+  /** Absolute URL to the company logo. Currently set by the Job
+   *  Teaser bridge scraper (extracted from the card <img>). When
+   *  present, JobListItem / JobDetail / WarRoom render this image
+   *  instead of the avatarLabel + avatarColor fallback. */
+  companyLogoUrl?: string;
 }
 
 // ─── Job ingestion (external boards) ────────────────────────────────────────
