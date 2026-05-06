@@ -93,6 +93,52 @@
   }
   mountPanel();
 
+  // ── Resume hook ─────────────────────────────────────────────────
+  // If the previous load triggered a navigation to /fr/job-offers
+  // (see scrapeJobs), the bridge re-injects on the new page and we
+  // pick the scrape back up here — without re-doing the auth probe.
+  let resumeSlug = null;
+  try {
+    resumeSlug = sessionStorage.getItem('careerOsJtScrapeSlug');
+  } catch {}
+
+  if (resumeSlug && !isOnLoginPage()) {
+    console.log('[jobteaser-bridge] resuming scrape after navigation:', resumeSlug);
+    setStatus('resuming scrape after navigation…', `slug=${resumeSlug}`);
+    panel.style.background = '#0ea5e9';
+    // Defer slightly so the page's own scripts get a chance to render
+    // the first batch of cards.
+    setTimeout(() => {
+      scrapeJobs(resumeSlug)
+        .then((count) => {
+          panel.style.background = '#16a34a';
+          statusEl.textContent =
+            count > 0
+              ? `Career OS · scraped ${count} job offers ✓`
+              : 'Career OS · scrape returned 0 jobs (check filters?)';
+          btn.textContent = 'Close window';
+          btn.style.background = '#0f172a';
+          btn.onclick = async () => {
+            try {
+              await window.__TAURI_INTERNALS__.invoke(
+                'jobteaser_close_auth_window',
+              );
+            } catch (e) {
+              console.warn('[jobteaser-bridge] close failed:', e);
+            }
+          };
+        })
+        .catch((err) => {
+          panel.style.background = '#dc2626';
+          statusEl.textContent =
+            'Career OS · scrape failed — see DevTools console for details';
+          console.error('[jt-scrape] resume failed:', err);
+        });
+    }, 1500);
+    // Skip the auth flow — already authed before navigation.
+    return;
+  }
+
   // ── Login state detection ────────────────────────────────────────
   function isOnLoginPage() {
     const p = window.location.pathname;
@@ -313,14 +359,72 @@
   // sends them automatically.
 
   const MAX_PAGES = 8; // safety cap — adjust later if real volume justifies more
+  const AUTOSCROLL_MAX_ROUNDS = 60; // ~60 rounds * 800ms = 48s ceiling
+  const AUTOSCROLL_STABLE_THRESHOLD = 4; // stop after N stable rounds in a row
+
+  /** Scroll the page in chunks until the count of job-offer links
+   *  stops growing for AUTOSCROLL_STABLE_THRESHOLD rounds. JT lazy-
+   *  loads cards as you reach the bottom of the viewport. */
+  async function autoscrollUntilStable() {
+    let lastCount = countJobLinks();
+    let stable = 0;
+    let rounds = 0;
+    console.log(`[jt-scrape] autoscroll start: ${lastCount} links visible`);
+
+    while (rounds < AUTOSCROLL_MAX_ROUNDS && stable < AUTOSCROLL_STABLE_THRESHOLD) {
+      window.scrollBy(0, Math.max(window.innerHeight * 0.85, 600));
+      await new Promise((r) => setTimeout(r, 800));
+      const next = countJobLinks();
+      if (next === lastCount) {
+        stable++;
+      } else {
+        stable = 0;
+        lastCount = next;
+      }
+      rounds++;
+      if (rounds % 5 === 0) {
+        console.log(
+          `[jt-scrape] autoscroll round ${rounds}: ${lastCount} links (stable=${stable}/${AUTOSCROLL_STABLE_THRESHOLD})`,
+        );
+      }
+    }
+    console.log(
+      `[jt-scrape] autoscroll done at round ${rounds}: ${lastCount} job links`,
+    );
+  }
+
+  function countJobLinks() {
+    return document.querySelectorAll(
+      'a[href*="/job-offers/"]:not([href$="/job-offers/"]):not([href*="?"])',
+    ).length;
+  }
 
   async function scrapeJobs(slug) {
     const allJobs = [];
 
-    // ── Strategy 1: scrape the LIVE DOM ───────────────────────────
-    // After auth the user usually lands on /fr/job-offers — a fully
-    // rendered page. Reading the DOM beats fetching a fresh HTML
-    // page (which may render client-side and be empty).
+    // ── Strategy 1: navigate to clean /fr/job-offers + auto-scroll
+    //   + scrape the live DOM. JT lazy-loads job cards as you
+    //   scroll; without this we only see the first 4-15 jobs that
+    //   happen to be in the viewport.
+    //
+    //   We use sessionStorage to survive the navigation: the bridge
+    //   re-injects on every page load, sees the flag, and runs the
+    //   scrape there instead of re-doing the auth roundtrip.
+    if (
+      window.location.pathname !== '/fr/job-offers' ||
+      window.location.search.length > 0
+    ) {
+      try {
+        sessionStorage.setItem('careerOsJtScrapeSlug', slug);
+      } catch {}
+      console.log('[jt-scrape] navigating to clean /fr/job-offers');
+      // The bridge will re-init on the new page and pick up where we left.
+      window.location.assign('/fr/job-offers');
+      return 0; // scrape resumes after navigation
+    }
+
+    await autoscrollUntilStable();
+
     const liveJobs = scrapeLiveDom();
     if (liveJobs.length > 0) {
       console.log(`[jt-scrape] strategy=live-dom: ${liveJobs.length} jobs`);
@@ -395,6 +499,10 @@
     console.log(
       `[jt-scrape] scraped ${allJobs.length} unique jobs total for slug=${slug}`,
     );
+
+    try {
+      sessionStorage.removeItem('careerOsJtScrapeSlug');
+    } catch {}
 
     if (allJobs.length > 0) {
       await window.__TAURI_INTERNALS__.invoke('jobteaser_jobs_received', {
