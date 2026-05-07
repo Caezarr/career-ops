@@ -23,7 +23,7 @@ jobs:
       # `packageManager: pnpm@9.15.4` is the source of truth.
       # Setting both raises ERR_PNPM_BAD_PM_VERSION.
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node
         uses: actions/setup-node@v4
