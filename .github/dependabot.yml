@@ -1,36 +1,28 @@
 version: 2
+# Solo dev — keep the noise floor at zero. `open-pull-requests-limit: 0`
+# turns off cosmetic version-bump PRs. Dependabot will STILL open PRs
+# for SECURITY advisories (CVEs) on every ecosystem, regardless of
+# this limit. CI's `cargo audit` + `pnpm audit` jobs catch those too,
+# so this is belt-and-braces.
+#
+# When you want to do a bulk dependency refresh, bump the limit
+# temporarily, run `pnpm update` / `cargo update` locally, or
+# manually trigger Dependabot from the GitHub UI.
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      tauri:
-        patterns: ["@tauri-apps/*"]
-      react:
-        patterns: ["react", "react-dom", "@types/react*"]
-      vite:
-        patterns: ["vite", "@vitejs/*"]
-      dnd:
-        patterns: ["@dnd-kit/*"]
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "cargo"
     directory: "/src-tauri"
     schedule:
       interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      tauri:
-        patterns: ["tauri", "tauri-*", "tauri-plugin-*"]
-      sqlx:
-        patterns: ["sqlx", "sqlx-*"]
-      tokio:
-        patterns: ["tokio", "tokio-*"]
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+    open-pull-requests-limit: 0
