@@ -30,8 +30,15 @@ jobs:
         # warnings are surfaced but don't block the build (they
         # often appear for transitive deps we can't directly bump).
         # Tighten to `--deny warnings` once the dep tree is squeaky.
+        #
+        # Allowlist: RUSTSEC-2023-0071 — Marvin Attack timing sidechannel
+        # in `rsa`. Transitive dep with NO upstream fix available. Not
+        # exploitable in our usage pattern (no RSA decryption on a
+        # network-attacker-controlled timing surface in the Tauri app).
+        # Re-evaluate quarterly; remove the ignore the moment a fixed
+        # upgrade ships.
         working-directory: src-tauri
-        run: cargo audit
+        run: cargo audit --ignore RUSTSEC-2023-0071
 
   pnpm-audit:
     name: pnpm audit

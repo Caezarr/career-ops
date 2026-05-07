@@ -8,11 +8,11 @@
 //!
 //! This module exposes three pre-built clients keyed by SLA tier:
 //!
-//!   - [`fast`]    15s — short ATS/job-board fetches (Greenhouse / Lever
-//!                       / Ashby / YC), Anthropic /models discovery
-//!   - [`default`] 30s — streaming LLM responses, STT requests
-//!   - [`slow`]    60s — non-streaming LLM completions (ATS analysis,
-//!                       CV optimisation)
+//! - [`fast`] — 15s — short ATS/job-board fetches (Greenhouse, Lever,
+//!   Ashby, YC), Anthropic /models discovery
+//! - [`default`] — 30s — streaming LLM responses, STT requests
+//! - [`slow`] — 60s — non-streaming LLM completions (ATS analysis,
+//!   CV optimisation)
 //!
 //! All three share a normalised user-agent string. The CI guardrail in
 //! `.github/workflows/security.yml` forbids `reqwest::Client::builder()`
