@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   X,
   BadgeCheck,
@@ -34,10 +34,18 @@ function formatSalary(min: number, max: number, c: string): string {
 export default function JobDetail() {
   const toast = useToast();
   const { navigate } = useNavigation();
-  const selectedJob = useAppStore((s) => {
-    const id = s.selectedJobId;
-    return id ? s.jobs.find((j) => j.id === id) ?? null : null;
-  });
+  // Sprint 5 (audit Performance P0 #2): split the selector so any
+  // store mutation that doesn't touch `selectedJobId` or `jobs`
+  // doesn't re-render this 296-line component. The previous combined
+  // selector returned a fresh `find()` reference on every store
+  // update anywhere — even toggling a notification panel triggered a
+  // full JobDetail re-render.
+  const selectedId = useAppStore((s) => s.selectedJobId);
+  const jobs = useAppStore((s) => s.jobs);
+  const selectedJob = useMemo(
+    () => (selectedId ? jobs.find((j) => j.id === selectedId) ?? null : null),
+    [selectedId, jobs],
+  );
   const setSelected = useAppStore((s) => s.setSelectedJob);
   const setWorkspaceJobId = useAppStore((s) => s.setWorkspaceJobId);
 

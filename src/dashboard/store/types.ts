@@ -87,6 +87,13 @@ export interface Job {
    *  present, JobListItem / JobDetail / WarRoom render this image
    *  instead of the avatarLabel + avatarColor fallback. */
   companyLogoUrl?: string;
+  /** Sprint 5 (audit Performance P0 #1): pre-tokenised search
+   *  haystack — lowercased ≥1-char alphanumeric words pulled once
+   *  at ingest time from role + company + location + seniority +
+   *  sector + companyStage + companyBatch. JobList's filter loop
+   *  reads this directly instead of re-tokenising on every
+   *  keystroke (was ~105k string ops × every keystroke). */
+  _searchTokens?: string[];
 }
 
 // ─── Job ingestion (external boards) ────────────────────────────────────────
