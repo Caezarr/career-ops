@@ -214,11 +214,23 @@ export default function ApplicationRow({
             )}
             <DropdownMenuItem
               onSelect={() => {
+                // Sprint 4 (audit Reality BLOCKING #6): preserve every
+                // enriched field on duplicate. The previous call only
+                // copied 4 fields, so a duplicated application lost
+                // its salary / workMode / recruiter / sourceUrl —
+                // exactly the fields that justify a duplicate in the
+                // first place (you duplicate to track a parallel
+                // application at the same company with the same JD).
                 createApplication({
                   jobId: app.jobId,
                   cvId: app.cvId,
                   stage: app.stage,
                   match: app.match,
+                  salary: app.salary,
+                  workMode: app.workMode,
+                  recruiter: app.recruiter,
+                  sourceUrl: app.sourceUrl,
+                  coverLetter: app.coverLetter,
                 });
                 toast.success('Application duplicated');
               }}

@@ -45,6 +45,20 @@ export default function ApplyModal({ open, onClose, job }: ApplyModalProps) {
 
   function handleSubmit() {
     if (!job) return;
+
+    // Sprint 4 (audit Reality BLOCKING #6): pass every Job-side
+    // enrichment through to the Application so the detail panel
+    // shows real salary / workMode / source URL instead of "—".
+    // The previous version dropped `coverLetter` (the smoking gun
+    // was the trailing `void coverLetter` to silence the unused
+    // warning) and ignored every JT-scraped field.
+    const salaryStr =
+      job.salaryMin > 0 || job.salaryMax > 0
+        ? `${job.salaryCurrency}${Math.round(job.salaryMin / 1000)}k - ${
+            job.salaryCurrency
+          }${Math.round(job.salaryMax / 1000)}k`
+        : undefined;
+
     const app = createApplication({
       jobId: job.id,
       cvId: cvId ?? undefined,
@@ -52,6 +66,10 @@ export default function ApplyModal({ open, onClose, job }: ApplyModalProps) {
       company: job.company,
       role: job.role,
       match: job.match,
+      salary: salaryStr,
+      workMode: job.workMode,
+      sourceUrl: job.source?.sourceUrl,
+      coverLetter: coverLetter.trim() || undefined,
     });
     toast({
       title: "Application created",
@@ -66,7 +84,6 @@ export default function ApplyModal({ open, onClose, job }: ApplyModalProps) {
       },
     });
     onClose();
-    void coverLetter;
   }
 
   return (

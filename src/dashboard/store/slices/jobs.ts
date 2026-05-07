@@ -10,6 +10,7 @@ import {
   seniorityFromTitle,
   stageFromYcBatch,
 } from "../../data/companyMeta";
+import { buildCvTokens, scoreAgainstCv } from "../../lib/computeMatch";
 import { uid } from "../utils";
 
 // Parse "€90k - €120k" → { min: 90000, max: 120000, currency: "€" }
@@ -164,10 +165,35 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
     //     the JobDetail header has something to show
     //   - about[]   split jdText on paragraph breaks (max 4 entries)
     //     so the JobDetail body shows the actual description
+    //   - match     Sprint 4 (audit Reality BLOCKING #2): heuristic
+    //               keyword-overlap against the user's default CV.
+    //               Cheap, sync, capped at 99 so AI rerank can still
+    //               own 100. Falls back to 0 when the user has no CV
+    //               yet — graceful first-launch.
     //   - aiSummary / whyYouMatch are LEFT undefined intentionally —
     //     those are CV-vs-JD AI outputs and get filled by the existing
     //     match-analysis flow on demand.
     const persistedBookmarks = new Set(get().bookmarkedJobIds);
+
+    // Build the CV token set ONCE per ingestion run — cuts ~80% of
+    // the regex / set-construction cost over a 5000-posting batch.
+    // Re-reads from the store every call so a CV upload mid-run
+    // gets reflected on the next `setIngestedJobs` invocation.
+    //
+    // Cross-slice peek: `get()` is typed against `JobsSlice` only,
+    // but the composed app store has every slice merged. Cast to
+    // the cross-slice shape we actually need.
+    const crossSlice = get() as unknown as {
+      cvs?: { id: string; isDefault?: boolean; parsedText?: string }[];
+      defaultCvId?: string | null;
+    };
+    const cvs = crossSlice.cvs ?? [];
+    const defaultCvId = crossSlice.defaultCvId ?? null;
+    const defaultCv =
+      cvs.find((c) => c.id === defaultCvId) ??
+      cvs.find((c) => c.isDefault) ??
+      cvs[0];
+    const cvTokens = buildCvTokens(defaultCv?.parsedText ?? "");
     const enrich = (j: Job): Job => {
       const brand = companyBrand(j.company);
       const meta = companyMeta(j.company);
@@ -206,6 +232,12 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
             .slice(0, 8)
         : undefined;
 
+      // Heuristic match: compute now (sync, ~10µs per job with
+      // pre-built cvTokens). The AI-graded score from
+      // `analyze_cv_ats` overrides this when the user clicks
+      // "Analyze match" on a specific posting.
+      const match = scoreAgainstCv(cvTokens, j.role, j.jdText);
+
       return {
         ...j,
         // Restore bookmark state from the persisted ID list — the
@@ -219,6 +251,7 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
         seniority,
         sector,
         companyStage,
+        match,
       };
     };
 
