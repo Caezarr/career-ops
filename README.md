@@ -119,7 +119,7 @@ The crown jewel. While you're in a Zoom / Meet / Teams call:
 <tr><td>Vector store</td><td>LanceDB embedded</td><td>4 MB idle, no IPC, Rust-native</td></tr>
 <tr><td>Embeddings</td><td>BGE-small ONNX (local)</td><td>Privacy-first by default</td></tr>
 <tr><td>Persistence</td><td>SQLite (sqlx) + JSONL transcripts</td><td>No raw audio, ever</td></tr>
-<tr><td>Secrets</td><td>macOS Keychain (`keyring` crate) — <em>migration in progress, see Sprint 1</em></td><td>Today: webview localStorage. Target: Keychain, never SQLite, never in bundle.</td></tr>
+<tr><td>Secrets</td><td>macOS Keychain (`keyring` crate)</td><td>Never in SQLite, never in bundle, never in webview localStorage.</td></tr>
 <tr><td>CV parsing</td><td>Docling (IBM, Python sidecar)</td><td>Lossless structured extraction</td></tr>
 </table>
 
@@ -146,7 +146,7 @@ pnpm install
 pnpm tauri dev
 ```
 
-First launch walks you through Microphone, Screen Recording, and Accessibility permissions before any feature unlocks. API keys are entered once and stored locally; Keychain migration (`keyring` crate) is in progress in Sprint 1 — until then they live in the webview's `localStorage` (see `src/dashboard/hooks/useAnthropicKey.ts`).
+First launch walks you through Microphone, Screen Recording, and Accessibility permissions before any feature unlocks. API keys are entered once and stored in the macOS Keychain via the `keyring` crate — never in plaintext, never in the frontend bundle, never in webview localStorage.
 
 ### Common commands
 
@@ -208,7 +208,7 @@ Career OS sees your CVs, your applications, and (for the Live Copilot) your inte
 - ✅ **No raw audio on disk.** Transcripts only (JSONL). Easy purge.
 - ✅ **All persistence local.** `~/Library/Application Support/com.caezarr.career-ops/`. **Never** iCloud / Dropbox / any cloud sync.
 - ✅ **Single-egress `cloud::Client`.** One Rust module, every outbound call. Reviewable in 2 minutes with `grep`.
-- 🚧 **API keys → Keychain (in progress, Sprint 1).** Today they live in webview `localStorage`; the `keyring` migration ships next. Already true now: never in SQLite, never bundled, never logged.
+- ✅ **API keys in the macOS Keychain.** `keyring` crate, closed slot allow-list, IPC gated by window label. Never in SQLite, never bundled, never logged.
 - ✅ **Zero-retention contracts** required from every vendor before Phase 6 ships.
 - ✅ **PII-stripped logger** by default.
 
