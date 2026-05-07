@@ -20,18 +20,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      # Cargo.lock lives under src-tauri/, not at repo root. Install
+      # cargo-audit and run it from there directly. (rustsec/audit-check
+      # @v2.0.0 doesn't accept a working-directory input.)
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+      - name: Audit
+        # Default: fail on vulnerabilities only. Yanked / unmaintained
+        # warnings are surfaced but don't block the build (they
+        # often appear for transitive deps we can't directly bump).
+        # Tighten to `--deny warnings` once the dep tree is squeaky.
+        working-directory: src-tauri
+        run: cargo audit
 
   pnpm-audit:
     name: pnpm audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # `version` intentionally omitted — package.json's `packageManager`
+      # field is the single source of truth.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
