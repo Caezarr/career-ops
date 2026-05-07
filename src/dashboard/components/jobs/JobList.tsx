@@ -94,22 +94,26 @@ export default function JobList() {
     return jobs
       .filter((j) => {
         if (tokens.length > 0) {
-          // Haystack now includes the derived tags (seniority,
-          // sector, stage, YC batch) so a search for "fintech" or
-          // "series b" actually narrows the list.
-          const haystack = [
-            j.role,
-            j.company,
-            j.location,
-            j.seniority ?? '',
-            j.sector ?? '',
-            j.companyStage ?? '',
-            j.companyBatch ?? '',
-          ].join(' ');
-          const words = haystack
-            .toLowerCase()
-            .split(/[^a-z0-9]+/)
-            .filter(Boolean);
+          // Sprint 5 (audit Performance P0 #1): tokens are
+          // pre-computed once at ingest time on `_searchTokens`
+          // (covers role + company + location + derived tags).
+          // Falling back to a fresh tokenise covers any in-memory
+          // job that pre-dates the migration (legacy seed jobs).
+          const words: string[] =
+            j._searchTokens ??
+            [
+              j.role,
+              j.company,
+              j.location,
+              j.seniority ?? '',
+              j.sector ?? '',
+              j.companyStage ?? '',
+              j.companyBatch ?? '',
+            ]
+              .join(' ')
+              .toLowerCase()
+              .split(/[^a-z0-9]+/)
+              .filter(Boolean);
           for (const t of tokens) {
             if (!words.some((w) => w.startsWith(t))) return false;
           }

@@ -88,6 +88,17 @@ export default function Pipeline() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Sprint 5 (audit Performance P1 #4): O(N·M) → O(N+M).
+  // Build a Map<id, Job> once per render (memoised on `jobs`)
+  // so the per-application lookup below is O(1) instead of
+  // a full `jobs.find()` walk. With 50 apps × 5000 jobs that
+  // collapses ~250k comparisons per render to ~50.
+  const jobsById = useMemo(() => {
+    const m = new Map<string, typeof jobs[number]>();
+    for (const j of jobs) m.set(j.id, j);
+    return m;
+  }, [jobs]);
+
   // Build a map of stage → cards, applying the role filter.
   const grouped = useMemo(() => {
     const byStage: Record<ApplicationStage, CardModel[]> = {
@@ -100,7 +111,7 @@ export default function Pipeline() {
     };
     for (const app of applications) {
       if (app.archived) continue;
-      const job = jobs.find((j) => j.id === app.jobId);
+      const job = jobsById.get(app.jobId);
       // Role filter (loose, case-insensitive contains).
       if (roleFilter && roleFilter !== 'All roles') {
         const haystack = `${job?.role ?? ''}`.toLowerCase();
@@ -116,7 +127,7 @@ export default function Pipeline() {
       });
     }
     return byStage;
-  }, [applications, jobs, roleFilter, sort]);
+  }, [applications, jobsById, roleFilter, sort]);
 
   const activeCard = useMemo(() => {
     if (!activeId) return null;

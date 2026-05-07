@@ -238,6 +238,25 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
       // "Analyze match" on a specific posting.
       const match = scoreAgainstCv(cvTokens, j.role, j.jdText);
 
+      // Sprint 5 (audit Performance P0 #1): pre-tokenise the
+      // search haystack ONCE here so JobList's filter loop is
+      // O(jobs * tokens.length) instead of
+      // O(jobs * tokens.length * haystackChars) per keystroke.
+      const haystack = [
+        j.role,
+        j.company,
+        j.location,
+        seniority ?? "",
+        sector ?? "",
+        companyStage ?? "",
+        j.companyBatch ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      const searchTokens = haystack
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 0);
+
       return {
         ...j,
         // Restore bookmark state from the persisted ID list — the
@@ -252,6 +271,7 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
         sector,
         companyStage,
         match,
+        _searchTokens: searchTokens,
       };
     };
 
