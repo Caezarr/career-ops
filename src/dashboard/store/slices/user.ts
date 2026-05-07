@@ -1,19 +1,23 @@
 import type { StateCreator } from "zustand";
 import type { User } from "../types";
-import { mockSettingsProfile } from "../../data/settings";
-import { mockUser } from "../../data/mock";
 
+// Sprint 3 (audit Reality BLOCKING #1): no fake user identity on
+// fresh install. Onboarding (FRONT-005) populates these fields the
+// first time the user opens Settings → Profile. Until then we
+// render empty strings — every consumer already handles that
+// gracefully (avatar falls back to letter-tile, header greeting
+// uses "Welcome back" when name is empty).
 const initialUser: User = {
-  name: mockSettingsProfile.name || mockUser.name,
-  email: mockSettingsProfile.email,
-  plan: (mockSettingsProfile.plan || mockUser.plan).toLowerCase() === "pro" ? "pro" : "free",
+  name: "",
+  email: "",
+  plan: "free",
   persona: "tech-ai",
-  timezone: mockSettingsProfile.timezone,
-  language: mockSettingsProfile.language,
-  location: mockSettingsProfile.location,
-  avatarInitials: mockUser.initials,
-  targetRole: "Senior Product Manager",
-  targetCompany: "OpenAI",
+  timezone: "",
+  language: "en",
+  location: "",
+  avatarInitials: "",
+  targetRole: "",
+  targetCompany: "",
 };
 
 export interface UserSlice {

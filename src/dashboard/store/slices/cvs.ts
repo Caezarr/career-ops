@@ -1,6 +1,5 @@
 import type { StateCreator } from "zustand";
 import type { CV, CVTab, StoreAtsAnalysis } from "../types";
-import { mockCVVariants as legacyCVs } from "../../data/cv";
 import { uid } from "../utils";
 
 /** Variant-specific preview content so the right-panel reflects the selection
@@ -126,20 +125,13 @@ export function getCvSummary(cv: { roleFocus: string; summary?: string }): strin
   return previewFor(cv.roleFocus).summary;
 }
 
-const seedCVs: CV[] = legacyCVs.map((cv, i) => {
-  const preview = previewFor(cv.roleFocus);
-  return {
-    id: cv.id,
-    name: cv.name,
-    lastEdited: cv.lastEdited,
-    fileType: cv.fileType,
-    roleFocus: cv.roleFocus,
-    atsScore: cv.atsScore,
-    isDefault: i === 0,
-    summary: preview.summary,
-    parsedText: preview.parsedText,
-  };
-});
+// Sprint 3 (audit Reality BLOCKING #1): no fake CV variants on
+// fresh install. CVs land in the store via `createCV` after the
+// user uploads a PDF (parsed by Docling) or builds one from
+// scratch. The `previewFor` / `getCvParsedText` helpers above are
+// still used as fallbacks for older persisted CVs that pre-date
+// the `parsedText` field, so we keep them intact.
+const seedCVs: CV[] = [];
 
 export interface TailoringTarget {
   role: string;
@@ -186,12 +178,15 @@ export interface CvsSlice {
 
 export const createCvsSlice: StateCreator<CvsSlice> = (set, get) => ({
   cvs: seedCVs,
-  defaultCvId: seedCVs[0]?.id ?? null,
-  selectedCvId: seedCVs[0]?.id ?? null,
+  defaultCvId: null,
+  selectedCvId: null,
   cvTab: "manager",
+  // Sprint 3: empty tailoring target on fresh install. The Tailoring
+  // Workspace prompts the user to pick a target role from their
+  // Jobs / Applications list before any analysis runs.
   tailoringTarget: {
-    role: "Strategy Associate · Bain & Company",
-    baseCvId: seedCVs[0]?.id ?? null,
+    role: "",
+    baseCvId: null,
   },
   atsByCv: {},
 

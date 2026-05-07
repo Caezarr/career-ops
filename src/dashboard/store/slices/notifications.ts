@@ -2,55 +2,11 @@ import type { StateCreator } from "zustand";
 import type { Notification } from "../types";
 import { uid } from "../utils";
 
-const HOUR = 60 * 60 * 1000;
-
-const seed: Notification[] = [
-  {
-    id: "n1",
-    type: "interview",
-    title: "Mistral AI interview in 4 hours",
-    description: "Final round · 45 min · Make sure to prepare your case study.",
-    timestamp: Date.now() - 1 * HOUR,
-    read: false,
-    link: { page: "applications", id: "4" },
-  },
-  {
-    id: "n2",
-    type: "application",
-    title: "Recruiter viewed your Stripe application",
-    description: "Sarah Chen · Strategy & Ops · 2h ago",
-    timestamp: Date.now() - 2 * HOUR,
-    read: false,
-    link: { page: "applications", id: "1" },
-  },
-  {
-    id: "n3",
-    type: "insight",
-    title: "Behavioral answers improved +18%",
-    description: "Over the last 4 weeks of practice. Keep going.",
-    timestamp: Date.now() - 6 * HOUR,
-    read: false,
-    link: { page: "prep" },
-  },
-  {
-    id: "n4",
-    type: "system",
-    title: "CV ATS score is now 89%",
-    description: "Your Consulting CV crossed the 'Great match' threshold.",
-    timestamp: Date.now() - 26 * HOUR,
-    read: true,
-    link: { page: "cv", id: "1" },
-  },
-  {
-    id: "n5",
-    type: "application",
-    title: "Goldman Sachs phone screen scheduled",
-    description: "Mar 17 · 10:30 AM · Calendar invite sent.",
-    timestamp: Date.now() - 50 * HOUR,
-    read: true,
-    link: { page: "applications", id: "2" },
-  },
-];
+// Sprint 3 (audit Reality BLOCKING #1): no fake notifications on
+// fresh install. The push pipeline (interview reminders, recruiter
+// activity, ATS score crossings) will write real entries via
+// `pushNotification` once those flows are wired.
+const seed: Notification[] = [];
 
 export interface NotificationsSlice {
   notifications: Notification[];

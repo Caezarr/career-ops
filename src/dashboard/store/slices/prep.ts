@@ -10,45 +10,17 @@ import type {
   QuestionFilter,
   QuestionTrack,
 } from "../types";
-import { mockPrepQuestions as legacyQuestions, mockTodaysPlan } from "../../data/prep";
 import { SEED_QUESTIONS } from "../../data/prep/index";
 import { uid } from "../utils";
 
-// Explicit per-question category mapping (matches the spec).
-// Falls back to a framework-based derivation if a question id isn't listed.
-const CATEGORY_BY_ID: Record<string, PrepCategory> = {
-  q1: "Behavioral",
-  q2: "Behavioral",
-  q3: "Culture Fit",
-  q4: "Technical",
-  q5: "Behavioral",
-  q6: "Case",
-};
-
-function deriveCategory(framework: string): PrepCategory {
-  const fw = framework.toLowerCase();
-  if (fw.includes("mece") || fw.includes("pyramid")) return "Case";
-  if (fw.includes("motivation")) return "Culture Fit";
-  if (fw.includes("star")) return "Behavioral";
-  return "Technical";
-}
-
-const seedQuestions: PrepQuestion[] = legacyQuestions.map((q) => ({
-  id: q.id,
-  index: q.index,
-  category: CATEGORY_BY_ID[q.id] ?? deriveCategory(q.framework),
-  question: q.question,
-  difficulty: q.difficulty,
-  framework: q.framework,
-  practiceScore: q.practiceScore,
-}));
-
-const seedPlan: PlanTask[] = mockTodaysPlan.map((t) => ({
-  id: t.id,
-  title: t.title,
-  duration: t.duration,
-  done: t.done,
-}));
+// Sprint 3 (audit Reality BLOCKING #1): no fake practice history,
+// today's plan, or streak on fresh install. The legacy 6-question
+// shape (`prepQuestions`) is unused by the V2 surface — we keep
+// the type for back-compat with persisted data but seed empty.
+// `todaysPlan` populates from the AI prep generator once the user
+// has at least one tracked application.
+const seedQuestions: PrepQuestion[] = [];
+const seedPlan: PlanTask[] = [];
 
 export interface PrepSlice {
   /** Legacy 6-question shape — still consumed by older Prep
@@ -114,8 +86,11 @@ export const createPrepSlice: StateCreator<PrepSlice> = (set) => ({
   prepQuestions: seedQuestions,
   prepSessions: [],
   todaysPlan: seedPlan,
-  prepStreakDays: 12,
-  prepWeekDots: [true, true, true, true, false, false, false],
+  // Sprint 3: streak / week-dots start empty. `bumpStreak` is the
+  // only authority that grows them — the prep flow calls it after
+  // a real session is recorded.
+  prepStreakDays: 0,
+  prepWeekDots: [false, false, false, false, false, false, false],
   prepChartPeriod: "8w",
   prepCategoryFilter: "All",
   prepBank: SEED_QUESTIONS,

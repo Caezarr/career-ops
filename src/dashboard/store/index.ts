@@ -69,20 +69,105 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
 export const useAppStore = create<AppStore>()(
   persist(composedStore, {
     name: "career-os-store",
-    // Bumped 1 → 2 with the migration that drops the heavy `jobs`
-    // field from persistence (was blowing localStorage's ~5MB quota
-    // once ingestion pulled 5000+ postings × 12k chars each).
-    version: 2,
+    // v1 → v2: drop the heavy `jobs` field from persistence (was
+    //          blowing localStorage's ~5MB quota once ingestion
+    //          pulled 5000+ postings × 12k chars each). Bookmarks
+    //          survive via `bookmarkedJobIds`.
+    // v2 → v3: Sprint 3 first-launch hygiene (audit Reality
+    //          BLOCKING #1). Strip seeded fake state from
+    //          existing users so the dashboard reflects reality
+    //          on next launch. Specifically: fake notifications
+    //          (n1..n5), fake CV variants (cv1..cv4), seeded
+    //          applications, seeded tasks, fake prep streak / dots.
+    //          User-created data (anything with a `uid()` id, real
+    //          uploaded CVs, tracked applications) is preserved.
+    version: 3,
     migrate: (persisted: unknown, fromVersion: number) => {
-      if (persisted && typeof persisted === "object" && fromVersion < 2) {
-        const p = persisted as Record<string, unknown>;
+      if (!persisted || typeof persisted !== "object") return persisted;
+      const p = persisted as Record<string, unknown>;
+
+      if (fromVersion < 2) {
         // Drop the bloated jobs array. Bookmarks survive via
         // bookmarkedJobIds (added in v2).
         delete p.jobs;
         if (!Array.isArray(p.bookmarkedJobIds)) p.bookmarkedJobIds = [];
-        return p;
       }
-      return persisted;
+
+      if (fromVersion < 3) {
+        // The 5 seed notifications had ids "n1".."n5" — anything
+        // user-pushed via pushNotification() gets a `uid("n_xxx")`
+        // shape, so this filter is safe.
+        if (Array.isArray(p.notifications)) {
+          p.notifications = (p.notifications as Array<{ id?: string }>)
+            .filter((n) => !/^n[1-5]$/.test(n.id ?? ""));
+        }
+
+        // The 4 seed CVs had ids "cv1".."cv4". User-uploaded CVs
+        // use uid("cv_*").
+        if (Array.isArray(p.cvs)) {
+          const before = p.cvs as Array<{ id?: string; isDefault?: boolean }>;
+          const after = before.filter((c) => !/^cv[1-9]\d*$/.test(c.id ?? ""));
+          p.cvs = after;
+          if (typeof p.defaultCvId === "string" && !after.some((c) => c.id === p.defaultCvId)) {
+            p.defaultCvId = after[0]?.id ?? null;
+          }
+        }
+
+        // Seeded applications had numeric string ids ("1".."5").
+        // User-created go through uid("app_*").
+        if (Array.isArray(p.applications)) {
+          p.applications = (p.applications as Array<{ id?: string }>)
+            .filter((a) => !/^[1-9]\d*$/.test(a.id ?? ""));
+        }
+
+        // Seeded today's tasks come from `data/mock.ts` with stable
+        // ids "task1".."task4"; the runtime add path uses
+        // uid("task_*").
+        if (Array.isArray(p.todaysTasks)) {
+          p.todaysTasks = (p.todaysTasks as Array<{ id?: string }>)
+            .filter((t) => !/^task[1-9]\d*$/.test(t.id ?? ""));
+        }
+
+        // Fake prep history.
+        if (typeof p.prepStreakDays === "number" && p.prepStreakDays === 12) {
+          // Conservative: only zero out if it still equals the seed.
+          // A user who genuinely hit 12 keeps their streak.
+          p.prepStreakDays = 0;
+        }
+        if (
+          Array.isArray(p.prepWeekDots) &&
+          JSON.stringify(p.prepWeekDots) === JSON.stringify([true, true, true, true, false, false, false])
+        ) {
+          p.prepWeekDots = [false, false, false, false, false, false, false];
+        }
+        if (Array.isArray(p.todaysPlan)) {
+          // Seed plan ids start with "plan-" prefix from data/prep.
+          // Runtime-added tasks use uid("plan_*") with underscore.
+          p.todaysPlan = (p.todaysPlan as Array<{ id?: string }>)
+            .filter((t) => !/^plan-/.test(t.id ?? ""));
+        }
+
+        // Fake user identity. We zero out only the obvious seed
+        // signature ("Gabriel Rance" + the demo email); a user who
+        // edited their profile keeps it.
+        if (
+          p.user &&
+          typeof p.user === "object" &&
+          (p.user as { name?: string }).name === "Gabriel Rance"
+        ) {
+          p.user = {
+            ...(p.user as Record<string, unknown>),
+            name: "",
+            email: "",
+            avatarInitials: "",
+            targetRole: "",
+            targetCompany: "",
+            location: "",
+          };
+        }
+      }
+
+      return p;
     },
     storage: createJSONStorage(() => localStorage),
     // Persist only durable state — never selection, search, or transient UI flags.
