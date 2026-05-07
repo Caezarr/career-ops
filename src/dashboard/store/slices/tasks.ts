@@ -1,30 +1,12 @@
 import type { StateCreator } from "zustand";
 import type { DashboardTask } from "../types";
-import { mockTasks as legacyTasks } from "../../data/mock";
 import { uid } from "../utils";
 
-const COLOR_MAP: Record<string, DashboardTask["subtitleColor"]> = {
-  indigo: "indigo",
-  green: "green",
-  orange: "orange",
-  purple: "indigo",
-};
-
-const ICON_MAP: Record<string, DashboardTask["icon"]> = {
-  mail: "mail",
-  calendar: "calendar",
-  fileText: "file",
-  listChecks: "list",
-};
-
-const seedTasks: DashboardTask[] = legacyTasks.map((t) => ({
-  id: t.id,
-  title: t.title,
-  subtitle: t.subtitle,
-  subtitleColor: COLOR_MAP[t.color] ?? "indigo",
-  icon: ICON_MAP[t.iconKey] ?? "list",
-  done: false,
-}));
+// Sprint 3 (audit Reality BLOCKING #1): no fake "today's tasks" on
+// fresh install. Real entries land via `addDashboardTask` (called
+// by the AI prep generator + the timeline event handlers once the
+// user has tracked at least one application).
+const seedTasks: DashboardTask[] = [];
 
 export interface TasksSlice {
   todaysTasks: DashboardTask[];
