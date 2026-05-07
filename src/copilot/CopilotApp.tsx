@@ -3,6 +3,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
+import {
+  hydrateSecrets,
+  readAnthropicKey as readAnthropicKeyCache,
+  readOpenaiKey as readOpenaiKeyCache,
+  readAssemblyaiKey as readAssemblyaiKeyCache,
+  writeSecret,
+} from "../dashboard/lib/secrets";
 
 type Status = "idle" | "recording" | "thinking" | "ready" | "error" | "listening";
 
@@ -61,19 +68,57 @@ export function CopilotApp() {
   const timerRef = useRef<number | null>(null);
 
   // ── Persist config ──────────────────────────────────────────────────────────
+  // Sprint 1 PR-B: secrets live in the Keychain now (`secrets.ts`).
+  // We hydrate the cache then merge it onto the localStorage prefs.
   useEffect(() => {
-    const saved = localStorage.getItem("ic-config");
-    if (saved) {
+    let cancelled = false;
+    (async () => {
+      // Wait for the Keychain hydration that main.tsx kicked off so
+      // the cache reads below are authoritative. hydrateSecrets() is
+      // idempotent — calling it twice is safe.
       try {
-        const p = JSON.parse(saved);
-        setConfig({ ...DEFAULT_CONFIG, ...p });
-      } catch {}
-    }
+        await hydrateSecrets();
+      } catch {
+        /* fall through with empty cache; the UI handles it */
+      }
+      if (cancelled) return;
+
+      const saved = localStorage.getItem("ic-config");
+      let prefs: Partial<Config> = {};
+      if (saved) {
+        try {
+          prefs = JSON.parse(saved) as Partial<Config>;
+        } catch {
+          /* keep prefs = {} */
+        }
+      }
+      setConfig({
+        ...DEFAULT_CONFIG,
+        ...prefs,
+        // Secrets always come from the Keychain cache, never from
+        // localStorage — even if a stale `ic-config` blob still has
+        // them (the hydrate step scrubs that on its way through).
+        anthropic_key: readAnthropicKeyCache(),
+        openai_key: readOpenaiKeyCache(),
+        assemblyai_key: readAssemblyaiKeyCache(),
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const saveConfig = useCallback((next: Config) => {
     setConfig(next);
-    localStorage.setItem("ic-config", JSON.stringify(next));
+    // Persist non-secret prefs to localStorage; secrets go to the
+    // Keychain via the bridge (fire-and-forget — failures surface
+    // in console.warn from secrets.ts, the user's config is still
+    // applied to the running session).
+    const { anthropic_key, openai_key, assemblyai_key, ...prefs } = next;
+    localStorage.setItem("ic-config", JSON.stringify(prefs));
+    void writeSecret("anthropic_key", anthropic_key);
+    void writeSecret("openai_key", openai_key);
+    void writeSecret("assemblyai_key", assemblyai_key);
   }, []);
 
   // ── Event listeners ─────────────────────────────────────────────────────────
