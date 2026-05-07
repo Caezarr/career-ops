@@ -20,7 +20,6 @@
 use futures_util::future::join_all;
 use serde::Deserialize;
 use std::collections::HashSet;
-use std::time::Duration;
 
 use super::traits::{IngestError, RawJob};
 
@@ -89,14 +88,10 @@ pub async fn fetch(role_filter: &str) -> Result<Vec<RawJob>, IngestError> {
         vec![role_filter]
     };
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(20))
-        .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        .build()
-        .map_err(|e| IngestError::Http {
-            provider: PROVIDER,
-            message: e.to_string(),
-        })?;
+    // PRIV-01: shared single-egress client (15s tier).
+    // Audit 2026-05-05 LOW #5: prior fake Chrome UA dropped — single
+    // canonical UA is set in cloud.rs for every outbound.
+    let client = crate::cloud::fast();
 
     // Fetch all roles in parallel. Per-role failures don't break the run
     // (we just log and skip).

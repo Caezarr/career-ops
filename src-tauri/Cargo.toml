@@ -18,7 +18,11 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-shell = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["full"] }
+# Audit 2026-05-05 backend MEDIUM #10.2: tokio = "full" pulled signal
+# + net we don't use. Tightened to the actual surface (rt-multi-thread
+# + macros for #[tokio::main]/#[tokio::test], sync/time/process/fs/io-util
+# for the audio + ingest paths).
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "fs", "io-util"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "multipart"] }
 cpal = "0.15"
 hound = "3.5"
@@ -34,6 +38,12 @@ pdf-extract = "0.7"
 base64 = "0.22"
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 http = "1"
+# Audit 2026-05-05 backend #6.1 recommended dropping the `macros`
+# feature since the codebase uses 100% runtime queries — but the
+# `#[derive(sqlx::FromRow)]` impls also live in `macros`, so dropping
+# breaks 70+ trait bounds across `db/*`. Keeping it. (We still avoid
+# the `query!` / `query_as!` macro forms — those would need a live
+# DATABASE_URL or sqlx-prepare cache that we can't ship.)
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "sqlite", "macros", "migrate", "chrono", "uuid"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }

@@ -45,11 +45,8 @@ pub async fn ask_structured<T: serde::de::DeserializeOwned>(
         ],
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()?;
-
-    let resp = client
+    // PRIV-01: shared single-egress client (60s tier — non-streaming).
+    let resp = crate::cloud::slow()
         .post(ANTHROPIC_URL)
         .header("x-api-key", &cfg.anthropic_key)
         .header("anthropic-version", ANTHROPIC_VERSION)
@@ -123,11 +120,8 @@ pub async fn ask_completion(
         ],
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()?;
-
-    let resp = client
+    // PRIV-01: shared single-egress client (60s tier — non-streaming).
+    let resp = crate::cloud::slow()
         .post(ANTHROPIC_URL)
         .header("x-api-key", &cfg.anthropic_key)
         .header("anthropic-version", ANTHROPIC_VERSION)
