@@ -1,23 +1,35 @@
 /**
- * Reads the Anthropic API key from the same localStorage slot the Copilot
- * overlay uses (`ic-config`). Returns the key string or null if unset.
+ * Sync accessors over the Keychain-backed secrets cache.
  *
- * Future: migrate to macOS Keychain via the `keyring` crate (see Sprint 7).
+ * Sprint 1 PR-B moved API keys out of `localStorage.ic-config` into
+ * the macOS Keychain (`src-tauri/src/secrets.rs`). The cache layer
+ * (`../lib/secrets.ts`) keeps these accessors synchronous so the
+ * existing call-sites — `runAnalyzer.ts`, `AnalyzeMatchModal.tsx`,
+ * `useCopilotSession.ts`, `ConfigurationPanel.tsx` — don't need to
+ * become async (which would balloon the diff far past the security
+ * fix).
+ *
+ * The cache is hydrated once at app boot via
+ * `hydrateSecrets()` in `src/dashboard/main.tsx`. Before hydration
+ * resolves these readers return null / empty — the consumers all
+ * already handle that state ("Configure your Anthropic API key
+ * first" toasts, etc.).
  */
+
+import {
+  readAnthropicKey as cacheReadAnthropic,
+  readOpenaiKey as cacheReadOpenai,
+  readAssemblyaiKey as cacheReadAssembly,
+} from '../lib/secrets';
+
+/** Anthropic key, trimmed. `null` when unset. */
 export function readAnthropicKey(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem('ic-config');
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { anthropic_key?: string };
-    const key = parsed.anthropic_key?.trim();
-    return key && key.length > 0 ? key : null;
-  } catch {
-    return null;
-  }
+  const v = cacheReadAnthropic();
+  return v && v.length > 0 ? v : null;
 }
 
-/** Same for the model preference (optional). */
+/** Model preference still lives in `ic-config` — it's a UX pref,
+ *  not a secret, so localStorage is the right home. */
 export function readClaudeModel(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -31,10 +43,10 @@ export function readClaudeModel(): string | null {
   }
 }
 
-/** Shape we read out of `ic-config`. Mirrors the overlay's `Config`
- *  so a future migration to a real keychain doesn't break either side.
- *  Every field is optional because the overlay tolerates missing keys
- *  and we want the same behaviour here. */
+/** Shape we expose to `useCopilotSession()` when it builds a
+ *  `CaptureConfig`. Secrets come from the Keychain cache; the
+ *  remaining UX prefs come from `ic-config` (model, audio device,
+ *  persona, CV/JD blobs). */
 export interface CopilotConfigSnapshot {
   anthropicKey: string;
   assemblyaiKey: string;
@@ -59,31 +71,35 @@ const DEFAULT_SNAPSHOT: CopilotConfigSnapshot = {
   jd: '',
 };
 
-/** Read the entire copilot config blob in one go. Used by
- *  useCopilotSession() when it builds a CaptureConfig. */
+/** Snapshot for `useCopilotSession()`. Secrets ← Keychain cache,
+ *  rest ← `ic-config` localStorage. */
 export function readCopilotConfig(): CopilotConfigSnapshot {
   if (typeof window === 'undefined') return DEFAULT_SNAPSHOT;
+
+  let prefs: Record<string, unknown> = {};
   try {
     const raw = window.localStorage.getItem('ic-config');
-    if (!raw) return DEFAULT_SNAPSHOT;
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    const pick = (k: string): string => {
-      const v = parsed[k];
-      return typeof v === 'string' ? v : '';
-    };
-    const persona = (parsed.persona as CopilotConfigSnapshot['persona']) ?? 'finance';
-    return {
-      anthropicKey: pick('anthropic_key'),
-      assemblyaiKey: pick('assemblyai_key'),
-      openaiKey: pick('openai_key'),
-      model: pick('model'),
-      audioDevice: pick('audio_device'),
-      loopbackDevice: pick('loopback_device'),
-      persona,
-      cv: pick('cv'),
-      jd: pick('jd'),
-    };
+    if (raw) prefs = JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    return DEFAULT_SNAPSHOT;
+    /* fall through with empty prefs */
   }
+
+  const pickStr = (k: string): string => {
+    const v = prefs[k];
+    return typeof v === 'string' ? v : '';
+  };
+  const persona =
+    (prefs.persona as CopilotConfigSnapshot['persona']) ?? 'finance';
+
+  return {
+    anthropicKey: cacheReadAnthropic(),
+    openaiKey: cacheReadOpenai(),
+    assemblyaiKey: cacheReadAssembly(),
+    model: pickStr('model'),
+    audioDevice: pickStr('audio_device'),
+    loopbackDevice: pickStr('loopback_device'),
+    persona,
+    cv: pickStr('cv'),
+    jd: pickStr('jd'),
+  };
 }

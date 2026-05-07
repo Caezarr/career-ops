@@ -6,6 +6,7 @@ mod ingest;
 mod latex;
 mod llm;
 mod pdf;
+mod secrets;
 mod session;
 mod state;
 mod stt;
@@ -1240,6 +1241,47 @@ async fn ingest_health_check(
     Ok(result.jobs.len() as u64)
 }
 
+// ─── Sprint 1 PR-B: Keychain-backed secrets ──────────────────────────
+//
+// These three commands replace the localStorage-backed key handling
+// in `src/dashboard/hooks/useAnthropicKey.ts`. Every slot name is
+// validated against `secrets::SecretSlot` (a closed enum), so a
+// compromised webview can't poke at arbitrary Keychain accounts.
+
+/// Parse a wire-format slot name ("anthropic_key", "openai_key",
+/// "assemblyai_key", "deepgram_key") into the closed enum. Anything
+/// else returns an error — keeps the trust boundary tight.
+fn parse_slot(name: &str) -> Result<secrets::SecretSlot, String> {
+    match name {
+        "anthropic_key" => Ok(secrets::SecretSlot::AnthropicKey),
+        "openai_key" => Ok(secrets::SecretSlot::OpenaiKey),
+        "assemblyai_key" => Ok(secrets::SecretSlot::AssemblyaiKey),
+        "deepgram_key" => Ok(secrets::SecretSlot::DeepgramKey),
+        other => Err(format!("Unknown secret slot: '{other}'")),
+    }
+}
+
+#[tauri::command]
+fn secrets_set(window: WebviewWindow, name: String, value: String) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let slot = parse_slot(&name)?;
+    secrets::set(slot, &value).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn secrets_get(window: WebviewWindow, name: String) -> Result<Option<String>, String> {
+    assert_main_or_copilot(&window)?;
+    let slot = parse_slot(&name)?;
+    secrets::get(slot).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn secrets_delete(window: WebviewWindow, name: String) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let slot = parse_slot(&name)?;
+    secrets::delete(slot).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -1363,7 +1405,11 @@ pub fn run() {
             db_load_ingested_jobs,
             db_save_ingested_jobs,
             db_load_bookmarks,
-            db_set_bookmark
+            db_set_bookmark,
+            // Sprint 1 PR-B: Keychain-backed secrets (replaces localStorage)
+            secrets_set,
+            secrets_get,
+            secrets_delete
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
