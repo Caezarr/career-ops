@@ -36,7 +36,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 pdf-extract = "0.7"
 base64 = "0.22"
-tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.29", features = ["native-tls"] }
 http = "1"
 # Audit 2026-05-05 backend #6.1 recommended dropping the `macros`
 # feature since the codebase uses 100% runtime queries — but the
