@@ -236,8 +236,13 @@
         (profile.userFullName ? ` · ${profile.userFullName}` : ''),
     );
 
+    // Security note (audit 2026-05-05 CRITICAL #2): we used to ship
+    // `document.cookie` here, but Rust never used the value (HttpOnly
+    // cookies are invisible to JS — the captured value can't replay
+    // JT auth). Persisting analytics IDs / Cloudflare tokens forever
+    // is a privacy violation regardless. Bridge now sends a sentinel.
     const cookies = {
-      rawCookie: document.cookie || '',
+      rawCookie: 'present',
       capturedAt: Date.now(),
     };
 

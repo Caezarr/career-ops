@@ -8,9 +8,8 @@ pub async fn transcribe_whisper(wav: &[u8], openai_key: &str) -> Result<String> 
         return Err(anyhow!("OpenAI key empty"));
     }
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()?;
+    // PRIV-01: shared single-egress client (30s tier).
+    let client = crate::cloud::default();
 
     let part = Part::bytes(wav.to_vec())
         .file_name("audio.wav")

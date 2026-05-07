@@ -31,7 +31,6 @@
 //! ```
 
 use serde::Deserialize;
-use std::time::Duration;
 
 use super::traits::{IngestError, RawJob};
 
@@ -98,16 +97,8 @@ pub async fn fetch(org: &str) -> Result<Vec<RawJob>, IngestError> {
 
     let url = format!("{}/{}?includeCompensation=true", ENDPOINT, org);
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .user_agent("career-ops/0.0.1 (+https://github.com/Caezarr/career-ops)")
-        .build()
-        .map_err(|e| IngestError::Http {
-            provider: PROVIDER,
-            message: e.to_string(),
-        })?;
-
-    let resp = client
+    // PRIV-01: shared single-egress client (15s tier).
+    let resp = crate::cloud::fast()
         .get(&url)
         .send()
         .await

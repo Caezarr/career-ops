@@ -108,11 +108,8 @@ async fn stream_claude(
         "messages":   messages,
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()?;
-
-    let resp = client
+    // PRIV-01: shared single-egress client (30s tier).
+    let resp = crate::cloud::default()
         .post("https://api.anthropic.com/v1/messages")
         .header("x-api-key", &config.anthropic_key)
         .header("anthropic-version", "2023-06-01")

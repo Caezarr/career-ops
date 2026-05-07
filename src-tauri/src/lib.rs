@@ -1,5 +1,6 @@
 mod ai;
 mod audio;
+mod cloud;
 mod db;
 mod ingest;
 mod latex;
@@ -67,12 +68,8 @@ async fn list_anthropic_models(key: String) -> Result<Vec<String>, String> {
     if key.is_empty() {
         return Err("API key is empty".into());
     }
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| e.to_string())?;
-
-    let resp = client
+    // PRIV-01: route through the shared single-egress client.
+    let resp = cloud::fast()
         .get("https://api.anthropic.com/v1/models")
         .header("x-api-key", &key)
         .header("anthropic-version", "2023-06-01")

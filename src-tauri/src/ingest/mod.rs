@@ -13,10 +13,11 @@
 //! - Each provider's `fetch` returns `Vec<RawJob>` — `normalize::to_ingested`
 //!   converts those to frontend-shaped `IngestedJob` instances.
 //!
-//! Privacy posture (PRIV-01): every outbound call SHOULD go through
-//! `cloud::Client`. Today the existing modules each build their own
-//! `reqwest::Client::builder()` — `ingest/*` matches that pattern until the
-//! single-egress refactor lands (tracked separately).
+//! Privacy posture (PRIV-01): every outbound call goes through
+//! `crate::cloud::*`. The 9 ad-hoc `reqwest::Client::builder()` sites
+//! flagged by the 2026-05-05 audit have been migrated and the
+//! `security.yml` workflow now grep-blocks the pattern from leaking
+//! back into the codebase.
 
 pub mod ashby;
 pub mod builtin_sources;

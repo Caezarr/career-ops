@@ -1,0 +1,11 @@
+# Pin the Rust toolchain so CI + every contributor compiles the
+# same binary. Bump intentionally as a separate commit.
+#
+# Why "stable" and not a fixed version: the codebase pulls in
+# transitive deps that already require Cargo edition2024 (stabilised
+# in 1.85). Pinning 1.82 here broke the build today. Once we want a
+# reproducible exact version, set `channel = "1.85.0"` or newer.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
