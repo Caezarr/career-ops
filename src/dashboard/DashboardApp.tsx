@@ -1,12 +1,19 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
+// Sprint 5 PR-B (audit Performance P1 #7): every route is a lazy
+// chunk. Combined with vite manualChunks for deps, the cold-start
+// download collapses from ~780 kB raw to just (deps + Dashboard).
+// Other routes stream in on first navigation. The eager imports
+// remain for `Dashboard` because that's the landing route — no
+// point round-tripping a Suspense fallback for the page the user
+// always sees first.
 import Dashboard from "./pages/Dashboard";
-import Jobs from "./pages/Jobs";
-import Applications from "./pages/Applications";
-import CV from "./pages/CV";
-import Prep from "./pages/Prep";
-import Copilot from "./pages/Copilot";
-import Workspace from "./pages/Workspace";
-import Settings from "./pages/Settings";
+const Jobs = lazy(() => import("./pages/Jobs"));
+const Applications = lazy(() => import("./pages/Applications"));
+const CV = lazy(() => import("./pages/CV"));
+const Prep = lazy(() => import("./pages/Prep"));
+const Copilot = lazy(() => import("./pages/Copilot"));
+const Workspace = lazy(() => import("./pages/Workspace"));
+const Settings = lazy(() => import("./pages/Settings"));
 import { NavigationProvider, useNavigation } from "./navigation";
 import { useAppStore } from "./store";
 import { CommandPalette, ConfirmProvider, ToastProvider } from "./primitives";
@@ -148,7 +155,19 @@ export function DashboardApp() {
             <IngestSourcesSeeder />
             <JobTeaserAuthListener />
             <GlobalKeyboardShortcuts />
-            <PageRouter />
+            {/*
+              Sprint 5 PR-B: lazy routes need a Suspense boundary.
+              The fallback is `null` on purpose — the page transition
+              is sub-100ms once the chunk lands (Tauri serves locally,
+              no network), so a spinner just creates a flash. If the
+              chunk fails to load (rare; would need a build mismatch
+              between window contexts), React surfaces the error via
+              its error boundary instead of leaving the user staring
+              at a blank screen.
+            */}
+            <Suspense fallback={null}>
+              <PageRouter />
+            </Suspense>
             <CommandPaletteHost />
           </ConfirmProvider>
         </ToastProvider>
