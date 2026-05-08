@@ -1183,6 +1183,19 @@ async fn db_upsert_ingest_source(
     db::ingest::upsert_ingest_source(&pool, &source).await
 }
 
+/// Sprint 5 PR-C: bulk seed (1 transaction, 1 IPC) for first install.
+/// Replaces the 30-iteration `db_upsert_ingest_source` loop in
+/// `useSeedIngestSources.ts`.
+#[tauri::command]
+async fn db_save_ingest_sources(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+    sources: Vec<db::ingest::IngestSourceRow>,
+) -> Result<usize, DbError> {
+    assert_main_or_copilot_db(&window)?;
+    db::ingest::save_ingest_sources(&pool, &sources).await
+}
+
 #[tauri::command]
 async fn db_delete_ingest_source(
     window: WebviewWindow,
@@ -1401,6 +1414,7 @@ pub fn run() {
             // DB: ingest persistence (Phase 6)
             db_load_ingest_sources,
             db_upsert_ingest_source,
+            db_save_ingest_sources,
             db_delete_ingest_source,
             db_load_ingested_jobs,
             db_save_ingested_jobs,
