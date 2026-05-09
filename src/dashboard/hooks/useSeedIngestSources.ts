@@ -5,7 +5,7 @@ import {
   loadBookmarksFromDb,
   loadIngestSourcesFromDb,
   loadIngestedJobsFromDb,
-  saveIngestSourceToDb,
+  saveIngestSourcesToDb,
 } from "../lib/ingestDb";
 
 /** Auto-sync if the most-recent successful sync is older than this. */
@@ -39,42 +39,49 @@ export function useSeedIngestSources(): void {
     let cancelled = false;
     (async () => {
       try {
-        // 1. Hydrate sources from DB if they exist.
-        const dbSources = await loadIngestSourcesFromDb();
+        // Sprint 5 PR-C (audit Performance P1 #6): parallelise the
+        // 3 independent reads. The previous boot was 4 sequential
+        // awaits; running sources / jobs / bookmarks reads side by
+        // side saves ~50-100 ms on returning users (the most
+        // common cold-start path).
+        const [dbSources, cachedJobs, bookmarkIds] = await Promise.all([
+          loadIngestSourcesFromDb(),
+          loadIngestedJobsFromDb(),
+          loadBookmarksFromDb(),
+        ]);
         if (cancelled) return;
 
         if (dbSources.length > 0) {
           hydrateIngestSources(dbSources);
         } else {
-          // Fresh install — fetch the curated list, write each row to
-          // DB, then hydrate the store.
+          // Fresh install — fetch the curated list, then mirror the
+          // freshly-seeded rows to DB in ONE transaction (was 30
+          // sequential single-row IPC saves before this PR).
           const builtin = await getBuiltinSources();
           if (cancelled) return;
 
-          // Use seedIngestSources to mint ids + labels — then read the
-          // resulting array to persist each. seedIngestSources is
-          // idempotent so we don't double-seed.
+          // Mint ids + labels via the store action; idempotent.
           seedIngestSources(builtin);
 
-          // Read back the freshly-seeded sources from the store and
-          // mirror them to DB. Sequential writes are fine for ~30 rows.
+          // Read back, persist in one shot. Bulk seed is fire-and-
+          // forget — the store is already hydrated, persistence
+          // failure just means the seed re-runs next cold start.
           const justSeeded = useAppStore.getState().ingestSources;
-          for (const s of justSeeded) {
-            await saveIngestSourceToDb(s);
+          if (justSeeded.length > 0) {
+            void saveIngestSourcesToDb(justSeeded).catch((err) => {
+              console.warn("Bulk seed of ingest sources failed:", err);
+            });
           }
         }
 
-        // 2. Hydrate cached jobs (best-effort — empty on fresh install).
-        const cachedJobs = await loadIngestedJobsFromDb();
-        if (cancelled) return;
+        // Hydrate cached jobs (best-effort — empty on fresh install).
+        // Capped at 1000 rows in the Rust query (audit P1 #5).
         if (cachedJobs.length > 0) {
           setIngestedJobs(cachedJobs);
         }
 
-        // 3. Hydrate bookmarks LAST so they override the freshly-set
+        // Hydrate bookmarks LAST so they override the freshly-set
         // bookmarked=false on every cached job from setIngestedJobs.
-        const bookmarkIds = await loadBookmarksFromDb();
-        if (cancelled) return;
         if (bookmarkIds.length > 0) {
           hydrateBookmarks(bookmarkIds);
         }

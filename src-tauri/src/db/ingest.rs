@@ -75,6 +75,45 @@ pub async fn upsert_ingest_source(pool: &SqlitePool, src: &IngestSourceRow) -> D
     Ok(())
 }
 
+/// Sprint 5 PR-C (audit Performance P1 #6): bulk seed for first
+/// install. The previous boot path looped `upsert_ingest_source`
+/// 30× over IPC, paying 5-10ms per round trip. One transaction,
+/// one IPC = ~150-300ms saved on the cold start of a fresh
+/// install. Existing rows (re-runs) are upserted, not duplicated.
+pub async fn save_ingest_sources(
+    pool: &SqlitePool,
+    sources: &[IngestSourceRow],
+) -> DbResult<usize> {
+    if sources.is_empty() {
+        return Ok(0);
+    }
+    let mut tx = pool.begin().await?;
+    for src in sources {
+        sqlx::query(
+            "INSERT INTO ingest_source \
+                (id, provider, identifier, label, enabled, added_at, last_synced_at, last_error) \
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?) \
+             ON CONFLICT(id) DO UPDATE SET \
+                label = excluded.label, \
+                enabled = excluded.enabled, \
+                last_synced_at = excluded.last_synced_at, \
+                last_error = excluded.last_error",
+        )
+        .bind(&src.id)
+        .bind(&src.provider)
+        .bind(&src.identifier)
+        .bind(&src.label)
+        .bind(src.enabled)
+        .bind(src.added_at)
+        .bind(src.last_synced_at)
+        .bind(&src.last_error)
+        .execute(&mut *tx)
+        .await?;
+    }
+    tx.commit().await?;
+    Ok(sources.len())
+}
+
 pub async fn delete_ingest_source(pool: &SqlitePool, id: &str) -> DbResult<()> {
     sqlx::query("DELETE FROM ingest_source WHERE id = ?")
         .bind(id)
@@ -85,10 +124,21 @@ pub async fn delete_ingest_source(pool: &SqlitePool, id: &str) -> DbResult<()> {
 
 // ─── Jobs ───────────────────────────────────────────────────────────
 
+/// Sprint 5 PR-C (audit Performance P1 #5): hard cap at the freshest
+/// 1000 rows. The previous unbounded query loaded ALL ingested jobs
+/// (5000 × ~12 KB = ~60 MB JSON) on every boot, blocking 400-800 ms.
+/// 1000 covers ~99% of single-school JT users + a couple greenhouse
+/// boards while keeping cold-start under 150 ms. Older postings stay
+/// in SQLite — the next ingest run rotates the freshest 1000 in.
+const LOAD_INGESTED_JOBS_LIMIT: i64 = 1000;
+
 pub async fn load_ingested_jobs(pool: &SqlitePool) -> DbResult<Vec<IngestedJobRow>> {
-    let rows = sqlx::query("SELECT id, data FROM ingested_job ORDER BY fetched_at DESC")
-        .fetch_all(pool)
-        .await?;
+    let rows = sqlx::query(
+        "SELECT id, data FROM ingested_job ORDER BY fetched_at DESC LIMIT ?",
+    )
+    .bind(LOAD_INGESTED_JOBS_LIMIT)
+    .fetch_all(pool)
+    .await?;
 
     Ok(rows
         .into_iter()

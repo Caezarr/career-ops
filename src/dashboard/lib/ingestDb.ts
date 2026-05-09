@@ -52,6 +52,26 @@ export async function saveIngestSourceToDb(source: IngestSource): Promise<void> 
   await invoke<void>("db_upsert_ingest_source", { source: dto });
 }
 
+/** Sprint 5 PR-C (audit Performance P1 #6): bulk seed in 1 IPC.
+ *  Replaces the 30-iteration loop in `useSeedIngestSources.ts` —
+ *  saves ~150-300ms on cold start of a fresh install. Single
+ *  transaction on the Rust side, so a partial failure rolls back. */
+export async function saveIngestSourcesToDb(
+  sources: IngestSource[],
+): Promise<number> {
+  const dtos: IngestSourceRowDto[] = sources.map((source) => ({
+    id: source.id,
+    provider: source.provider,
+    identifier: source.identifier,
+    label: source.label,
+    enabled: source.enabled,
+    addedAt: source.addedAt,
+    lastSyncedAt: source.lastSyncedAt ?? null,
+    lastError: source.lastError ?? null,
+  }));
+  return invoke<number>("db_save_ingest_sources", { sources: dtos });
+}
+
 export async function deleteIngestSourceFromDb(id: string): Promise<void> {
   await invoke<void>("db_delete_ingest_source", { id });
 }
