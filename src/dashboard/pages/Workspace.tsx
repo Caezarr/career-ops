@@ -17,12 +17,12 @@ import {
   Download,
   Calendar,
   Mail,
-  Send,
   Plus,
   Info,
   ChevronRight,
   Play,
 } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import CompanyAvatar from '../components/CompanyAvatar';
@@ -455,7 +455,8 @@ export default function Workspace() {
                 />
                 <GapsToFixCard ats={ats} />
                 <CareerMemoryCard
-                  cvCount={cvs.length}
+                  cvs={cvs}
+                  applicationsCount={applications.length}
                   sessionsCount={copilotSessions.length}
                 />
               </div>
@@ -493,15 +494,7 @@ export default function Workspace() {
                   onCta={startCopilotForJob}
                 />
                 <LikelyInterviewFocus job={job} ats={ats} />
-                <LiveAssistantCard onAsk={(q) => {
-                  if (!q.trim()) return;
-                  // Pre-set Copilot picker context + navigate so the
-                  // user lands on the Copilot page where they can
-                  // actually run the question.
-                  if (job?.id) setCopilotPickerJobId(job.id);
-                  if (cv?.id) setCopilotPickerCvId(cv.id);
-                  navigate('copilot');
-                }} />
+                <LiveCopilotLauncherCard />
                 <NotesFollowUpCard
                   application={application}
                   onSaveNote={(note) => {
@@ -808,19 +801,63 @@ function GapsToFixCard({ ats }: { ats: MinimalAts | undefined }) {
   );
 }
 
+/** Approach B (with derived skills): when the user has nothing in their
+ *  Career OS yet (no CVs, no applications, no Copilot sessions) we
+ *  render an honest empty state instead of a card stuffed with zeroes
+ *  or fabricated numbers. Once any real data exists the stats are
+ *  derived from the store — `Key skills` is a distinct-token count
+ *  across all CV `parsedText` (length ≥ 3, minus a tiny stop-word
+ *  list), so it grows with the user's CV library instead of being a
+ *  hardcoded literal. Story Bank will replace this with first-class
+ *  data when that slice ships. */
 function CareerMemoryCard({
-  cvCount,
+  cvs,
+  applicationsCount,
   sessionsCount,
 }: {
-  cvCount: number;
+  cvs: { roleFocus: string; parsedText?: string }[];
+  applicationsCount: number;
   sessionsCount: number;
 }) {
-  // Heuristic numbers — the user's CVs proxy "experience roles", their
-  // session count proxies "career stories" they've articulated. Real
-  // numbers will land when we add the Story Bank slice.
+  const isEmpty =
+    cvs.length === 0 && applicationsCount === 0 && sessionsCount === 0;
+
+  const keySkills = useMemo(() => {
+    if (cvs.length === 0) return 0;
+    const stop = new Set([
+      'the', 'and', 'for', 'with', 'from', 'that', 'this', 'into',
+      'over', 'under', 'across', 'within', 'while', 'after', 'before',
+      'their', 'about', 'have', 'has', 'had', 'was', 'were', 'are',
+      'will', 'would', 'could', 'should', 'been', 'being', 'also',
+    ]);
+    const distinct = new Set<string>();
+    for (const cv of cvs) {
+      const text = getCvParsedText(cv);
+      const tokens = text.toLowerCase().match(/[a-z][a-z0-9+#.-]{2,}/g) ?? [];
+      for (const t of tokens) {
+        if (!stop.has(t)) distinct.add(t);
+      }
+    }
+    return distinct.size;
+  }, [cvs]);
+
+  if (isEmpty) {
+    return (
+      <section className="war-room__panel war-room__memory" aria-label="Career memory">
+        <h3 className="war-room__panel-title war-room__memory-title">
+          <Sparkles size={14} strokeWidth={2.2} />
+          <span>Career Memory</span>
+        </h3>
+        <p className="war-room__muted">
+          Career memory builds as you add CVs and track applications.
+        </p>
+      </section>
+    );
+  }
+
   const stats = [
-    { label: 'Experience\nroles', value: cvCount },
-    { label: 'Key\nskills', value: 28 },
+    { label: 'Experience\nroles', value: cvs.length },
+    { label: 'Key\nskills', value: keySkills },
     { label: 'Career\nstories', value: sessionsCount },
   ];
   return (
@@ -1390,59 +1427,42 @@ function LikelyInterviewFocus({
   );
 }
 
-function LiveAssistantCard({ onAsk }: { onAsk: (q: string) => void }) {
-  const [mode, setMode] = useState<'practice' | 'live'>('practice');
-  const [text, setText] = useState('');
+/** Honest replacement for the previous in-panel "Live assistant" form,
+ *  which collected questions but had no way to actually answer them
+ *  (the input just navigated away). The real Live Copilot is a
+ *  separate Tauri window; here we offer a one-click launcher and
+ *  surface the global hotkey so the user knows the canonical entry
+ *  point. Same panel shell so layout doesn't shift. */
+function LiveCopilotLauncherCard() {
+  const toast = useToast();
+  async function handleLaunch() {
+    try {
+      await invoke('show_copilot_window');
+    } catch (e) {
+      toast.error(
+        "Couldn't open Copilot",
+        e instanceof Error ? e.message : String(e),
+      );
+    }
+  }
   return (
-    <section className="war-room__panel" aria-label="Live assistant">
+    <section className="war-room__panel" aria-label="Live Copilot">
       <div className="war-room__panel-header">
-        <h3 className="war-room__panel-title">Live assistant</h3>
+        <h3 className="war-room__panel-title">Live Copilot</h3>
         <Info size={13} strokeWidth={2} className="war-room__info-icon" />
       </div>
-      <div className="war-room__assistant-tabs">
-        <button
-          type="button"
-          className={
-            'war-room__assistant-tab' +
-            (mode === 'practice' ? ' war-room__assistant-tab--active' : '')
-          }
-          onClick={() => setMode('practice')}
-        >
-          Practice mode
-        </button>
-        <button
-          type="button"
-          className={
-            'war-room__assistant-tab' +
-            (mode === 'live' ? ' war-room__assistant-tab--active' : '')
-          }
-          onClick={() => setMode('live')}
-        >
-          Live mode
-        </button>
-      </div>
       <p className="war-room__assistant-prompt">
-        Ask me anything about this role, the company, or how to prepare.
+        Live Copilot runs in its own window — press{' '}
+        <kbd>Cmd/Ctrl + Shift + Space</kbd> or click below to launch it.
       </p>
-      <form
-        className="war-room__assistant-input"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!text.trim()) return;
-          onAsk(text);
-          setText('');
-        }}
+      <button
+        type="button"
+        className="war-room__cta-primary war-room__cta-primary--block"
+        onClick={handleLaunch}
       >
-        <input
-          type="text"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Type your question…"
-        />
-        <button type="submit" aria-label="Ask">
-          <Send size={13} strokeWidth={2} />
-        </button>
-      </form>
+        <Mic size={12} strokeWidth={2} />
+        <span>Open Live Copilot</span>
+      </button>
     </section>
   );
 }
@@ -1517,7 +1537,13 @@ function NotesFollowUpCard({
 
 /** When the next interview event in the application timeline is in
  *  the future and ≤ 14 days away, return the day count for the pill.
- *  Returns null otherwise. */
+ *  Returns null otherwise.
+ *
+ *  Honest version: the current TimelineEvent shape stores `date` as a
+ *  display-only string (e.g. "Mar 15, 3:45 PM") — no year, no unix
+ *  timestamp — so we cannot reliably parse it back into a future date.
+ *  Until the timeline carries structured timestamps, return null so
+ *  the "Interview in N days" pill is suppressed rather than lying. */
 function nextInterviewDays(
   application:
     | {
@@ -1530,8 +1556,5 @@ function nextInterviewDays(
   if (application.stage !== 'interview' && application.stage !== 'phone_screen') {
     return null;
   }
-  // Heuristic: if the user is currently at the interview stage, show a
-  // placeholder of 5 days. Real implementation would parse a structured
-  // event date once the timeline carries unix timestamps.
-  return 5;
+  return null;
 }

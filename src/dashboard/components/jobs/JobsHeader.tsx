@@ -2,6 +2,7 @@ import { Info, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { useState } from 'react';
 import MonitorToggle from './MonitorToggle';
 import { runIngestAll, runIngestSource } from '../../lib/ingest';
+import { openJobTeaserAuth } from '../../lib/jobteaser';
 import { useAppStore } from '../../store';
 import type { IngestProvider } from '../../store/types';
 
@@ -41,6 +42,12 @@ const PROVIDERS: ProviderConfig[] = [
     hint: 'Empty = all 10 roles. Or one of: software-engineer, designer, recruiting, science, product-manager, operations, sales-manager, marketing, legal, finance.',
     optional: true,
   },
+  {
+    value: 'jobteaser',
+    label: 'Job Teaser',
+    placeholder: 'arts-et-metiers',
+    hint: 'Career center slug. Requires school SSO via the auth window.',
+  },
 ];
 
 export default function JobsHeader() {
@@ -72,6 +79,21 @@ export default function JobsHeader() {
   }
 
   async function handleSyncSingle() {
+    // Job Teaser sync = SSO auth window. The bridge scrapes inline
+    // after capturing cookies and forwards jobs via the
+    // `jobteaser-jobs-received` event (see lib/jobteaser.ts), so a
+    // direct `runIngestSource` call is a no-op until JT-08.
+    if (provider === 'jobteaser') {
+      setStatus('Opening Job Teaser sign-in…');
+      try {
+        await openJobTeaserAuth();
+        setStatus('Sign in with your school account in the auth window. Jobs will arrive automatically.');
+      } catch (e) {
+        setStatus(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      return;
+    }
+
     setStatus('Syncing…');
     const result = await runIngestSource(provider, identifier.trim());
     if (result.error) {
