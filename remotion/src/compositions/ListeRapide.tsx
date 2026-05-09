@@ -1,17 +1,21 @@
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate, spring } from "remotion";
 import { z } from "zod";
 import { COLORS, FONT } from "../lib/theme.ts";
 import { Backdrop } from "../components/Backdrop.tsx";
 import { BrandTag } from "../components/BrandTag.tsx";
+import { Outro } from "../components/Outro.tsx";
 import { fadeRise } from "../lib/easing.ts";
 
 /**
  * "Liste Rapide" template — the save-magnet format.
  *
- * Hook (0-2s) → 5 items revealed in sequence (~3.5s each) → CTA card.
- * Total ~22s. Items are big and centred; the user can pause the
- * Reel at any point and still read everything. That's the secret to
- * save-rate on listicle content.
+ * Hook (0-2s) → 5 items revealed in sequence (~3.5s each), each card
+ * sliding in from the right and stamping a numbered counter that
+ * scales with a spring → CTA card with pulsing Save badge → Outro.
+ *
+ * Items are big and centred; the user can pause at any point and
+ * read everything. That's the secret to save-rate on listicle
+ * content.
  *
  * Use for: "5 mots à virer de ton CV en 2026", "3 erreurs CV
  * McKinsey", "4 questions à poser à un partner".
@@ -58,6 +62,7 @@ export const ListeRapide: React.FC<ListeRapideProps> = ({ hook, items, cta }) =>
       {inCta && <CtaFrame text={cta} frame={frame - ctaStart} fps={fps} />}
 
       <BrandTag />
+      <Outro />
     </AbsoluteFill>
   );
 };
@@ -93,6 +98,11 @@ const HookFrame: React.FC<{ text: string; frame: number; fps: number }> = ({ tex
 };
 
 // ── Items ────────────────────────────────────────────────────────────────
+//
+// Card slides in from the right (x: 60 → 0) on a spring, exits to
+// the left during the last 8 frames of the item window. Counter
+// number scales from 0.6 → 1 with a punchy spring so each new
+// number "stamps" instead of fading in.
 
 const ItemFrame: React.FC<{
   items: string[];
@@ -102,7 +112,29 @@ const ItemFrame: React.FC<{
 }> = ({ items, itemIndex, itemLocalFrame, fps }) => {
   const current = items[itemIndex];
   if (!current) return null;
-  const { opacity, y } = fadeRise({ frame: itemLocalFrame, fps, stiffness: 200 });
+
+  // Card enter — slide-in from the right
+  const enterSpring = spring({
+    frame: itemLocalFrame,
+    fps,
+    config: { stiffness: 130, damping: 18 },
+  });
+  const enterX = interpolate(enterSpring, [0, 1], [60, 0]);
+  const enterOpacity = interpolate(enterSpring, [0, 1], [0, 1]);
+
+  // Card exit — slide out to the left at the tail
+  const exitFrame = itemLocalFrame - (ITEM_FRAMES - 10);
+  const exitProgress = exitFrame > 0 ? Math.min(exitFrame / 10, 1) : 0;
+  const exitX = exitProgress * -40;
+  const exitOpacity = 1 - exitProgress;
+
+  // Counter "stamp" — scales 0.6 → 1.05 → 1.0 over first 16 frames
+  const counterSpring = spring({
+    frame: itemLocalFrame - 4,
+    fps,
+    config: { stiffness: 220, damping: 12 },
+  });
+  const counterScale = interpolate(counterSpring, [0, 1], [0.6, 1]);
 
   return (
     <AbsoluteFill
@@ -114,8 +146,8 @@ const ItemFrame: React.FC<{
     >
       <div
         style={{
-          opacity,
-          transform: `translateY(${y}px)`,
+          opacity: enterOpacity * exitOpacity,
+          transform: `translateX(${enterX + exitX}px)`,
           background: "rgba(20, 22, 29, 0.78)",
           backdropFilter: "blur(16px)",
           border: `1px solid ${COLORS.border}`,
@@ -124,6 +156,7 @@ const ItemFrame: React.FC<{
           display: "flex",
           flexDirection: "column",
           gap: 32,
+          boxShadow: `0 24px 64px -12px rgba(0,0,0,0.5)`,
         }}
       >
         {/* counter */}
@@ -138,7 +171,16 @@ const ItemFrame: React.FC<{
             fontWeight: 500,
           }}
         >
-          <span style={{ fontSize: 80, fontWeight: 800 }}>
+          <span
+            style={{
+              fontSize: 96,
+              fontWeight: 800,
+              letterSpacing: "-0.04em",
+              transform: `scale(${counterScale})`,
+              transformOrigin: "left center",
+              display: "inline-block",
+            }}
+          >
             {String(itemIndex + 1).padStart(2, "0")}
           </span>
           <span style={{ color: COLORS.text3 }}>
@@ -165,15 +207,19 @@ const ItemFrame: React.FC<{
 // ── CTA ──────────────────────────────────────────────────────────────────
 
 const CtaFrame: React.FC<{ text: string; frame: number; fps: number }> = ({ text, frame, fps }) => {
-  const { opacity, y } = fadeRise({ frame, fps, stiffness: 200 });
+  const enter = fadeRise({ frame, fps, stiffness: 200 });
+  // Pulse on the Save badge — 1.0 → 1.06 → 1.0 forever-loop while CTA is on
+  const pulseFrame = (frame % 30) / 30;
+  const pulse = interpolate(pulseFrame, [0, 0.5, 1], [1, 1.06, 1]);
+
   return (
     <AbsoluteFill
       style={{
         padding: "0 80px",
         justifyContent: "center",
         alignItems: "center",
-        opacity,
-        transform: `translateY(${y}px)`,
+        opacity: enter.opacity,
+        transform: `translateY(${enter.y}px)`,
       }}
     >
       <div
@@ -190,7 +236,9 @@ const CtaFrame: React.FC<{ text: string; frame: number; fps: number }> = ({ text
       >
         {text}
       </div>
-      <SaveBadge />
+      <div style={{ transform: `scale(${pulse})` }}>
+        <SaveBadge />
+      </div>
     </AbsoluteFill>
   );
 };
@@ -201,22 +249,22 @@ const SaveBadge: React.FC = () => (
       display: "inline-flex",
       alignItems: "center",
       gap: 16,
-      padding: "20px 36px",
+      padding: "22px 40px",
       background: COLORS.accent,
       borderRadius: 999,
-      fontSize: 40,
+      fontSize: 44,
       fontWeight: 700,
       color: "white",
-      boxShadow: `0 24px 64px -12px ${COLORS.accentGlow}`,
+      boxShadow: `0 28px 72px -12px ${COLORS.accentGlow}`,
     }}
   >
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
       <path
         d="M5 3 H19 V21 L12 16 L5 21 Z"
         stroke="white"
         strokeWidth="2.4"
         strokeLinejoin="round"
-        fill="rgba(255,255,255,0.15)"
+        fill="rgba(255,255,255,0.18)"
       />
     </svg>
     Save

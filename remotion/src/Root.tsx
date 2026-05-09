@@ -33,14 +33,14 @@ export const Root: React.FC = () => {
         }}
       />
 
-      {/* ── Liste Rapide · ~22s ─────────────────────────────────────── */}
+      {/* ── Liste Rapide · ~24s ─────────────────────────────────────── */}
       <Composition
         id="ListeRapide"
         component={ListeRapide}
         width={REEL.width}
         height={REEL.height}
         fps={REEL.fps}
-        durationInFrames={22 * REEL.fps}
+        durationInFrames={24 * REEL.fps}
         schema={listeRapideSchema}
         defaultProps={{
           hook: "5 mots à virer de ton CV en 2026.",
@@ -55,14 +55,14 @@ export const Root: React.FC = () => {
         }}
       />
 
-      {/* ── Vérité Marché · ~22s ────────────────────────────────────── */}
+      {/* ── Vérité Marché · ~24s ────────────────────────────────────── */}
       <Composition
         id="VeriteMarche"
         component={VeriteMarche}
         width={REEL.width}
         height={REEL.height}
         fps={REEL.fps}
-        durationInFrames={22 * REEL.fps}
+        durationInFrames={24 * REEL.fps}
         schema={veriteMarcheSchema}
         defaultProps={{
           hook: "Ton CV passe 6 secondes sous l'œil d'un recruteur MBB.",

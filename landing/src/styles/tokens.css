@@ -1,9 +1,11 @@
 /* ── Career OS landing — design tokens ────────────────────────────────────────
-   Dark-first to match the "premium tech tool" aesthetic (Linear, Raycast,
-   Superhuman). The accent indigo (#6366f1) matches the dashboard so a
-   visitor who installs the app feels brand continuity. */
+   Dual-theme. Default = dark (matches the "premium tech tool" aesthetic and
+   the dashboard). Light theme via [data-theme="light"] on <html>. The
+   ThemeToggle component flips the attribute and persists the choice in
+   localStorage; `useTheme()` reads `prefers-color-scheme` on first paint. */
 
-:root {
+:root,
+[data-theme="dark"] {
   /* Surface palette — dark, deep, layered */
   --bg:           #0A0B0F;
   --bg-1:         #0E1015;
@@ -34,7 +36,53 @@
   --red:          #ef4444;
   --amber:        #f59e0b;
 
-  /* Typography */
+  /* Backdrop gradient stops — drift across both themes */
+  --grad-1:       rgba(99, 102, 241, 0.18);
+  --grad-2:       rgba(99, 102, 241, 0.06);
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  /* Surfaces — warm off-white, never pure white (preserves contrast on type) */
+  --bg:           #fafafb;
+  --bg-1:         #ffffff;
+  --bg-soft:      #f4f5f8;
+  --bg-card:      #ffffff;
+  --bg-elev:      #ffffff;
+  --bg-glass:     rgba(255, 255, 255, 0.78);
+
+  /* Borders — soft slate */
+  --border:       #e6e8ef;
+  --border-soft:  #eceef4;
+  --border-strong: #d4d8e2;
+
+  /* Text — slate ramp */
+  --text-1:       #0E1422;
+  --text-2:       #4B5366;
+  --text-3:       #6B7184;
+  --text-4:       #9097A8;
+
+  /* Accent — same indigo but the soft/glow variants are recalibrated for white */
+  --accent:       #5b62e6;
+  --accent-2:     #4f55d4;
+  --accent-soft:  rgba(91, 98, 230, 0.10);
+  --accent-glow:  rgba(91, 98, 230, 0.20);
+
+  /* Backdrop gradient — much softer on light */
+  --grad-1:       rgba(91, 98, 230, 0.10);
+  --grad-2:       rgba(91, 98, 230, 0.04);
+
+  /* Override shadow opacities — dark drop-shadows on white surfaces */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 24px 64px rgba(15, 23, 42, 0.12);
+
+  color-scheme: light;
+}
+
+:root {
+  /* Typography (theme-agnostic) */
   --font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
 
@@ -77,7 +125,7 @@
   --r-2xl: 28px;
   --r-full: 9999px;
 
-  /* Shadow */
+  /* Shadow (dark defaults; light theme overrides above) */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
   --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.48);
@@ -89,8 +137,6 @@
   --dur-fast: 160ms;
   --dur-base: 240ms;
   --dur-slow: 480ms;
-
-  color-scheme: dark;
 }
 
 html,
@@ -101,9 +147,25 @@ body {
   font-size: var(--fs-base);
   font-feature-settings: "ss01", "cv11";
   letter-spacing: -0.01em;
+  /* Smooth scroll for in-page anchor navigation. Disabled when the user
+     opts into reduced-motion (see prefers-reduced-motion override below). */
+  scroll-behavior: smooth;
+  /* Theme transitions land smooth, not jarring */
+  transition: background var(--dur-base) var(--ease-out), color var(--dur-base) var(--ease-out);
+}
+
+/* Anchored sections need to clear the sticky header (64px). */
+section[id] {
+  scroll-margin-top: 80px;
 }
 
 ::selection {
   background: var(--accent);
   color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }

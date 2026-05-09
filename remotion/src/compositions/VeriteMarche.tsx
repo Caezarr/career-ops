@@ -1,16 +1,20 @@
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { z } from "zod";
 import { COLORS, FONT } from "../lib/theme.ts";
 import { Backdrop } from "../components/Backdrop.tsx";
 import { BrandTag } from "../components/BrandTag.tsx";
+import { Outro } from "../components/Outro.tsx";
 import { fadeRise } from "../lib/easing.ts";
 
 /**
  * "Vérité Marché" template — for educational / data-driven Reels.
  *
- * Hook (0-2s) → Big stat with label (2-7s) → Explanation (7-18s)
- * → CTA (18-22s). Shows authoritative knowledge, the kind that
- * earns saves AND follows simultaneously.
+ * Hook (0-2s) → Big stat counter that ticks up from 0 to the target
+ * value (2-7s) → Explanation card (7-18s) → CTA (18-21s) → Outro.
+ *
+ * The number-counting reveal on the stat is the differentiator vs
+ * the previous version: a static "65%" reads as a graphic; a "0%
+ * → 65%" tick reads as live data the viewer is watching unfold.
  *
  * Use for: "J'ai analysé 500 questions McKinsey. 3 patterns
  * émergent.", "Les recruteurs MBB lisent ton CV en 6s — voici la
@@ -20,7 +24,11 @@ import { fadeRise } from "../lib/easing.ts";
 
 export const veriteMarcheSchema = z.object({
   hook: z.string(),
-  /** The headline statistic — short. e.g. "6 secondes". */
+  /** The headline statistic. Leading number (with optional decimal)
+   *  is parsed and animated as a counter from 0; everything after
+   *  the number is the suffix shown verbatim ("%", "s", " patterns",
+   *  etc). e.g. "65%" → ticks 0→65 then "%" pinned. "Top 5" → just
+   *  fades in (no leading number). */
   stat: z.string(),
   /** Label below the stat. e.g. "le temps moyen passé sur ton CV". */
   statLabel: z.string(),
@@ -55,6 +63,7 @@ export const VeriteMarche: React.FC<VeriteMarcheProps> = ({
   return (
     <AbsoluteFill style={{ fontFamily: FONT.family, color: COLORS.text1 }}>
       <Backdrop />
+      <DataGrid />
 
       {inHook && <Hook text={hook} frame={frame} fps={fps} />}
 
@@ -74,7 +83,24 @@ export const VeriteMarche: React.FC<VeriteMarcheProps> = ({
       {inCta && <Cta text={cta} frame={frame - EXPLAIN_END} fps={fps} />}
 
       <BrandTag />
+      <Outro />
     </AbsoluteFill>
+  );
+};
+
+// ── Decorative grid behind everything ────────────────────────────────────
+// Subtle dot pattern signals "data". Rendered in absolute coords; the
+// scrim from Backdrop already softens it so it never competes with text.
+
+const DataGrid: React.FC = () => {
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundImage: `radial-gradient(circle at 1px 1px, rgba(99, 102, 241, 0.08) 1px, transparent 0)`,
+        backgroundSize: "48px 48px",
+        opacity: 0.6,
+      }}
+    />
   );
 };
 
@@ -108,7 +134,26 @@ const Hook: React.FC<{ text: string; frame: number; fps: number }> = ({ text, fr
   );
 };
 
-// ── Stat ─────────────────────────────────────────────────────────────────
+// ── Stat — animated counter ──────────────────────────────────────────────
+
+interface ParsedStat {
+  value: number | null;
+  decimals: number;
+  suffix: string;
+}
+
+function parseStat(stat: string): ParsedStat {
+  // Match a leading number (optional decimal) and capture everything after
+  const match = stat.match(/^(\d+(?:[.,]\d+)?)(.*)$/);
+  if (!match) return { value: null, decimals: 0, suffix: stat };
+  const raw = match[1].replace(",", ".");
+  const decimals = raw.includes(".") ? raw.split(".")[1].length : 0;
+  return {
+    value: parseFloat(raw),
+    decimals,
+    suffix: match[2],
+  };
+}
 
 const Stat: React.FC<{ stat: string; label: string; frame: number; fps: number }> = ({
   stat,
@@ -116,8 +161,30 @@ const Stat: React.FC<{ stat: string; label: string; frame: number; fps: number }
   frame,
   fps,
 }) => {
+  const parsed = parseStat(stat);
+
+  // Animate counter over the first 30 frames (1s) — ease-out so the
+  // last digits land softly rather than slamming
+  const counterProgress = interpolate(frame, [0, 30], [0, 1], {
+    extrapolateRight: "clamp",
+    easing: (t) => 1 - Math.pow(1 - t, 3), // cubic ease-out
+  });
+
+  const displayValue =
+    parsed.value !== null
+      ? (parsed.value * counterProgress).toFixed(parsed.decimals)
+      : null;
+
+  // Big block fade-in
   const big = fadeRise({ frame, fps, stiffness: 160 });
-  const small = fadeRise({ frame, fps, delay: 18, stiffness: 200 });
+  // Label cascades in after the counter finishes
+  const small = fadeRise({ frame, fps, delay: 24, stiffness: 200 });
+  // Underline sweep behind the label
+  const underlineProgress = interpolate(frame - 30, [0, 16], [0, 100], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
   return (
     <AbsoluteFill
       style={{
@@ -130,7 +197,7 @@ const Stat: React.FC<{ stat: string; label: string; frame: number; fps: number }
         style={{
           opacity: big.opacity,
           transform: `translateY(${big.y}px)`,
-          fontSize: 280,
+          fontSize: 300,
           fontWeight: 800,
           letterSpacing: "-0.06em",
           lineHeight: 0.95,
@@ -139,31 +206,55 @@ const Stat: React.FC<{ stat: string; label: string; frame: number; fps: number }
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
           textAlign: "center",
+          fontVariantNumeric: "tabular-nums",
         }}
       >
-        {stat}
+        {displayValue !== null ? `${displayValue}${parsed.suffix}` : stat}
       </div>
+
       <div
         style={{
-          opacity: small.opacity,
-          transform: `translateY(${small.y}px)`,
-          fontSize: 44,
-          fontWeight: 500,
-          color: COLORS.text2,
-          letterSpacing: "-0.01em",
-          textAlign: "center",
-          marginTop: 32,
-          maxWidth: 760,
-          textWrap: "balance",
+          position: "relative",
+          display: "inline-block",
+          marginTop: 36,
         }}
       >
-        {label}
+        <div
+          style={{
+            opacity: small.opacity,
+            transform: `translateY(${small.y}px)`,
+            fontSize: 44,
+            fontWeight: 500,
+            color: COLORS.text2,
+            letterSpacing: "-0.01em",
+            textAlign: "center",
+            maxWidth: 760,
+            textWrap: "balance",
+            paddingBottom: 8,
+          }}
+        >
+          {label}
+        </div>
+        {/* Underline — animates left → right beneath the label */}
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            bottom: 0,
+            height: 3,
+            width: `${underlineProgress}%`,
+            background: `linear-gradient(90deg, ${COLORS.accent2}, transparent)`,
+            borderRadius: 2,
+          }}
+        />
       </div>
     </AbsoluteFill>
   );
 };
 
 // ── Explanation ──────────────────────────────────────────────────────────
+// Card slides up from below + the card border has a subtle accent
+// glow to draw attention to the "Pourquoi" framing.
 
 const Explanation: React.FC<{ text: string; frame: number; fps: number }> = ({
   text,
@@ -183,11 +274,12 @@ const Explanation: React.FC<{ text: string; frame: number; fps: number }> = ({
         style={{
           opacity,
           transform: `translateY(${y}px)`,
-          background: "rgba(20, 22, 29, 0.78)",
-          backdropFilter: "blur(16px)",
+          background: "rgba(20, 22, 29, 0.82)",
+          backdropFilter: "blur(20px)",
           border: `1px solid ${COLORS.border}`,
           borderRadius: 32,
           padding: "56px 48px",
+          boxShadow: `0 32px 80px -20px ${COLORS.accentGlow}`,
         }}
       >
         <div
@@ -221,15 +313,19 @@ const Explanation: React.FC<{ text: string; frame: number; fps: number }> = ({
 // ── CTA ──────────────────────────────────────────────────────────────────
 
 const Cta: React.FC<{ text: string; frame: number; fps: number }> = ({ text, frame, fps }) => {
-  const { opacity, y } = fadeRise({ frame, fps, stiffness: 200 });
+  const enter = fadeRise({ frame, fps, stiffness: 200 });
+  // Pulse the badge subtly, like a heartbeat
+  const pulseFrame = (frame % 30) / 30;
+  const pulse = interpolate(pulseFrame, [0, 0.5, 1], [1, 1.05, 1]);
+
   return (
     <AbsoluteFill
       style={{
         padding: "0 80px",
         justifyContent: "center",
         alignItems: "center",
-        opacity,
-        transform: `translateY(${y}px)`,
+        opacity: enter.opacity,
+        transform: `translateY(${enter.y}px)`,
       }}
     >
       <div
@@ -249,16 +345,17 @@ const Cta: React.FC<{ text: string; frame: number; fps: number }> = ({ text, fra
       </div>
       <div
         style={{
+          transform: `scale(${pulse})`,
           display: "inline-flex",
           alignItems: "center",
           gap: 16,
-          padding: "20px 36px",
+          padding: "22px 40px",
           background: COLORS.accent,
           borderRadius: 999,
-          fontSize: 36,
+          fontSize: 38,
           fontWeight: 700,
           color: "white",
-          boxShadow: `0 24px 64px -12px ${COLORS.accentGlow}`,
+          boxShadow: `0 28px 72px -12px ${COLORS.accentGlow}`,
         }}
       >
         Beta · lien en bio

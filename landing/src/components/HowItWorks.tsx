@@ -1,33 +1,34 @@
 /**
- * Four-step journey from install to interview win. The numbers are
- * monospaced + muted so they read as positions, not as importance —
- * the steps speak for themselves.
+ * Four-step journey from install to interview win. Each step is
+ * outcome-led ("Lance le Copilot, plus jamais figé") rather than
+ * procedure-led ("Click here, then click there"). The numbers stay
+ * monospaced and muted so they read as positions, not importance.
  */
 
 const STEPS = [
   {
     n: "01",
-    title: "Installe l'app",
+    title: "Reçois ton accès",
     body:
-      "Téléchargement DMG signé. Première session 90s : choix tracker / CV / Copilot.",
+      "Tu postules à la beta. Réponse sous 7 jours, DMG signé envoyé par mail. Première session : 90 secondes pour configurer.",
   },
   {
     n: "02",
     title: "Importe ton CV",
     body:
-      "PDF parsé en local par Docling. Analyse ATS contre la JD. Suggestions de reformulation.",
+      "Drag-and-drop ton PDF. Career OS le parse en local, le compare à la JD que tu vises, te dit exactement quoi changer pour passer l'ATS.",
   },
   {
     n: "03",
-    title: "Track tes candidatures",
+    title: "Track tes 40 candidatures",
     body:
-      "Sync depuis Greenhouse, Lever, Ashby, YC, JobTeaser. Pipeline drag-and-drop, vue War Room par job.",
+      "Sync auto depuis Greenhouse, Lever, Ashby, YC, JobTeaser. Pipeline drag-and-drop. War Room par job pour préparer chaque entretien.",
   },
   {
     n: "04",
-    title: "Lance le Copilot",
+    title: "Lance le Copilot avant le call",
     body:
-      "Hotkey Cmd+Shift+Space avant le call. Transcription locale, réponses en STAR, format 80 mots max.",
+      "Hotkey ⌘⇧Espace. Transcription locale, réponses en pyramide STAR, 80 mots max. Tu ne lis pas — tu t'inspires, tu reformules.",
   },
 ];
 
@@ -36,7 +37,9 @@ export default function HowItWorks() {
     <section className="section" id="how">
       <div className="container">
         <span className="section__eyebrow">4 étapes · 5 minutes au total</span>
-        <h2 className="section__title">De l'installation à ton premier entretien préparé.</h2>
+        <h2 className="section__title">
+          De la candidature à l'offre — sans friction.
+        </h2>
 
         <div className="how__steps">
           {STEPS.map((s) => (

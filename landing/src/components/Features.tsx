@@ -1,13 +1,23 @@
 /**
- * Three feature cards — the only three product surfaces that drive
- * conversion. Order is deliberate: Tracker first (immediate pain),
- * ATS Analyzer second (recurring value), Live Copilot last (the
- * magic moment, gated visually so it never reads as "the cheating
- * tool").
+ * Three feature cards — benefit-led titles, each anchored to a real
+ * pain point of the ICP (HEC/ESCP/Polytechnique student in M2 with
+ * 40 active applications).
+ *
+ * Order is deliberate:
+ *   1. Tracker first  — the most immediate, daily pain
+ *   2. ATS second     — the recurring weekly task that compounds
+ *   3. Copilot last   — the high-intensity magic moment, kept
+ *                       visually subdued so the brand never reads
+ *                       as "the cheating tool"
+ *
+ * Card titles speak the user's outcome ("Plus jamais figé en
+ * entretien"), not the feature name. The feature name shows up as
+ * a small kicker so a tech reader can still anchor.
  */
 
 interface Feature {
   icon: React.ReactNode;
+  kicker: string;
   title: string;
   body: string;
 }
@@ -20,9 +30,10 @@ const FEATURES: Feature[] = [
         <path d="M8 9 H16 M8 13 H13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
       </svg>
     ),
-    title: "Tracker unifié",
+    kicker: "Tracker",
+    title: "Plus jamais 12 onglets ouverts",
     body:
-      "Toutes tes candidatures, dans une seule fenêtre. Pipeline drag-and-drop, sources scrapées en local (Greenhouse, Lever, Ashby, YC, JobTeaser), zéro tab Notion à maintenir.",
+      "Tes candidatures Greenhouse, Lever, Ashby, JobTeaser, ton calendar, tes notes — une seule fenêtre. Drag-and-drop pipeline. Plus de Notion à maintenir, plus de tableau Excel partagé sur WhatsApp.",
   },
   {
     icon: (
@@ -37,9 +48,10 @@ const FEATURES: Feature[] = [
         <path d="M14 6 H20 V12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    title: "ATS Analyzer",
+    kicker: "ATS Analyzer",
+    title: "Sache si tu passes l'ATS avant d'envoyer",
     body:
-      "Score temps réel CV vs n'importe quelle JD. Identifie les keywords manquants, propose les reformulations exactes. Powered by Claude, jamais ChatGPT-slop.",
+      "Score CV vs JD calculé en 2 secondes. Les keywords qui manquent, les reformulations exactes, en français comme en anglais. Une vraie analyse — pas du copier-coller ChatGPT que les ATS détectent en 2026.",
   },
   {
     icon: (
@@ -52,9 +64,10 @@ const FEATURES: Feature[] = [
         />
       </svg>
     ),
-    title: "Live Copilot",
+    kicker: "Live Copilot",
+    title: "Plus jamais figé en entretien",
     body:
-      "Pendant l'entretien : transcription locale, suggestions de réponse en pyramide STAR ancrées dans ton CV. N'apparaît jamais sur l'écran partagé. Hotkey Cmd+Shift+Space.",
+      "Pendant le call, le Copilot écoute, comprend la question, et te suggère une réponse en pyramide STAR ancrée dans ton CV. N'apparaît jamais sur l'écran partagé. Hotkey ⌘⇧Espace.",
   },
 ];
 
@@ -63,23 +76,24 @@ export default function Features() {
     <section className="section features" id="features">
       <div className="container">
         <div className="features__head">
-          <span className="section__eyebrow">Trois surfaces, un seul flow</span>
+          <span className="section__eyebrow">Trois surfaces · un seul flow</span>
           <h2 className="section__title">
-            Construit pour les candidats qui visent McKinsey, Goldman ou Anthropic.
+            Pensé pour les candidats qui visent les top firms — pas pour les autres.
           </h2>
           <p className="section__lead">
-            Career OS vit à côté de ton travail. Il sait quels rôles tu vises, quel CV tu
-            envoies, et ce que tu as répondu en entretien la dernière fois. Tout reste sur
-            ton Mac.
+            Career OS vit à côté de ton travail sur Mac. Il sait quels rôles tu cibles,
+            quel CV tu envoies, ce que tu as répondu la dernière fois. Tout reste sur ta
+            machine — recruteurs, ATS et concurrents n'ont pas accès à cette donnée.
           </p>
         </div>
 
         <div className="features__grid">
           {FEATURES.map((f) => (
-            <article className="feature-card" key={f.title}>
+            <article className="feature-card" key={f.kicker}>
               <div className="feature-card__icon" aria-hidden>
                 {f.icon}
               </div>
+              <span className="feature-card__kicker">{f.kicker}</span>
               <h3 className="feature-card__title">{f.title}</h3>
               <p className="feature-card__body">{f.body}</p>
             </article>

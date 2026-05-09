@@ -1,10 +1,33 @@
 <!doctype html>
-<html lang="fr" data-theme="dark">
+<html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0A0B0F" />
+    <meta name="theme-color" content="#0A0B0F" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)" />
+
+    <!-- No-flash theme bootstrap. Runs synchronously BEFORE the React
+         bundle hydrates, so the user never sees a dark→light or
+         light→dark flicker on first paint. Mirrors the resolution
+         logic in src/lib/theme.ts (kept in sync by hand — they are
+         the only two implementations). -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem("careeros-theme");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: light)").matches
+              ? "light"
+              : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (e) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
 
     <!-- Primary meta -->
     <title>Career OS — L'OS de carrière pour viser les top firms</title>

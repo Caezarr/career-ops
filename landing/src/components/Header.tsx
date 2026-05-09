@@ -1,6 +1,14 @@
+import ThemeToggle from "./ThemeToggle.tsx";
+
 /**
- * Sticky header with frosted backdrop. Brand left, anchor links centre,
- * primary CTA right. Hidden nav links on mobile (CTA stays).
+ * Sticky header with frosted backdrop. Brand left, anchor links
+ * centre, theme toggle + primary CTA right. Nav links hide on
+ * mobile (CTA + toggle stay).
+ *
+ * Anchor clicks scroll smoothly thanks to the global
+ * `scroll-behavior: smooth` rule in tokens.css; sections have
+ * `scroll-margin-top: 80px` so the sticky header doesn't crop
+ * the destination.
  */
 export default function Header() {
   return (
@@ -30,9 +38,12 @@ export default function Header() {
           </a>
         </nav>
 
-        <a href="#beta" className="header__cta">
-          Rejoindre la beta
-        </a>
+        <div className="header__right">
+          <ThemeToggle />
+          <a href="#beta" className="header__cta">
+            Postuler à la beta
+          </a>
+        </div>
       </div>
     </header>
   );

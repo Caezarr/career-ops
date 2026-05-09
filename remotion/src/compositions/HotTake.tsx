@@ -1,21 +1,24 @@
-import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate } from "remotion";
 import { z } from "zod";
 import { COLORS, FONT } from "../lib/theme.ts";
 import { Backdrop } from "../components/Backdrop.tsx";
 import { BrandTag } from "../components/BrandTag.tsx";
+import { Outro } from "../components/Outro.tsx";
 import { fadeRise } from "../lib/easing.ts";
 
 /**
  * "Hot Take" template — for opinion-led Reels.
  *
- * Format: 3 cuts.
- *   Cut 1 (0-1.5s)  — the hook, lands hard.
- *   Cut 2 (1.5-12s) — the argument, paragraph form, big text.
- *   Cut 3 (12-18s)  — the chase, sharper / shorter.
+ * Format:
+ *   Cut 1 (0-1.5s)  — hook, sliding into place with kinetic energy
+ *   Cut 2 (1.5-12s) — argument, with a "Pourquoi" eyebrow that
+ *                     animates in before the body
+ *   Cut 3 (12-16.8s)— chase, gradient text, scaling slightly to feel
+ *                     like a closer
+ *   Outro (16.8-18s)— Career OS brand card (shared)
  *
  * Use for: hooks like "Notion pour ta recherche de stage : mauvaise
- * idée." then a 10s argument then a punchline. ~20s reels score best
- * on TikTok save-rate for opinion content (Q4 2025 data).
+ * idée." then a 10s argument then a punchline.
  */
 
 export const hotTakeSchema = z.object({
@@ -29,40 +32,60 @@ export type HotTakeProps = z.infer<typeof hotTakeSchema>;
 const FPS = 30;
 const CUT1_END = 1.5 * FPS;
 const CUT2_END = 12 * FPS;
+const CUT3_END = 16.8 * FPS; // 4.8s window before outro begins
 
 export const HotTake: React.FC<HotTakeProps> = ({ hook, argument, chase }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const inCut1 = frame < CUT1_END;
-  const inCut2 = frame >= CUT1_END && frame < CUT2_END;
-  const inCut3 = frame >= CUT2_END;
+  // Each cut renders if we're inside its window OR within the 12-frame
+  // tail-out so transitions overlap rather than hard-cut.
+  const inCut1 = frame < CUT1_END + 12;
+  const inCut2 = frame >= CUT1_END - 6 && frame < CUT2_END + 12;
+  const inCut3 = frame >= CUT2_END - 6 && frame < CUT3_END + 12;
 
   return (
     <AbsoluteFill style={{ fontFamily: FONT.family, color: COLORS.text1 }}>
       <Backdrop />
 
-      {inCut1 && <Cut1 hook={hook} frame={frame} fps={fps} />}
-      {inCut2 && <Cut2 argument={argument} frame={frame - CUT1_END} fps={fps} />}
-      {inCut3 && <Cut3 chase={chase} frame={frame - CUT2_END} fps={fps} />}
+      {inCut1 && <Cut1 hook={hook} frame={frame} fps={fps} cutEnd={CUT1_END} />}
+      {inCut2 && (
+        <Cut2 argument={argument} frame={frame - CUT1_END} fps={fps} duration={CUT2_END - CUT1_END} />
+      )}
+      {inCut3 && (
+        <Cut3 chase={chase} frame={frame - CUT2_END} fps={fps} duration={CUT3_END - CUT2_END} />
+      )}
 
       <BrandTag />
+      <Outro />
     </AbsoluteFill>
   );
 };
 
 // ── Cut 1 — the hook ─────────────────────────────────────────────────────
+// A short, punchy slide-in. Outgoing: blur + lift to make space for Cut 2.
 
-const Cut1: React.FC<{ hook: string; frame: number; fps: number }> = ({ hook, frame, fps }) => {
-  const { opacity, y } = fadeRise({ frame, fps, stiffness: 220 });
+const Cut1: React.FC<{ hook: string; frame: number; fps: number; cutEnd: number }> = ({
+  hook,
+  frame,
+  fps,
+  cutEnd,
+}) => {
+  const enter = fadeRise({ frame, fps, stiffness: 240 });
+  // Exit anim — last 12 frames, lift up + fade
+  const exitFrame = frame - cutEnd;
+  const exitProgress = exitFrame > 0 ? Math.min(exitFrame / 12, 1) : 0;
+  const exitY = exitProgress * -40;
+  const exitOpacity = 1 - exitProgress;
+
   return (
     <AbsoluteFill
       style={{
         padding: "0 80px",
         justifyContent: "center",
         alignItems: "center",
-        opacity,
-        transform: `translateY(${y}px)`,
+        opacity: enter.opacity * exitOpacity,
+        transform: `translateY(${enter.y + exitY}px)`,
       }}
     >
       <div
@@ -82,25 +105,37 @@ const Cut1: React.FC<{ hook: string; frame: number; fps: number }> = ({ hook, fr
 };
 
 // ── Cut 2 — the argument ─────────────────────────────────────────────────
+// Eyebrow appears first, then the body cascades in line by line.
 
-const Cut2: React.FC<{ argument: string; frame: number; fps: number }> = ({
+const Cut2: React.FC<{ argument: string; frame: number; fps: number; duration: number }> = ({
   argument,
   frame,
   fps,
+  duration,
 }) => {
-  const { opacity, y } = fadeRise({ frame, fps, stiffness: 160 });
+  const eyebrow = fadeRise({ frame, fps, stiffness: 180 });
+  const body = fadeRise({ frame, fps, delay: 8, stiffness: 140 });
+
+  // Exit
+  const exitFrame = frame - duration;
+  const exitProgress = exitFrame > 0 ? Math.min(exitFrame / 12, 1) : 0;
+  const exitOpacity = 1 - exitProgress;
+  const exitY = exitProgress * -30;
+
   return (
     <AbsoluteFill
       style={{
         padding: "0 80px",
         justifyContent: "center",
         alignItems: "flex-start",
-        opacity,
-        transform: `translateY(${y}px)`,
+        opacity: exitOpacity,
+        transform: `translateY(${exitY}px)`,
       }}
     >
       <span
         style={{
+          opacity: eyebrow.opacity,
+          transform: `translateY(${eyebrow.y}px)`,
           fontSize: 32,
           fontWeight: 600,
           color: COLORS.accent2,
@@ -113,6 +148,8 @@ const Cut2: React.FC<{ argument: string; frame: number; fps: number }> = ({
       </span>
       <div
         style={{
+          opacity: body.opacity,
+          transform: `translateY(${body.y}px)`,
           fontSize: 64,
           fontWeight: 600,
           letterSpacing: "-0.02em",
@@ -126,22 +163,33 @@ const Cut2: React.FC<{ argument: string; frame: number; fps: number }> = ({
 };
 
 // ── Cut 3 — the chase ────────────────────────────────────────────────────
+// Gradient text + a subtle scale-pulse so the closer feels like a closer.
 
-const Cut3: React.FC<{ chase: string; frame: number; fps: number }> = ({ chase, frame, fps }) => {
-  const { opacity, y } = fadeRise({ frame, fps, stiffness: 200 });
+const Cut3: React.FC<{ chase: string; frame: number; fps: number; duration: number }> = ({
+  chase,
+  frame,
+  fps,
+  duration,
+}) => {
+  const enter = fadeRise({ frame, fps, stiffness: 220 });
+
+  // Subtle scale pulse — 1.0 → 1.04 → 1.0 over the cut window
+  const pulseFrame = frame / duration;
+  const pulse = interpolate(pulseFrame, [0, 0.4, 1], [1, 1.04, 1.02]);
+
   return (
     <AbsoluteFill
       style={{
         padding: "0 80px",
         justifyContent: "center",
         alignItems: "center",
-        opacity,
-        transform: `translateY(${y}px)`,
+        opacity: enter.opacity,
+        transform: `translateY(${enter.y}px) scale(${pulse})`,
       }}
     >
       <div
         style={{
-          fontSize: 84,
+          fontSize: 92,
           fontWeight: 800,
           letterSpacing: "-0.03em",
           lineHeight: 1.1,
@@ -150,6 +198,7 @@ const Cut3: React.FC<{ chase: string; frame: number; fps: number }> = ({ chase, 
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
+          textWrap: "balance",
         }}
       >
         {chase}
