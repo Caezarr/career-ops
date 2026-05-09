@@ -1,0 +1,109 @@
+/* ── Career OS landing — design tokens ────────────────────────────────────────
+   Dark-first to match the "premium tech tool" aesthetic (Linear, Raycast,
+   Superhuman). The accent indigo (#6366f1) matches the dashboard so a
+   visitor who installs the app feels brand continuity. */
+
+:root {
+  /* Surface palette — dark, deep, layered */
+  --bg:           #0A0B0F;
+  --bg-1:         #0E1015;
+  --bg-soft:      #14161D;
+  --bg-card:      #16181F;
+  --bg-elev:      #1B1E27;
+  --bg-glass:     rgba(20, 22, 29, 0.72);
+
+  /* Borders — subtle, never harsh */
+  --border:       #21232C;
+  --border-soft:  #1B1D24;
+  --border-strong: #2A2D38;
+
+  /* Text */
+  --text-1:       #F4F5F8;
+  --text-2:       #B8BAC4;
+  --text-3:       #82858F;
+  --text-4:       #51545C;
+
+  /* Accent — indigo (matches dashboard) */
+  --accent:       #6366f1;
+  --accent-2:     #818cf8;
+  --accent-soft:  rgba(99, 102, 241, 0.14);
+  --accent-glow:  rgba(99, 102, 241, 0.32);
+
+  /* Status accents — used sparingly */
+  --green:        #10b981;
+  --red:          #ef4444;
+  --amber:        #f59e0b;
+
+  /* Typography */
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", monospace;
+
+  /* Type scale — modular, generous */
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-base: 16px;
+  --fs-md: 18px;
+  --fs-lg: 22px;
+  --fs-xl: 28px;
+  --fs-2xl: 36px;
+  --fs-3xl: 48px;
+  --fs-4xl: 64px;
+  --fs-5xl: 80px;
+
+  /* Layout */
+  --container: 1200px;
+  --container-narrow: 920px;
+
+  /* Spacing — 4-pt grid */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+  --s-12: 48px;
+  --s-16: 64px;
+  --s-20: 80px;
+  --s-24: 96px;
+  --s-32: 128px;
+
+  /* Radius */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+  --r-2xl: 28px;
+  --r-full: 9999px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.48);
+  --shadow-glow: 0 0 0 1px var(--border), 0 24px 80px -20px var(--accent-glow);
+
+  /* Motion */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 480ms;
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font);
+  font-size: var(--fs-base);
+  font-feature-settings: "ss01", "cv11";
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: var(--accent);
+  color: white;
+}
