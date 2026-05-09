@@ -2,6 +2,8 @@ import { Composition } from "remotion";
 import { HotTake, hotTakeSchema } from "./compositions/HotTake.tsx";
 import { ListeRapide, listeRapideSchema } from "./compositions/ListeRapide.tsx";
 import { VeriteMarche, veriteMarcheSchema } from "./compositions/VeriteMarche.tsx";
+import { ATSReveal, atsRevealSchema } from "./compositions/ATSReveal.tsx";
+import { LandingDemo, landingDemoSchema } from "./compositions/LandingDemo.tsx";
 import { REEL } from "./lib/theme.ts";
 
 /**
@@ -16,6 +18,36 @@ import { REEL } from "./lib/theme.ts";
 export const Root: React.FC = () => {
   return (
     <>
+      {/* ── Landing demo · 12s · 16:10 · the hero loop on careeros.app */}
+      <Composition
+        id="LandingDemo"
+        component={LandingDemo}
+        width={1920}
+        height={1200}
+        fps={30}
+        durationInFrames={12 * 30}
+        schema={landingDemoSchema}
+        defaultProps={{ matchScore: 82 }}
+      />
+
+      {/* ── ATS Reveal · 12s · Direction B (product showcase) ───────── */}
+      <Composition
+        id="ATSReveal"
+        component={ATSReveal}
+        width={REEL.width}
+        height={REEL.height}
+        fps={REEL.fps}
+        durationInFrames={12 * REEL.fps}
+        schema={atsRevealSchema}
+        defaultProps={{
+          hook: "Sache si tu passes l'ATS avant d'envoyer.",
+          highlightWord: "l'ATS",
+          jobLabel: "Senior Strategy Associate · Bain & Company",
+          matchScore: 82,
+          taglineBottom: "Score temps réel CV vs JD. En local. 2 secondes.",
+        }}
+      />
+
       {/* ── Hot Take · ~18s ─────────────────────────────────────────── */}
       <Composition
         id="HotTake"
