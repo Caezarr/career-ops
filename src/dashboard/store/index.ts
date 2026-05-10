@@ -27,6 +27,7 @@ import {
   type CopilotSessionsSlice,
 } from "./slices/copilotSessions";
 import { createIngestSlice, type IngestSlice } from "./slices/ingest";
+import { createAuthSlice, type AuthSlice } from "./slices/auth";
 
 export type AppStore = UserSlice &
   NotificationsSlice &
@@ -44,7 +45,8 @@ export type AppStore = UserSlice &
   NotificationPrefsSlice &
   BillingSlice &
   CopilotSessionsSlice &
-  IngestSlice;
+  IngestSlice &
+  AuthSlice;
 
 const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createUserSlice(...(a as Parameters<typeof createUserSlice>)),
@@ -64,6 +66,7 @@ const composedStore: StateCreator<AppStore> = (...a) => ({
   ...createBillingSlice(...(a as Parameters<typeof createBillingSlice>)),
   ...createCopilotSessionsSlice(...(a as Parameters<typeof createCopilotSessionsSlice>)),
   ...createIngestSlice(...(a as Parameters<typeof createIngestSlice>)),
+  ...createAuthSlice(...(a as Parameters<typeof createAuthSlice>)),
 });
 
 export const useAppStore = create<AppStore>()(

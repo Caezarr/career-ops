@@ -22,6 +22,7 @@ import { useApplyAppearance } from "./hooks/useApplyAppearance";
 import { useAutostart } from "./hooks/useAutostart";
 import { useSeedIngestSources } from "./hooks/useSeedIngestSources";
 import { useJobTeaserAuthListener } from "./hooks/useJobTeaserAuthListener";
+import { useAuthDeepLink } from "./hooks/useAuthDeepLink";
 import { useCopilotEventBridge } from "./hooks/useCopilotSession";
 import { useBillingHydrate } from "./hooks/useBillingHydrate";
 import "./styles/tokens.css";
@@ -145,6 +146,17 @@ function JobTeaserAuthListener() {
   return null;
 }
 
+/** Listens for the `auth:deep-link` event the Rust setup re-emits
+ *  whenever macOS routes a `careeros://auth/callback#jwt=…` URL to
+ *  the app. Also runs the boot-time `hydrateAuth()` pass so an
+ *  already-stored JWT immediately resolves into a `signed-in` slice
+ *  state. Mounted at the root so the listener is always live, even
+ *  if the user is mid-page-transition when the OS hands us the URL. */
+function AuthDeepLinkBridge() {
+  useAuthDeepLink();
+  return null;
+}
+
 /** Read the onboarded flag from the store and gate the wizard
  *  + dashboard-blur class. Kept as its own component so the rest
  *  of `DashboardApp` stays pure structural markup. */
@@ -178,6 +190,7 @@ export function DashboardApp() {
             <CopilotEventBridge />
             <IngestSourcesSeeder />
             <JobTeaserAuthListener />
+            <AuthDeepLinkBridge />
             <BillingHydrate />
             <GlobalKeyboardShortcuts />
             {/*

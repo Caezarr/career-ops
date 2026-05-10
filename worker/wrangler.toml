@@ -1,0 +1,33 @@
+name = "career-os-api"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+
+# Routes — set after deploy. The placeholder below maps the Worker
+# to api.careeros.app once the DNS / custom-domain step is done in
+# the Cloudflare dashboard. Until that's set, the Worker is reachable
+# at career-os-api.<account>.workers.dev.
+# routes = [
+#   { pattern = "api.careeros.app/*", custom_domain = true },
+# ]
+
+# D1 database binding — created via:
+#   wrangler d1 create career_os
+# Then paste the returned database_id here.
+[[d1_databases]]
+binding = "DB"
+database_name = "career_os"
+database_id = "REPLACE_WITH_DB_ID_FROM_WRANGLER"
+migrations_dir = "migrations"
+
+# Secrets (set via `wrangler secret put <NAME>`):
+#   - JWT_SECRET            — 32+ random bytes for HMAC signing
+#   - LOOPS_API_KEY         — from app.loops.so → Settings → API
+#   - LOOPS_TRANSACTIONAL_ID — Loops template id for the magic link email
+#
+# The vars below are non-secret — overridden per environment via
+# `wrangler.toml [env.production].vars`.
+[vars]
+APP_DEEP_LINK = "careeros://auth/callback"
+WEB_BASE_URL = "https://api.careeros.app"
+MAGIC_LINK_TTL_SECONDS = "900"
+JWT_TTL_SECONDS = "2592000"

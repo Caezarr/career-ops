@@ -1,0 +1,22 @@
+{
+  "name": "career-os-api",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Career OS — Cloudflare Worker for auth + cloud sync.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply career_os --local",
+    "db:migrate:prod": "wrangler d1 migrations apply career_os --remote",
+    "db:console": "wrangler d1 execute career_os --remote --command"
+  },
+  "dependencies": {
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251201.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.6.0"
+  }
+}

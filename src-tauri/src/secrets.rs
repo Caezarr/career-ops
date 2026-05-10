@@ -25,10 +25,9 @@ use thiserror::Error;
 /// rejected at the IPC boundary — prevents a compromised webview
 /// from poking at arbitrary Keychain accounts.
 ///
-/// `clippy::enum_variant_names` is silenced on purpose: the `Key`
-/// suffix is part of the public wire-format slot names
-/// (`anthropic_key`, etc.) and renaming these variants to drop the
-/// suffix would break the IPC contract.
+/// The trailing `Key` / `Jwt` suffixes are part of the public
+/// wire-format slot names (`anthropic_key`, `auth_jwt`, etc.) and
+/// renaming the variants would break the IPC contract.
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -37,6 +36,9 @@ pub enum SecretSlot {
     OpenaiKey,
     AssemblyaiKey,
     DeepgramKey,
+    /// JWT issued by the Career OS auth Worker after a successful
+    /// magic-link sign-in. ~30-day TTL. Cleared on sign-out.
+    AuthJwt,
     /// Stripe secret key (sk_test_... / sk_live_...). Used by the
     /// billing module for Checkout sessions + subscription lookups.
     /// Same trust boundary as the LLM keys — never persisted outside
@@ -54,6 +56,7 @@ impl SecretSlot {
             SecretSlot::OpenaiKey => "secret.openai_key",
             SecretSlot::AssemblyaiKey => "secret.assemblyai_key",
             SecretSlot::DeepgramKey => "secret.deepgram_key",
+            SecretSlot::AuthJwt => "secret.auth_jwt",
             SecretSlot::StripeKey => "secret.stripe_key",
         }
     }

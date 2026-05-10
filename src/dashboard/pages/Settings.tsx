@@ -1,6 +1,7 @@
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import SettingsNav from '../components/settings/SettingsNav';
+import AuthCard from '../components/settings/AuthCard';
 import ProfileCard from '../components/settings/ProfileCard';
 import IntegrationsCard from '../components/settings/IntegrationsCard';
 import JobSourcesCard from '../components/settings/JobSourcesCard';
@@ -78,7 +79,12 @@ export default function Settings() {
                 </header>
 
                 <div className="settings-panel__body">
-                  {tab === 'account' && <ProfileCard />}
+                  {tab === 'account' && (
+                    <>
+                      <AuthCard />
+                      <ProfileCard />
+                    </>
+                  )}
                   {tab === 'apiKeys' && <IntegrationsCard />}
                   {tab === 'jobSources' && <JobSourcesCard />}
                   {tab === 'audio' && <AudioSettingsCard />}

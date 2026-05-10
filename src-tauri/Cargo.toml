@@ -49,6 +49,11 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
 keyring = { version = "3", features = ["apple-native"] }
 tauri-plugin-autostart = "2.5.1"
+# Tauri 2 deep-link plugin: registers the `careeros://` URL scheme
+# at install time + emits an event in-process when the OS routes a
+# matching URL to the running app. Drives the auth magic-link
+# callback (`careeros://auth/callback#jwt=…`).
+tauri-plugin-deep-link = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

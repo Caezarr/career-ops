@@ -1,0 +1,16 @@
+# Copy to .dev.vars (gitignored) for local `wrangler dev`.
+# In production, set via `wrangler secret put <NAME>`.
+
+# 32+ random bytes, base64. Generate with:
+#   openssl rand -base64 48
+JWT_SECRET=
+
+# From Loops → Settings → API. Use the "transactional" key, not the
+# audience-specific one.
+LOOPS_API_KEY=
+
+# Transactional template id created in Loops dashboard. The template
+# must accept these data variables:
+#   - magicLink (the full URL to /auth/verify?token=…)
+#   - email     (the recipient address, used in the body)
+LOOPS_TRANSACTIONAL_ID=

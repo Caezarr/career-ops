@@ -823,15 +823,17 @@ async fn ingest_health_check(
 // compromised webview can't poke at arbitrary Keychain accounts.
 
 /// Parse a wire-format slot name ("anthropic_key", "openai_key",
-/// "assemblyai_key", "deepgram_key", "stripe_key") into the closed
-/// enum. Anything else returns an error — keeps the trust boundary
-/// tight.
+/// "assemblyai_key", "deepgram_key", "auth_jwt", "stripe_key") into
+/// the closed enum. Anything else returns an error — keeps the
+/// trust boundary tight (a compromised webview can't poke at
+/// arbitrary Keychain accounts).
 fn parse_slot(name: &str) -> Result<secrets::SecretSlot, String> {
     match name {
         "anthropic_key" => Ok(secrets::SecretSlot::AnthropicKey),
         "openai_key" => Ok(secrets::SecretSlot::OpenaiKey),
         "assemblyai_key" => Ok(secrets::SecretSlot::AssemblyaiKey),
         "deepgram_key" => Ok(secrets::SecretSlot::DeepgramKey),
+        "auth_jwt" => Ok(secrets::SecretSlot::AuthJwt),
         "stripe_key" => Ok(secrets::SecretSlot::StripeKey),
         other => Err(format!("Unknown secret slot: '{other}'")),
     }
@@ -1020,6 +1022,14 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        // Deep-link plugin — handles `careeros://` URLs the OS routes
+        // to the running app. The auth magic-link callback lands as
+        // `careeros://auth/callback#jwt=…`; the frontend listens to
+        // the plugin's `deep-link://new-url` event to capture the JWT.
+        // The URL scheme is declared statically in `tauri.conf.json`
+        // (`plugins.deep-link.desktop.schemes`) so macOS registers
+        // it at install time.
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             let state = Arc::new(Mutex::new(AppState::default()));
             app.manage(state);
@@ -1041,6 +1051,40 @@ pub fn run() {
                 if let Some(window) = app.get_webview_window("copilot") {
                     let _ = window.set_content_protected(true);
                 }
+            }
+
+            // Auth deep-link bridge — re-emit the OS-routed
+            // `careeros://auth/callback#jwt=…` URL onto a dedicated
+            // Tauri event so the React `useAuthDeepLink` hook can
+            // listen with the stock `@tauri-apps/api/event` API
+            // (avoids pulling in a separate JS plugin package). The
+            // hook parses the fragment, persists the JWT to the
+            // Keychain via `secrets_set`, then hydrates `/me`.
+            //
+            // We forward to BOTH the main and copilot windows just in
+            // case the user is in the overlay when the link is
+            // clicked — only the main listens, but emitting twice is
+            // cheap and avoids missing the event during boot races.
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let app_handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        let url_str = url.to_string();
+                        // Best-effort emit; if the main window
+                        // hasn't mounted yet the listener will pick
+                        // up a replay through the deep_link
+                        // plugin's get_current() on hydrate. We
+                        // don't currently call get_current(), so a
+                        // cold-start deep-link on a not-yet-running
+                        // app is the only path that needs it — and
+                        // on macOS the OS launches the app first
+                        // and emits the URL once it's ready.
+                        if let Err(e) = app_handle.emit("auth:deep-link", &url_str) {
+                            tracing::warn!(target: "auth", "deep-link emit failed: {e}");
+                        }
+                    }
+                });
             }
 
             Ok(())
