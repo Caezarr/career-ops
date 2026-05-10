@@ -173,6 +173,11 @@ export default function AuthCard() {
             <span>Renvoyer le lien</span>
           </button>
         </div>
+
+        {/* Dev paste input also in awaiting-link state — that's
+            the moment the user actually needs to finalise the
+            sign-in. import.meta.env.DEV gates it out of prod. */}
+        {import.meta.env.DEV && <DevJwtPasteInput />}
       </section>
     );
   }
