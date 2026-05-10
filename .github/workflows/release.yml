@@ -84,6 +84,12 @@ jobs:
       # signing secrets when present, calls `xcrun notarytool` for
       # notarisation when Apple secrets are set, and uploads
       # everything (DMG + .sig) as release assets.
+      #
+      # IMPORTANT: in Beta Zero-Budget we do NOT inject APPLE_*
+      # env vars at all — even an empty string makes tauri-action
+      # try to codesign with identity "" which fails with "item not
+      # found in the keychain". To re-enable Apple signing, add the
+      # APPLE_* secrets to GitHub and uncomment the lines below.
       - name: Build + release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -92,12 +98,11 @@ jobs:
           # client can verify the .sig (no Apple signing needed).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # Apple signing — empty in Zero-Budget; tauri-action
-          # gracefully skips notarisation when these are unset.
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Apple signing — uncomment when Apple Developer is in.
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           # Worker base URL the bundled app points to. Set to your
           # workers.dev URL for Zero-Budget, then later to
           # https://api.careeros.app for Production-Grade.
