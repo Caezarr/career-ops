@@ -114,11 +114,11 @@ export default function BetaCTA() {
           {/* ── Right: form ────────────────────────────────────── */}
           <form className="beta-application beta-application--card" onSubmit={handleSubmit} noValidate>
             <label className="beta-field">
-              <span className="beta-field__label">Email</span>
+              <span className="beta-field__label">Ton email professionnel</span>
               <input
                 type="email"
                 className="beta-field__input"
-                placeholder="prenom@ecole.fr"
+                placeholder="prenom@domaine.com"
                 autoComplete="email"
                 required
                 value={email}
@@ -128,7 +128,7 @@ export default function BetaCTA() {
             </label>
 
             <label className="beta-field">
-              <span className="beta-field__label">Tu vises quoi ?</span>
+              <span className="beta-field__label">Ton rôle cible</span>
               <div className="beta-field__select-wrap">
                 <select
                   className="beta-field__select"
@@ -138,7 +138,7 @@ export default function BetaCTA() {
                   disabled={status === "loading"}
                 >
                   <option value="" disabled>
-                    Choisir une cible…
+                    Ex : Consultant, Analyste, PM…
                   </option>
                   {TARGETS.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -170,7 +170,7 @@ export default function BetaCTA() {
               className="btn-primary beta-application__submit"
               disabled={status === "loading" || email.trim().length === 0 || !target}
             >
-              {status === "loading" ? "Envoi en cours…" : "Envoyer ma candidature"}
+              {status === "loading" ? "Envoi en cours…" : "Postuler à la bêta"}
               {status !== "loading" && (
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
                   <path

@@ -21,15 +21,16 @@ const COLUMNS: Column[] = [
     links: [
       { label: "Fonctionnalités", href: "#features" },
       { label: "Comment ça marche", href: "#how" },
-      { label: "Télécharger", href: "https://github.com/Caezarr/career-ops/releases/latest", external: true },
+      { label: "Tarifs", href: "#beta" },
     ],
   },
   {
     title: "Ressources",
     links: [
-      { label: "Premier lancement", href: "#install-help" },
-      { label: "GitHub", href: "https://github.com/Caezarr/career-ops", external: true },
-      { label: "Changelog", href: "https://github.com/Caezarr/career-ops/releases", external: true },
+      { label: "Guides Carrière", href: "#install-help" },
+      { label: "Modèles de CV", href: "#features" },
+      { label: "Préparation entretien", href: "#how" },
+      { label: "Blog", href: "https://github.com/Caezarr/career-ops", external: true },
     ],
   },
   {
@@ -37,16 +38,15 @@ const COLUMNS: Column[] = [
     links: [
       { label: "À propos", href: "#about" },
       { label: "Contact", href: "mailto:gabranpro@gmail.com" },
-      { label: "Bêta privée", href: "#beta" },
+      { label: "Partenariats", href: "mailto:gabranpro@gmail.com" },
     ],
   },
   {
-    title: "Légal",
+    title: "Legal",
     links: [
       { label: "Mentions légales", href: "/terms.md" },
       { label: "CGU", href: "/terms.md" },
       { label: "Politique de cookies", href: "/privacy.md" },
-      { label: "Confidentialité", href: "/privacy.md" },
     ],
   },
 ];

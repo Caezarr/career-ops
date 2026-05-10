@@ -19,11 +19,12 @@ const STEPS: Step[] = [
   {
     num: "1.",
     title: "Trouve",
-    body: "On détecte les bonnes opportunités, tu choisis.",
+    body: "Optimise ta recherche d'opportunités, ta cible.",
+    // Magnifying glass — search/discovery
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M16.5 16.5 L21 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+        <path d="M16.5 16.5 L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -31,38 +32,41 @@ const STEPS: Step[] = [
     num: "2.",
     title: "Adapte",
     body: "Ton CV et ta lettre sont optimisés pour chaque offre.",
+    // Horizontal sliders — adapt/configure
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M4 12 H20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <circle cx="9" cy="12" r="2.2" fill="currentColor" />
-        <circle cx="15" cy="6" r="2.2" stroke="currentColor" strokeWidth="1.8" />
-        <circle cx="15" cy="18" r="2.2" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M15 8 V12 M15 16 V12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M4 7 H20 M4 12 H20 M4 17 H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="10" cy="7" r="2.4" fill="currentColor" stroke="currentColor" strokeWidth="2" />
+        <circle cx="16" cy="12" r="2.4" fill="currentColor" stroke="currentColor" strokeWidth="2" />
+        <circle cx="8" cy="17" r="2.4" fill="currentColor" stroke="currentColor" strokeWidth="2" />
       </svg>
     ),
   },
   {
     num: "3.",
     title: "Prépare",
-    body: "Tu t'entraînes et arrives confiant le jour J.",
+    body: "Tu t'entraînes et révise conforté sur l'IA.",
+    // Audio waveform — voice prep / interview rehearsal
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M12 3 L4 7 L4 12 C 4 17 8 21 12 22 C 16 21 20 17 20 12 L20 7 Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M9 12 L11 14 L15 10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M4 11 V13" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M7 9 V15" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M10 5 V19" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M13 8 V16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M16 6 V18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        <path d="M19 10 V14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
       </svg>
     ),
   },
   {
     num: "4.",
     title: "Décroche",
-    body: "Passe tes entretiens et reçois les meilleures offres.",
+    body: "Reçois tes entretiens et reçois les meilleures offres.",
+    // User silhouette in circle — candidate hired
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path d="M7 4 H17 V8 a5 5 0 0 1 -10 0 Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-        <path d="M9 12 L9 16 H15 V12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M8 20 H16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M5 5 L3 5 V8 a3 3 0 0 0 3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M19 5 L21 5 V8 a3 3 0 0 1 -3 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="9" r="3.2" stroke="currentColor" strokeWidth="2" />
+        <path d="M5 19 C 5.5 15 8.5 13 12 13 S 18.5 15 19 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       </svg>
     ),
   },

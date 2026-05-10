@@ -77,17 +77,17 @@ interface Testimonial {
 const TESTIMONIALS: Testimonial[] = [
   {
     quote:
-      "Career OS m'a fait gagner un temps fou. J'ai amélioré mon taux d'entretien de 70 %.",
+      "Career OS m'a fait gagner un temps fou. J'ai décroché mon entretien en 10 jours.",
     name: "Camille R.",
-    role: "Consultante, ex-Bain",
+    role: "Consultante, Paris 16e",
     photo: "testimonial-camille.jpg",
     initials: "CR",
   },
   {
     quote:
-      "L'ATS optimizer est redoutable. Mes CV passent enfin les filtres et j'obtiens plus d'entretiens.",
+      "L'ATS optimizer m'a redonné vie ! 3 réponses en 2 semaines et des entretiens qui s'enchaînent.",
     name: "Thomas L.",
-    role: "PM, ex-Google",
+    role: "PM, éditeur de logiciels",
     photo: "testimonial-thomas.jpg",
     initials: "TL",
   },
