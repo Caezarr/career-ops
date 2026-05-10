@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Trash2, RotateCcw } from 'lucide-react';
 import {
   Modal,
   ModalBody,
@@ -8,6 +8,7 @@ import {
   useToast,
 } from '../../primitives';
 import { deleteAccount } from '../../lib/account';
+import { useAppStore } from '../../store';
 
 /**
  * Account-deletion flow. The Settings → Billing tab is the natural
@@ -19,9 +20,30 @@ import { deleteAccount } from '../../lib/account';
  */
 export default function DangerZoneCard() {
   const toast = useToast();
+  const updateUser = useAppStore((s) => s.updateUser);
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [confirmText, setConfirmText] = useState('');
   const [working, setWorking] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  function resetOnboarding() {
+    if (resetting) return;
+    if (
+      !window.confirm(
+        'Re-run the onboarding wizard? Your profile data stays put — only the "completed" flag is cleared, so the wizard re-appears on next launch. Your saved CVs, applications, and prep history are untouched.',
+      )
+    ) {
+      return;
+    }
+    setResetting(true);
+    updateUser({
+      onboarded: false,
+      onboardingComplete: false,
+      onboardingStep: 0,
+    });
+    toast.success('Onboarding will re-run', 'Reloading the app…');
+    window.setTimeout(() => window.location.reload(), 600);
+  }
 
   useEffect(() => {
     if (step === 0) {
@@ -75,10 +97,22 @@ export default function DangerZoneCard() {
           </p>
         </div>
       </div>
-      <button type="button" className="settings-danger__btn" onClick={start}>
-        <Trash2 size={14} />
-        <span>Delete account</span>
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="settings-btn settings-btn--outline"
+          onClick={resetOnboarding}
+          disabled={resetting}
+          title="Re-run the first-launch onboarding wizard — useful when re-testing the flow. Doesn't delete any data."
+        >
+          <RotateCcw size={14} />
+          <span>{resetting ? 'Reloading…' : 'Re-run onboarding'}</span>
+        </button>
+        <button type="button" className="settings-danger__btn" onClick={start}>
+          <Trash2 size={14} />
+          <span>Delete account</span>
+        </button>
+      </div>
 
       <Modal open={step !== 0} onClose={close} size="sm" ariaLabel="Delete account">
         {step === 1 && (
