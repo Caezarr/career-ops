@@ -7,7 +7,7 @@ import {
   ModalHeader,
 } from '../../primitives';
 import { analyzeCvAts, type AtsAnalysis } from '../../lib/ai';
-import { readAnthropicKey, readClaudeModel } from '../../hooks/useAnthropicKey';
+import { AiClientError } from '../../lib/aiClient';
 import { useAppStore } from '../../store';
 import { getCvParsedText } from '../../store/slices/cvs';
 import CircularProgress from '../cv/CircularProgress';
@@ -57,11 +57,6 @@ export default function AnalyzeMatchModal({
       setKeyMissing(false);
       setResult(null);
 
-      const key = readAnthropicKey();
-      if (!key) {
-        setKeyMissing(true);
-        return;
-      }
       if (!targetCv) {
         setError('No CV selected.');
         return;
@@ -96,8 +91,6 @@ export default function AnalyzeMatchModal({
           cvId: targetCvId,
           cvText,
           jdText: jdText ?? null,
-          anthropicKey: key,
-          model: readClaudeModel(),
         });
         setResult(res);
         const now = Date.now();
@@ -124,7 +117,21 @@ export default function AnalyzeMatchModal({
           });
         }
       } catch (e) {
-        setError(typeof e === 'string' ? e : (e as Error).message ?? 'Analysis failed');
+        // AiClientError carries a user-actionable message + a
+        // discriminant `kind`. Map the `no_auth` case to the
+        // existing `keyMissing` UI (renamed semantically — the
+        // prompt now says "sign in" instead of "set Anthropic key"
+        // when KeyMissingPrompt is updated, but the gating logic
+        // is the same).
+        if (e instanceof AiClientError) {
+          if (e.kind === 'no_auth') {
+            setKeyMissing(true);
+          } else {
+            setError(e.message);
+          }
+        } else {
+          setError(typeof e === 'string' ? e : (e as Error).message ?? 'Analysis failed');
+        }
       } finally {
         setLoading(false);
       }

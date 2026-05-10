@@ -1,7 +1,7 @@
 import { useAppStore } from '../store';
 import { getCvParsedText } from '../store/slices/cvs';
 import { analyzeCvAts } from './ai';
-import { readAnthropicKey, readClaudeModel } from '../hooks/useAnthropicKey';
+import { readJwt } from './auth';
 
 const JD_SNIPPET_LEN = 200;
 
@@ -43,16 +43,17 @@ export async function runAnalyzer(input: RunAnalyzerInput): Promise<RunAnalyzerR
   if (!text) {
     throw new Error('Paste a job description first');
   }
-  const key = readAnthropicKey();
-  if (!key) {
-    throw new Error('Anthropic key missing — add it in the Copilot overlay Settings');
+  // Server-managed AI: only thing we need locally is a JWT proving
+  // the user is signed in. The Anthropic credit lives on the worker.
+  const jwt = await readJwt();
+  if (!jwt) {
+    throw new Error('Connecte-toi à Career OS (Settings → Account) pour utiliser l\'analyse IA.');
   }
   if (input.cvIds.length === 0) {
     throw new Error('No CVs to compare');
   }
 
   const jdSnippet = text.slice(0, JD_SNIPPET_LEN);
-  const model = readClaudeModel();
 
   // Initialize global progress: every CV queued.
   const initial: Record<string, { status: 'queued' }> = {};
@@ -113,8 +114,6 @@ export async function runAnalyzer(input: RunAnalyzerInput): Promise<RunAnalyzerR
           cvId,
           cvText,
           jdText: text,
-          anthropicKey: key,
-          model,
         });
         const projected = Math.max(
           res.projectedAtsScore ?? res.atsScore,

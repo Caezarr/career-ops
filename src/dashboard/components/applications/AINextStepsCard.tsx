@@ -3,7 +3,7 @@ import { Sparkles, RefreshCw, Loader2, AlertTriangle, KeyRound } from 'lucide-re
 import { useToast } from '../../primitives';
 import { useAppStore, type Application } from '../../store';
 import { generateApplicationNextSteps } from '../../lib/applicationNextSteps';
-import { readAnthropicKey, readClaudeModel } from '../../hooks/useAnthropicKey';
+import { readAnthropicKey } from '../../hooks/useAnthropicKey';
 
 interface AINextStepsCardProps {
   application: Application;
@@ -57,8 +57,6 @@ export default function AINextStepsCard({
         stage: application.stage,
         jdText: job.jdText,
         cvText,
-        anthropicKey: readAnthropicKey() ?? '',
-        model: readClaudeModel(),
       });
       setApplicationNextSteps(application.id, result);
       toast.success('Next steps generated', `${result.length} actions queued for this application.`);

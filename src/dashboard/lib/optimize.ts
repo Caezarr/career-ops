@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { User } from '../store';
 import type { StoreAtsAnalysis } from '../store/types';
+import { postAi } from './aiClient';
 
 export interface OptimizedCvResult {
   pdfPath: string;
@@ -20,8 +21,6 @@ export interface GenerateOptimizedCvArgs {
   jdText: string;
   analysis: StoreAtsAnalysis | null;
   user: User;
-  anthropicKey: string;
-  model?: string | null;
   /** Free-form notes the user can add for THIS run only (e.g. 'shorten the
    *  summary', 'drop the leadership section', 'lead with the AI experience'). */
   refinementInstructions?: string | null;
@@ -55,22 +54,42 @@ export function isProfileReadyForCv(user: User): boolean {
   return Boolean(user.name && user.email && (user.phone || user.linkedin));
 }
 
-/** Invoke the Rust generate_optimized_cv command. */
+/**
+ * Two-stage CV optimization:
+ *
+ *   1. POST /v1/ai/optimize-cv on the Worker — Claude (server-side
+ *      Anthropic key) generates the .tex source. JWT-gated,
+ *      rate-limited 10/day.
+ *   2. invoke `compile_optimized_cv_tex` on the local Rust backend
+ *      to compile the .tex to PDF using pdflatex/tectonic on the
+ *      user's machine. The PDF lives in the per-app data dir.
+ *
+ *  The split keeps the LLM credit centralised (subscription model)
+ *  while LaTeX compilation stays where the toolchain actually runs.
+ */
 export async function generateOptimizedCv(
   args: GenerateOptimizedCvArgs,
 ): Promise<OptimizedCvResult> {
   const analysisJson = JSON.stringify(args.analysis ?? {});
-  const refinement = (args.refinementInstructions ?? '').trim();
-  return invoke<OptimizedCvResult>('generate_optimized_cv', {
-    input: {
+  const refinement = (args.refinementInstructions ?? '').trim() || null;
+
+  // Stage 1 — server-side LLM call.
+  const { tex } = await postAi<{ tex: string; remaining: number }>(
+    'optimize-cv',
+    {
       cvText: args.cvText,
       jdText: args.jdText,
       analysisJson,
       profileBlock: buildProfileBlock(args.user),
-      refinementInstructions: refinement || null,
-      anthropicKey: args.anthropicKey,
-      model: args.model ?? null,
+      refinementInstructions: refinement,
     },
+  );
+
+  // Stage 2 — local compilation (LaTeX toolchain on the user's
+  // machine). The Rust command also writes the .tex alongside the
+  // PDF so the user can re-edit later.
+  return invoke<OptimizedCvResult>('compile_optimized_cv_tex', {
+    texSource: tex,
   });
 }
 
