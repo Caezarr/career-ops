@@ -75,7 +75,7 @@ export default function StepBackground({
   }
 
   return (
-    <div className="onboarding__step">
+    <div className="onboarding__step onboarding__step--compact">
       <h1 className="onboarding__title">Calibre tes recos</h1>
       <p className="onboarding__subtitle">
         Tout est facultatif. On filtrera les offres et la prep en
@@ -89,7 +89,7 @@ export default function StepBackground({
           <span className="onboarding__optional">(facultatif)</span>
         </label>
         <div
-          className="onboarding__pills"
+          className="onboarding__pills onboarding__pills--compact"
           role="radiogroup"
           aria-label="Niveau d'expérience"
         >
@@ -124,7 +124,11 @@ export default function StepBackground({
           Géographies cibles{" "}
           <span className="onboarding__optional">(plusieurs choix)</span>
         </label>
-        <div className="onboarding__pills" role="group" aria-label="Géographies">
+        <div
+          className="onboarding__pills onboarding__pills--compact"
+          role="group"
+          aria-label="Géographies"
+        >
           {GEOS.map((g) => {
             const active = targetGeo.includes(g);
             return (
@@ -152,7 +156,7 @@ export default function StepBackground({
           <span className="onboarding__optional">(facultatif)</span>
         </label>
         <div
-          className="onboarding__pills"
+          className="onboarding__pills onboarding__pills--compact"
           role="radiogroup"
           aria-label="Type de contrat"
         >
