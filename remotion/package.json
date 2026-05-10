@@ -1,0 +1,30 @@
+{
+  "name": "career-os-reels",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Programmatic TikTok / Reels video generation for Career OS marketing.",
+  "scripts": {
+    "dev": "remotion studio",
+    "render": "remotion render",
+    "render:hot-take": "remotion render HotTake out/hot-take.mp4",
+    "render:liste": "remotion render ListeRapide out/liste-rapide.mp4",
+    "render:verite": "remotion render VeriteMarche out/verite-marche.mp4",
+    "batch": "tsx scripts/batch.ts",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.250",
+    "@remotion/google-fonts": "^4.0.250",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.250",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

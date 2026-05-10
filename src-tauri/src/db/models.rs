@@ -271,3 +271,25 @@ pub struct DashboardStats {
     pub pipeline_counts: PipelineCounts,
     pub recent_activity: Vec<TimelineEvent>,
 }
+
+// ============================================================================
+// Subscription (Stripe mirror)
+// ============================================================================
+//
+// Local cache of the user's Stripe subscription state. Source of truth
+// stays on Stripe — this row is rebuilt from `billing::get_subscription`
+// (or, eventually, a webhook). See `migrations/0003_stripe.sql` for the
+// column shape.
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SubscriptionRow {
+    pub user_id: String,
+    pub stripe_customer_id: Option<String>,
+    pub stripe_subscription_id: Option<String>,
+    pub status: String,
+    pub plan: String,
+    pub current_period_end: Option<i64>,
+    pub cancel_at_period_end: i64,
+    pub updated_at: i64,
+}

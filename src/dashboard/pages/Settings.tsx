@@ -9,6 +9,7 @@ import AudioSettingsCard from '../components/settings/AudioSettingsCard';
 import AppearanceSettingsCard from '../components/settings/AppearanceSettingsCard';
 import NotificationsSettingsCard from '../components/settings/NotificationsSettingsCard';
 import BillingCard from '../components/settings/BillingCard';
+import BillingTab from '../components/settings/BillingTab';
 import DangerZoneCard from '../components/settings/DangerZoneCard';
 import FeedbackCard from '../components/settings/FeedbackCard';
 import { useAppStore } from '../store';
@@ -90,6 +91,12 @@ export default function Settings() {
                   )}
                   {tab === 'billing' && (
                     <>
+                      {/* Post-beta Stripe Checkout entry point. Renders
+                          above the legacy Sprint billing card so the
+                          subscription state is the first thing the user
+                          sees. The Sprint card stays for now while the
+                          two pricing models coexist. */}
+                      <BillingTab />
                       <BillingCard />
                       <DangerZoneCard />
                     </>

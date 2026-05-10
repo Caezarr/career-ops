@@ -37,6 +37,11 @@ pub enum SecretSlot {
     OpenaiKey,
     AssemblyaiKey,
     DeepgramKey,
+    /// Stripe secret key (sk_test_... / sk_live_...). Used by the
+    /// billing module for Checkout sessions + subscription lookups.
+    /// Same trust boundary as the LLM keys — never persisted outside
+    /// the Keychain.
+    StripeKey,
 }
 
 impl SecretSlot {
@@ -49,6 +54,7 @@ impl SecretSlot {
             SecretSlot::OpenaiKey => "secret.openai_key",
             SecretSlot::AssemblyaiKey => "secret.assemblyai_key",
             SecretSlot::DeepgramKey => "secret.deepgram_key",
+            SecretSlot::StripeKey => "secret.stripe_key",
         }
     }
 }

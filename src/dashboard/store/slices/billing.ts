@@ -96,12 +96,31 @@ export const PLAN_PRICING: Record<BillingPlan, PlanPricing> = {
   },
 };
 
+/** Stripe-style subscription status. Mirrored 1:1 from the API so a
+ *  future webhook payload drops straight in. `unknown` is a frontend
+ *  fallback for statuses Stripe might add that we haven't UI-mapped. */
+export type SubscriptionStatus =
+  | 'free'
+  | 'active'
+  | 'trialing'
+  | 'past_due'
+  | 'cancelled'
+  | 'unknown';
+
 /** Persisted billing state. Today everyone is on `free` — the back-end
  *  will hydrate this from Stripe webhooks once Checkout is wired up.
  *
  *  The shape is intentionally close to Stripe's: `paymentIntentId` and
  *  `sprintEndsAt` (unix seconds) so the future hydration step is a
- *  direct copy from the webhook payload. */
+ *  direct copy from the webhook payload.
+ *
+ *  Sprint era fields (`plan` / `paymentIntentId` / `sprintEndsAt` /
+ *  `setPlan`) are kept for the existing BillingCard / useBillingUsage
+ *  consumers. The new Stripe Checkout integration adds a parallel
+ *  `subscriptionStatus` track because the post-beta model is
+ *  recurring, not one-shot. The two coexist — `useBillingHydrate`
+ *  bridges them by mapping `active` → `sprint` so legacy gating
+ *  stays consistent. */
 export interface BillingSlice {
   plan: BillingPlan;
   /** Stripe payment_intent id (or future subscription id) once we have
@@ -113,6 +132,24 @@ export interface BillingSlice {
   /** Set the active plan locally. The real hydration path replaces this
    *  with a hydrate-from-server action once the back-end exists. */
   setPlan: (plan: BillingPlan) => void;
+
+  // ── Stripe Checkout (post-beta recurring model) ──────────────────
+  /** Mirrors `subscription.status` from Stripe (or `'free'` when no
+   *  subscription record exists locally). */
+  subscriptionStatus: SubscriptionStatus;
+  /** Epoch seconds — next renewal (or end-of-grace if cancelling). */
+  currentPeriodEnd: number | null;
+  /** When true, the subscription will end at `currentPeriodEnd` and
+   *  not renew. */
+  cancelAtPeriodEnd: boolean;
+  /** Replace the subscription state in one shot. Called by the boot
+   *  hydration after `billing_get_subscription` resolves, and after a
+   *  successful cancel. */
+  hydrate: (
+    status: SubscriptionStatus,
+    periodEnd: number | null,
+    cancelAtPeriodEnd: boolean,
+  ) => void;
 }
 
 export const createBillingSlice: StateCreator<BillingSlice> = (set) => ({
@@ -120,4 +157,14 @@ export const createBillingSlice: StateCreator<BillingSlice> = (set) => ({
   paymentIntentId: null,
   sprintEndsAt: null,
   setPlan: (plan) => set({ plan }),
+
+  subscriptionStatus: 'free',
+  currentPeriodEnd: null,
+  cancelAtPeriodEnd: false,
+  hydrate: (status, periodEnd, cancelAtPeriodEnd) =>
+    set({
+      subscriptionStatus: status,
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd,
+    }),
 });
