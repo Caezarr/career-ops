@@ -6,15 +6,21 @@ import StepIdentity from "./StepIdentity";
 import StepTargets, { trackLabel } from "./StepTargets";
 import StepBackground from "./StepBackground";
 import StepFirstCV from "./StepFirstCV";
+import StepNarrative, {
+  buildProfileMarkdown,
+  type NarrativeAnswers,
+} from "./StepNarrative";
 import StepFirstSource from "./StepFirstSource";
 import "../../styles/onboarding.css";
 
-// Sprint 6 (CV OCR + extended profile): added a 5th step
-// (StepBackground) between Targets and FirstCV. The order is
-// deliberate: we capture cibles + contexte BEFORE asking for the
-// CV, so that even a user who skips the upload leaves with a
-// usable profile.
-const STEP_COUNT = 5;
+// Sprint 6 (CV OCR + extended profile + narrative): 6-step wizard.
+// Order: Identity → Targets → Background → FirstCV → Narrative →
+// FirstSource. Background is captured BEFORE the CV upload so a
+// user who skips the PDF still leaves with a usable profile;
+// Narrative comes AFTER the CV so the auto-extracted contact
+// fields are already in place when the user starts thinking
+// about their story.
+const STEP_COUNT = 6;
 
 /** First-launch setup wizard.
  *
@@ -68,6 +74,19 @@ export default function Onboarding() {
     user.salaryMax ? String(user.salaryMax) : "",
   );
 
+  // Narrative (Step 4) — Sprint 6. We don't seed from
+  // `user.profileMarkdown` because the existing markdown is
+  // free-form and re-parsing it back into 4 buckets isn't worth
+  // the complexity. If the user re-runs onboarding they'll see
+  // empty prompts and the new answers append to the existing
+  // markdown (handled in `finish()` below).
+  const [narrative, setNarrative] = useState<NarrativeAnswers>({
+    story: "",
+    wins: "",
+    lesson: "",
+    north_star: "",
+  });
+
   // Persist resume position whenever the user advances.
   useEffect(() => {
     setOnboardingStep(step);
@@ -85,13 +104,13 @@ export default function Onboarding() {
   const targetsValid = tracks.length > 0;
 
   // Whether the current step's primary action should be enabled.
-  // Step 0 = Identity, 1 = Targets, 2 = Background (always
-  // advanceable), 3 = FirstCV (skippable), 4 = FirstSource
-  // (skippable).
+  // 0 = Identity (required), 1 = Targets (required), 2 = Background
+  // (skip), 3 = FirstCV (skip), 4 = Narrative (skip), 5 = FirstSource
+  // (skip).
   const canAdvance = useMemo(() => {
     if (step === 0) return identityValid;
     if (step === 1) return targetsValid;
-    return true; // Steps 2 / 3 / 4 are always skippable.
+    return true; // Steps 2 / 3 / 4 / 5 are always skippable.
   }, [step, identityValid, targetsValid]);
 
   function goNext() {
@@ -118,6 +137,17 @@ export default function Onboarding() {
     const gradYearNum = gradYear ? parseInt(gradYear, 10) : undefined;
     const salaryMinNum = salaryMin ? parseInt(salaryMin, 10) : undefined;
     const salaryMaxNum = salaryMax ? parseInt(salaryMax, 10) : undefined;
+
+    // Narrative (Step 4) → profile.md. If the user already had a
+    // profile.md (re-running onboarding), append the new sections
+    // rather than clobber — the Settings → Profile editor remains
+    // the canonical place to clean it up.
+    const narrativeMd = buildProfileMarkdown(narrative);
+    const profileMarkdown = narrativeMd
+      ? user.profileMarkdown && user.profileMarkdown.trim()
+        ? `${user.profileMarkdown.trim()}\n\n${narrativeMd}`
+        : narrativeMd
+      : user.profileMarkdown;
 
     // 320ms — matches the fade-out animation duration in onboarding.css.
     window.setTimeout(() => {
@@ -150,6 +180,7 @@ export default function Onboarding() {
         ...(salaryMaxNum && !Number.isNaN(salaryMaxNum)
           ? { salaryMax: salaryMaxNum }
           : {}),
+        ...(profileMarkdown ? { profileMarkdown } : {}),
         avatarInitials: firstName.trim().charAt(0).toUpperCase() || "",
       });
     }, 320);
@@ -216,7 +247,10 @@ export default function Onboarding() {
             />
           )}
           {step === 3 && <StepFirstCV />}
-          {step === 4 && <StepFirstSource />}
+          {step === 4 && (
+            <StepNarrative answers={narrative} setAnswers={setNarrative} />
+          )}
+          {step === 5 && <StepFirstSource />}
         </div>
 
         <div className="onboarding__footer">
@@ -234,10 +268,10 @@ export default function Onboarding() {
           </div>
 
           <div className="onboarding__footer-right">
-            {/* Step 2 (Background), 3 (FirstCV), 4 (FirstSource)
-                are skippable. Step 0/1 are required so no skip
-                button there. */}
-            {(step === 2 || step === 3 || step === 4) && (
+            {/* Step 2 (Background), 3 (FirstCV), 4 (Narrative),
+                5 (FirstSource) are skippable. Step 0/1 are required
+                so no skip button there. */}
+            {(step === 2 || step === 3 || step === 4 || step === 5) && (
               <button
                 type="button"
                 className="onboarding__btn onboarding__btn--ghost"
