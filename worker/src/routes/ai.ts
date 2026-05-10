@@ -14,8 +14,24 @@
  */
 import { Hono } from "hono";
 import { requireAuth, type AuthVars } from "../middleware/requireAuth";
-import { askCompletion, AnthropicError } from "../lib/anthropic";
+import { askCompletion, askStructured, AnthropicError } from "../lib/anthropic";
 import { checkAndBumpAiUsage, RATE_LIMITS } from "../lib/rateLimit";
+import {
+  ATS_SYSTEM,
+  ATS_TOOL_SCHEMA,
+  buildAtsUserMessage,
+  type AtsAnalysis,
+} from "../lib/prompts/ats";
+import {
+  NEXT_STEPS_SYSTEM,
+  NEXT_STEPS_TOOL_SCHEMA,
+  buildNextStepsUserMessage,
+  type NextStepsResponse,
+} from "../lib/prompts/nextSteps";
+import {
+  OPTIMIZE_SYSTEM,
+  buildOptimizeUserMessage,
+} from "../lib/prompts/optimize";
 import type { Env } from "../types";
 
 export const aiRoutes = new Hono<{ Bindings: Env; Variables: AuthVars }>();
@@ -142,6 +158,230 @@ aiRoutes.post("/polish-profile", async (c) => {
       );
     }
     console.error("polish-profile: unexpected", e);
+    return c.json({ error: "internal" }, 500);
+  }
+});
+
+// ── /v1/ai/analyze-cv-ats ─────────────────────────────────────────────
+//
+// CV vs JD scoring (the ATS analyzer used by the CV page + Workspace).
+// Tool-use response — Claude calls `score_cv` with a structured
+// payload that mirrors `AtsAnalysis` on the client.
+
+interface AnalyzeCvAtsBody {
+  cvText?: string | null;
+  jdText?: string | null;
+}
+
+aiRoutes.post("/analyze-cv-ats", async (c) => {
+  const auth = c.get("auth");
+  const body = (await c.req.json().catch(() => ({}))) as AnalyzeCvAtsBody;
+
+  const cvText = (body.cvText ?? "").trim();
+  if (!cvText) {
+    return c.json({ error: "cv_empty", message: "Aucun texte de CV fourni." }, 400);
+  }
+
+  const limit = await checkAndBumpAiUsage(
+    c.env.DB,
+    auth.sub,
+    RATE_LIMITS.analyzeCvAts,
+  );
+  if (!limit.allowed) {
+    c.header("Retry-After", String(limit.resetAt - Math.floor(Date.now() / 1000)));
+    return c.json(
+      {
+        error: "rate_limited",
+        message: "Limite quotidienne atteinte pour l'analyse ATS. Réessaye demain.",
+        resetAt: limit.resetAt,
+      },
+      429,
+    );
+  }
+
+  try {
+    const analysis = await askStructured<AtsAnalysis>({
+      apiKey: c.env.ANTHROPIC_API_KEY,
+      // sonnet for ATS — it's the highest-stakes scoring path
+      // (drives the CV variant ranking + the user's prep loop).
+      // Haiku undercounts subtle JD vocabulary mismatches.
+      model: "claude-sonnet-4-5",
+      system: ATS_SYSTEM,
+      user: buildAtsUserMessage(cvText, body.jdText ?? null),
+      toolName: "score_cv",
+      toolDescription:
+        "Score the CV against the job description and return a structured analysis.",
+      toolSchema: ATS_TOOL_SCHEMA as unknown as Record<string, unknown>,
+      maxTokens: 2000,
+    });
+    return c.json({ analysis, remaining: limit.remaining });
+  } catch (e) {
+    if (e instanceof AnthropicError) {
+      console.error(`analyze-cv-ats: anthropic ${e.status} for user=${auth.sub}`);
+      return c.json(
+        { error: "upstream_failed", message: "L'analyse ATS est indisponible. Réessaye plus tard." },
+        502,
+      );
+    }
+    console.error("analyze-cv-ats: unexpected", e);
+    return c.json({ error: "internal" }, 500);
+  }
+});
+
+// ── /v1/ai/next-steps ─────────────────────────────────────────────────
+//
+// Generates 3-5 concrete next-step actions for an Application based
+// on its current stage + JD + CV. Tool-use response.
+
+interface NextStepsBody {
+  company?: string;
+  role?: string;
+  stage?: string;
+  jdText?: string | null;
+  cvText?: string | null;
+}
+
+aiRoutes.post("/next-steps", async (c) => {
+  const auth = c.get("auth");
+  const body = (await c.req.json().catch(() => ({}))) as NextStepsBody;
+
+  const company = (body.company ?? "").trim();
+  const role = (body.role ?? "").trim();
+  const stage = (body.stage ?? "").trim();
+  if (!company || !role || !stage) {
+    return c.json(
+      { error: "missing_application_context", message: "company / role / stage requis." },
+      400,
+    );
+  }
+
+  const limit = await checkAndBumpAiUsage(
+    c.env.DB,
+    auth.sub,
+    RATE_LIMITS.nextSteps,
+  );
+  if (!limit.allowed) {
+    c.header("Retry-After", String(limit.resetAt - Math.floor(Date.now() / 1000)));
+    return c.json(
+      {
+        error: "rate_limited",
+        message: "Limite quotidienne atteinte pour les next steps. Réessaye demain.",
+        resetAt: limit.resetAt,
+      },
+      429,
+    );
+  }
+
+  try {
+    const result = await askStructured<NextStepsResponse>({
+      apiKey: c.env.ANTHROPIC_API_KEY,
+      // Haiku is enough — short structured output, simple reasoning.
+      model: "claude-3-5-haiku-latest",
+      system: NEXT_STEPS_SYSTEM,
+      user: buildNextStepsUserMessage(
+        company,
+        role,
+        stage,
+        body.jdText ?? null,
+        body.cvText ?? null,
+      ),
+      toolName: "next_steps",
+      toolDescription:
+        "Return 3-5 concrete next-step actions tailored to this application.",
+      toolSchema: NEXT_STEPS_TOOL_SCHEMA as unknown as Record<string, unknown>,
+      maxTokens: 1000,
+    });
+    return c.json({ steps: result.steps, remaining: limit.remaining });
+  } catch (e) {
+    if (e instanceof AnthropicError) {
+      console.error(`next-steps: anthropic ${e.status} for user=${auth.sub}`);
+      return c.json(
+        { error: "upstream_failed", message: "Génération des next steps indisponible. Réessaye plus tard." },
+        502,
+      );
+    }
+    console.error("next-steps: unexpected", e);
+    return c.json({ error: "internal" }, 500);
+  }
+});
+
+// ── /v1/ai/optimize-cv ────────────────────────────────────────────────
+//
+// Generate a JD-tailored .tex file. Heavier than the other endpoints
+// (full LaTeX template embedded in the prompt + sonnet model), so
+// the rate limit is tighter (10/day). Output is plain text — the
+// desktop client compiles to PDF locally via the LaTeX toolchain.
+
+interface OptimizeCvBody {
+  cvText?: string;
+  jdText?: string;
+  /** Stringified ATS analysis from a prior /v1/ai/analyze-cv-ats
+   *  call. Optional but improves output quality. */
+  analysisJson?: string | null;
+  /** Pre-formatted contact + profile narrative block built by the
+   *  desktop client (`buildProfileBlock`). Empty fields omitted. */
+  profileBlock?: string;
+  /** "Customize this run" notes from the user. Optional. */
+  refinementInstructions?: string | null;
+}
+
+aiRoutes.post("/optimize-cv", async (c) => {
+  const auth = c.get("auth");
+  const body = (await c.req.json().catch(() => ({}))) as OptimizeCvBody;
+
+  const cvText = (body.cvText ?? "").trim();
+  const jdText = (body.jdText ?? "").trim();
+  const profileBlock = (body.profileBlock ?? "").trim();
+  if (!cvText || !jdText) {
+    return c.json(
+      { error: "missing_input", message: "cvText et jdText requis." },
+      400,
+    );
+  }
+
+  const limit = await checkAndBumpAiUsage(
+    c.env.DB,
+    auth.sub,
+    RATE_LIMITS.optimizeCv,
+  );
+  if (!limit.allowed) {
+    c.header("Retry-After", String(limit.resetAt - Math.floor(Date.now() / 1000)));
+    return c.json(
+      {
+        error: "rate_limited",
+        message: "Limite quotidienne atteinte pour l'optimisation CV. Réessaye demain.",
+        resetAt: limit.resetAt,
+      },
+      429,
+    );
+  }
+
+  try {
+    const tex = await askCompletion({
+      apiKey: c.env.ANTHROPIC_API_KEY,
+      // sonnet — LaTeX writing + JD-aware reformulation. Haiku
+      // produces shaky LaTeX that fails to compile ~20% of the time.
+      model: "claude-sonnet-4-5",
+      system: OPTIMIZE_SYSTEM,
+      user: buildOptimizeUserMessage({
+        cvText,
+        jdText,
+        analysisJson: body.analysisJson ?? null,
+        profileBlock,
+        refinementInstructions: body.refinementInstructions ?? null,
+      }),
+      maxTokens: 4000,
+    });
+    return c.json({ tex: tex.trim(), remaining: limit.remaining });
+  } catch (e) {
+    if (e instanceof AnthropicError) {
+      console.error(`optimize-cv: anthropic ${e.status} for user=${auth.sub}`);
+      return c.json(
+        { error: "upstream_failed", message: "L'optimisation CV est indisponible. Réessaye plus tard." },
+        502,
+      );
+    }
+    console.error("optimize-cv: unexpected", e);
     return c.json({ error: "internal" }, 500);
   }
 });

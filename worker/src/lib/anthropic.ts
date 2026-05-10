@@ -80,3 +80,91 @@ export async function askCompletion(args: AskCompletionArgs): Promise<string> {
   }
   return text;
 }
+
+// ── Structured output via tool use ───────────────────────────────────
+
+export interface AskStructuredArgs {
+  apiKey: string;
+  model: string;
+  system: string;
+  user: string;
+  /** Tool name — Claude calls this tool with the structured args. */
+  toolName: string;
+  /** Short description shown to Claude as part of the tool spec. */
+  toolDescription: string;
+  /** JSON Schema for the tool's input — defines the shape of the
+   *  return value. */
+  toolSchema: Record<string, unknown>;
+  maxTokens: number;
+}
+
+/**
+ * Tool-use wrapper. We tell Claude there's exactly one tool, force
+ * tool_choice to that tool, and parse the first tool_use block in
+ * the response. The mirror of `ai/anthropic.rs::ask_structured`
+ * but in TypeScript and running on Cloudflare Workers.
+ *
+ * Returns the parsed `input` object, typed as the caller expects.
+ * Throws AnthropicError on:
+ *   - Anthropic 4xx/5xx
+ *   - missing tool_use block (Claude went off-script)
+ */
+export async function askStructured<T = unknown>(
+  args: AskStructuredArgs,
+): Promise<T> {
+  if (!args.apiKey) {
+    throw new AnthropicError("Anthropic key not configured on server", 500);
+  }
+
+  const body = {
+    model: args.model,
+    max_tokens: args.maxTokens,
+    system: args.system,
+    tools: [
+      {
+        name: args.toolName,
+        description: args.toolDescription,
+        input_schema: args.toolSchema,
+      },
+    ],
+    tool_choice: { type: "tool", name: args.toolName },
+    messages: [{ role: "user", content: args.user }],
+  };
+
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": args.apiKey,
+      "anthropic-version": ANTHROPIC_VERSION,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new AnthropicError(
+      `Anthropic ${res.status}: ${text.slice(0, 300)}`,
+      res.status,
+    );
+  }
+
+  const json = (await res.json()) as {
+    content?: Array<{
+      type?: string;
+      name?: string;
+      input?: unknown;
+    }>;
+  };
+  const blocks = Array.isArray(json.content) ? json.content : [];
+  const toolBlock = blocks.find(
+    (b) => b.type === "tool_use" && b.name === args.toolName,
+  );
+  if (!toolBlock || typeof toolBlock.input !== "object") {
+    throw new AnthropicError(
+      "Anthropic did not invoke the structured tool",
+      502,
+    );
+  }
+  return toolBlock.input as T;
+}

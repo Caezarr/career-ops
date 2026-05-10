@@ -31,3 +31,11 @@ APP_DEEP_LINK = "careeros://auth/callback"
 WEB_BASE_URL = "https://api.careeros.app"
 MAGIC_LINK_TTL_SECONDS = "900"
 JWT_TTL_SECONDS = "2592000"
+
+# Bundle the LaTeX template as a text-import. Wrangler resolves
+# `import x from "./templates/cv-template.tex"` to a string at
+# build time. Used by the /v1/ai/optimize-cv endpoint.
+[[rules]]
+type = "Text"
+globs = ["**/*.tex"]
+fallthrough = true
