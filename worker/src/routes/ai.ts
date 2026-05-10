@@ -146,11 +146,15 @@ aiRoutes.post("/polish-profile", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as PolishProfileBody;
 
   // Empty inputs — short-circuit so we don't burn quota / Anthropic.
+  // CV alone is sufficient input: a user who uploaded a CV but
+  // skipped the narrative prompts still wants a profile.md drafted
+  // from the CV. Only short-circuit when ALL sources are empty.
   const anyInput =
     Boolean(body.story?.trim()) ||
     Boolean(body.wins?.trim()) ||
     Boolean(body.lesson?.trim()) ||
-    Boolean(body.northStar?.trim());
+    Boolean(body.northStar?.trim()) ||
+    Boolean(body.cvText?.trim());
   if (!anyInput) return c.json({ markdown: "" });
 
   // Daily rate limit (per user). Bumps the counter atomically.
