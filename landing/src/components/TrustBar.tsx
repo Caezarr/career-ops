@@ -19,14 +19,21 @@
  */
 
 const FIRMS = [
+  // Consulting
   { slug: "mckinsey", alt: "McKinsey & Company" },
   { slug: "bain", alt: "Bain & Company" },
+  { slug: "bcg", alt: "BCG" },
+  // Finance
   { slug: "goldman", alt: "Goldman Sachs" },
+  { slug: "jpmorgan", alt: "J.P. Morgan" },
+  // Big Tech
   { slug: "google", alt: "Google" },
   { slug: "amazon", alt: "Amazon" },
-  { slug: "bcg", alt: "BCG" },
-  { slug: "jpmorgan", alt: "J.P. Morgan" },
   { slug: "meta", alt: "Meta" },
+  // AI tier
+  { slug: "anthropic", alt: "Anthropic" },
+  { slug: "openai", alt: "OpenAI" },
+  { slug: "huggingface", alt: "Hugging Face" },
 ];
 
 export default function TrustBar() {
