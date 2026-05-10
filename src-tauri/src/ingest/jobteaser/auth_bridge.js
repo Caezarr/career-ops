@@ -1144,8 +1144,13 @@
 
   // Some quality-of-life: log the URL on every navigation so we can
   // see in the console where the user lands after SSO.
+  //
+  // Sprint 6 (audit Performance P2 #9): keep a handle on the interval
+  // so the `pagehide` listener at the bottom of this IIFE can clear
+  // it. Otherwise navigating away (or being taken away by an SSO
+  // redirect chain) leaks the timer for the lifetime of the WebView.
   let lastUrl = window.location.href;
-  setInterval(() => {
+  const navLogTimer = setInterval(() => {
     if (window.location.href !== lastUrl) {
       console.log('[jobteaser-bridge] navigation:', lastUrl, '→', window.location.href);
       lastUrl = window.location.href;
@@ -1159,8 +1164,16 @@
   // can discover the real API surface for the scraper (JT-07).
   // Enabled regardless of capture state — the more URLs we log, the
   // better the next sprint.
+  //
+  // Sprint 6 (audit Performance P2 #10): cache the originals so the
+  // `pagehide` listener can restore them. Otherwise the wrappers
+  // outlive the bridge — harmless functionally because the WebView
+  // is dedicated, but it complicates teardown for any future code that
+  // tries to re-init the bridge in the same WebView.
+  let origFetch = null;
+  let OrigXHR = null;
   try {
-    const origFetch = window.fetch.bind(window);
+    origFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const url =
         typeof input === 'string' ? input : input && input.url ? input.url : '';
@@ -1187,7 +1200,7 @@
       }
     };
 
-    const OrigXHR = window.XMLHttpRequest;
+    OrigXHR = window.XMLHttpRequest;
     window.XMLHttpRequest = function () {
       const x = new OrigXHR();
       const origOpen = x.open;
@@ -1211,6 +1224,32 @@
   } catch (e) {
     console.warn('[jobteaser-bridge] failed to install XHR sniffer:', e);
   }
+
+  // ── Tear-down on pagehide ───────────────────────────────────────
+  // Sprint 6 (audit Performance P2 #9 + #10):
+  //   - Clear the 500ms navigation-log interval so it doesn't tick
+  //     forever after the user closes the auth window or the SSO chain
+  //     navigates away from JT.
+  //   - Restore the original `fetch` / `XMLHttpRequest` constructors so
+  //     the bridge wrappers don't outlive their useful window.
+  // `pagehide` fires for both back/forward-cache eviction and full
+  // unloads — strictly better than `unload`, which mobile WebKit
+  // increasingly skips.
+  window.addEventListener(
+    'pagehide',
+    () => {
+      try {
+        clearInterval(navLogTimer);
+      } catch {}
+      try {
+        if (origFetch) window.fetch = origFetch;
+      } catch {}
+      try {
+        if (OrigXHR) window.XMLHttpRequest = OrigXHR;
+      } catch {}
+    },
+    { once: true },
+  );
 
   // ── Scrape orchestrator (called from the "Start scrape" button) ──
   // Runs scrapeJobs and morphs the banner through the full life
