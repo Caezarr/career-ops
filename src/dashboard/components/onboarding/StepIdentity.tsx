@@ -1,0 +1,101 @@
+import { useEffect, useRef } from "react";
+
+const SCHOOLS = [
+  "HEC Paris",
+  "ESCP",
+  "ESSEC",
+  "Polytechnique",
+  "Mines Paris",
+  "Sciences Po",
+  "INSEAD",
+  "Autre",
+];
+
+interface Props {
+  firstName: string;
+  setFirstName: (v: string) => void;
+  school: string;
+  setSchool: (v: string) => void;
+  schoolOther: string;
+  setSchoolOther: (v: string) => void;
+}
+
+/** Step 1 — required identity fields (prénom + école). Drives the
+ *  enabled state of the Next button via the parent's validation. */
+export default function StepIdentity({
+  firstName,
+  setFirstName,
+  school,
+  setSchool,
+  schoolOther,
+  setSchoolOther,
+}: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-focus the first field when the step mounts.
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="onboarding__step">
+      <h1 className="onboarding__title">Bienvenue dans Career OS</h1>
+      <p className="onboarding__subtitle">
+        Trois minutes pour calibrer l&apos;app sur ton parcours.
+      </p>
+
+      <div className="onboarding__field">
+        <label className="onboarding__label" htmlFor="onb-firstName">
+          Prénom
+        </label>
+        <input
+          id="onb-firstName"
+          ref={inputRef}
+          className="onboarding__input"
+          type="text"
+          value={firstName}
+          onChange={(e) => setFirstName(e.target.value)}
+          placeholder="Camille"
+          autoComplete="given-name"
+        />
+      </div>
+
+      <div className="onboarding__field">
+        <label className="onboarding__label" htmlFor="onb-school">
+          École
+        </label>
+        <select
+          id="onb-school"
+          className="onboarding__input onboarding__select"
+          value={school}
+          onChange={(e) => setSchool(e.target.value)}
+        >
+          <option value="" disabled>
+            Sélectionne ton école
+          </option>
+          {SCHOOLS.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {school === "Autre" && (
+        <div className="onboarding__field">
+          <label className="onboarding__label" htmlFor="onb-schoolOther">
+            Précise ton école
+          </label>
+          <input
+            id="onb-schoolOther"
+            className="onboarding__input"
+            type="text"
+            value={schoolOther}
+            onChange={(e) => setSchoolOther(e.target.value)}
+            placeholder="ex: EM Lyon, CentraleSupélec"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
