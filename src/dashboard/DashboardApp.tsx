@@ -17,12 +17,14 @@ const Settings = lazy(() => import("./pages/Settings"));
 import { NavigationProvider, useNavigation } from "./navigation";
 import { useAppStore } from "./store";
 import { CommandPalette, ConfirmProvider, ToastProvider } from "./primitives";
+import Onboarding from "./components/onboarding/Onboarding";
 import { useApplyAppearance } from "./hooks/useApplyAppearance";
 import { useAutostart } from "./hooks/useAutostart";
 import { useSeedIngestSources } from "./hooks/useSeedIngestSources";
 import { useJobTeaserAuthListener } from "./hooks/useJobTeaserAuthListener";
 import { useAuthDeepLink } from "./hooks/useAuthDeepLink";
 import { useCopilotEventBridge } from "./hooks/useCopilotSession";
+import { useBillingHydrate } from "./hooks/useBillingHydrate";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
 import "./styles/topbar.css";
@@ -155,9 +157,31 @@ function AuthDeepLinkBridge() {
   return null;
 }
 
+/** Read the onboarded flag from the store and gate the wizard
+ *  + dashboard-blur class. Kept as its own component so the rest
+ *  of `DashboardApp` stays pure structural markup. */
+function OnboardingHost() {
+  const onboarded = useAppStore((s) => s.user.onboarded ?? s.user.onboardingComplete);
+  if (onboarded) return null;
+  return <Onboarding />;
+}
+
+/** Hydrate the post-beta Stripe subscription mirror once on boot.
+ *  No-op when the user has no Stripe record (free tier, beta cohort). */
+function BillingHydrate() {
+  useBillingHydrate();
+  return null;
+}
+
 export function DashboardApp() {
+  // The onboarded flag also drives a class on `.dashboard-root` so the
+  // dashboard behind the wizard renders muted/non-interactive without
+  // each child component having to know about it.
+  const onboarded = useAppStore(
+    (s) => s.user.onboarded ?? s.user.onboardingComplete,
+  );
   return (
-    <div className="dashboard-root">
+    <div className={"dashboard-root" + (onboarded ? "" : " is-onboarding")}>
       <NavigationProvider>
         <ToastProvider>
           <ConfirmProvider>
@@ -167,6 +191,7 @@ export function DashboardApp() {
             <IngestSourcesSeeder />
             <JobTeaserAuthListener />
             <AuthDeepLinkBridge />
+            <BillingHydrate />
             <GlobalKeyboardShortcuts />
             {/*
               Sprint 5 PR-B: lazy routes need a Suspense boundary.
@@ -182,6 +207,7 @@ export function DashboardApp() {
               <PageRouter />
             </Suspense>
             <CommandPaletteHost />
+            <OnboardingHost />
           </ConfirmProvider>
         </ToastProvider>
       </NavigationProvider>

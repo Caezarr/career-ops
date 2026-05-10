@@ -1,6 +1,8 @@
 mod ai;
 mod audio;
+mod billing;
 mod cloud;
+mod commands;
 mod db;
 mod ingest;
 mod latex;
@@ -19,6 +21,12 @@ use tauri::{Emitter, Manager, State, WebviewWindow};
 use tokio::sync::Mutex;
 use tracing::info;
 
+// Sprint 6 (audit Backend HIGH — `lib.rs` partial split): the bare
+// `db_*` Tauri commands now live in `commands::db`. The
+// `invoke_handler!` macro below still references them by bare ident,
+// so we glob-import the module to keep the macro one-line per command.
+use commands::db::*;
+
 // ─── Window-label assertions (audit 2026-05-05 CRITICAL #1) ─────────
 //
 // Custom Tauri commands are NOT gated by the capability ACL — any
@@ -36,7 +44,7 @@ use tracing::info;
 /// Reject calls that didn't originate from one of our app windows.
 /// Used by every command that touches user data, API keys, or
 /// privileged OS operations.
-fn assert_main_or_copilot(window: &WebviewWindow) -> Result<(), String> {
+pub(crate) fn assert_main_or_copilot(window: &WebviewWindow) -> Result<(), String> {
     let label = window.label();
     if label == "main" || label == "copilot" {
         Ok(())
@@ -64,7 +72,7 @@ fn assert_jobteaser_auth(window: &WebviewWindow) -> Result<(), String> {
 
 /// `DbError`-returning sibling so commands that use `Result<T, DbError>`
 /// can short-circuit without having to translate the assertion error.
-fn assert_main_or_copilot_db(window: &WebviewWindow) -> Result<(), DbError> {
+pub(crate) fn assert_main_or_copilot_db(window: &WebviewWindow) -> Result<(), DbError> {
     if matches!(window.label(), "main" | "copilot") {
         Ok(())
     } else {
@@ -79,11 +87,10 @@ fn assert_main_or_copilot_db(window: &WebviewWindow) -> Result<(), DbError> {
     }
 }
 
-use db::models::{
-    Application, ApplicationDetail, ApplicationWithJob, CvSummary, DashboardStats, Integration,
-    InterviewSession, Job, PipelineCounts, PrepSession, PrepStats, TimelineEvent, TranscriptEntry,
-    User,
-};
+// DB model types are no longer referenced from `lib.rs` directly —
+// the `db_*` commands that used them moved to `commands::db` in
+// Sprint 6. `DbError` stays because `assert_main_or_copilot_db` still
+// returns it.
 use db::DbError;
 
 #[derive(Debug, Deserialize, Clone)]
@@ -271,390 +278,11 @@ async fn generate_pitch(
     Ok(())
 }
 
-// ============================================================================
-// DB commands — User
-// ============================================================================
-
-#[tauri::command]
-async fn db_get_user(pool: State<'_, SqlitePool>) -> Result<User, DbError> {
-    db::user::get_current(pool.inner()).await
-}
-
-#[tauri::command]
-async fn db_update_user(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::user::UpdateUserInput,) -> Result<User, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::user::update(pool.inner(), input).await
-}
-
-#[tauri::command]
-async fn db_mark_onboarded(window: WebviewWindow,
-    pool: State<'_, SqlitePool>) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::user::mark_onboarded(pool.inner()).await
-}
-
-// ============================================================================
-// DB commands — CV
-// ============================================================================
-
-#[tauri::command]
-async fn db_list_cvs(pool: State<'_, SqlitePool>) -> Result<Vec<CvSummary>, DbError> {
-    db::cv::list(pool.inner(), db::DEFAULT_USER_ID).await
-}
-
-#[tauri::command]
-async fn db_get_cv(pool: State<'_, SqlitePool>, id: String) -> Result<CvSummary, DbError> {
-    db::cv::get_summary(pool.inner(), &id).await
-}
-
-#[tauri::command]
-async fn db_create_cv(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::cv::CreateCvInput,) -> Result<CvSummary, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::cv::create(pool.inner(), input).await
-}
-
-#[tauri::command]
-async fn db_update_cv(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,
-    patch: db::cv::UpdateCvInput,) -> Result<CvSummary, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::cv::update(pool.inner(), &id, patch).await
-}
-
-#[tauri::command]
-async fn db_set_default_cv(window: WebviewWindow,
-    pool: State<'_, SqlitePool>, id: String) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::cv::set_default(pool.inner(), &id).await
-}
-
-#[tauri::command]
-async fn db_delete_cv(
-    pool: State<'_, SqlitePool>,
-    window: WebviewWindow,
-    id: String,
-) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::cv::delete(pool.inner(), &id).await
-}
-
-// ============================================================================
-// DB commands — Job
-// ============================================================================
-
-#[tauri::command]
-async fn db_list_jobs(
-    pool: State<'_, SqlitePool>,
-    filter: Option<db::job::JobFilter>,
-) -> Result<Vec<Job>, DbError> {
-    db::job::list(pool.inner(), filter.unwrap_or_default()).await
-}
-
-#[tauri::command]
-async fn db_get_job(pool: State<'_, SqlitePool>, id: String) -> Result<Job, DbError> {
-    db::job::get(pool.inner(), &id).await
-}
-
-#[tauri::command]
-async fn db_create_job(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::job::CreateJobInput,) -> Result<Job, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::job::create(pool.inner(), input).await
-}
-
-#[tauri::command]
-async fn db_update_job(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,
-    patch: db::job::UpdateJobInput,) -> Result<Job, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::job::update(pool.inner(), &id, patch).await
-}
-
-#[tauri::command]
-async fn db_delete_job(window: WebviewWindow,
-    pool: State<'_, SqlitePool>, id: String) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::job::delete(pool.inner(), &id).await
-}
-
-// ============================================================================
-// DB commands — Application
-// ============================================================================
-
-#[tauri::command]
-async fn db_list_applications(
-    pool: State<'_, SqlitePool>,
-    filter: Option<db::application::ApplicationFilter>,
-) -> Result<Vec<ApplicationWithJob>, DbError> {
-    db::application::list(pool.inner(), filter.unwrap_or_default()).await
-}
-
-#[tauri::command]
-async fn db_get_application(
-    pool: State<'_, SqlitePool>,
-    id: String,
-) -> Result<ApplicationDetail, DbError> {
-    db::application::get_detail(pool.inner(), &id).await
-}
-
-#[tauri::command]
-async fn db_create_application(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::application::CreateApplicationInput,) -> Result<Application, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::application::create(pool.inner(), input).await
-}
-
-#[tauri::command]
-async fn db_update_application(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,
-    patch: db::application::UpdateApplicationInput,) -> Result<Application, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::application::update(pool.inner(), &id, patch).await
-}
-
-#[tauri::command]
-async fn db_update_application_stage(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,
-    stage: String,) -> Result<Application, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::application::update_stage(pool.inner(), &id, &stage).await
-}
-
-#[tauri::command]
-async fn db_delete_application(window: WebviewWindow,
-    pool: State<'_, SqlitePool>, id: String) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::application::delete(pool.inner(), &id).await
-}
-
-// ============================================================================
-// DB commands — Timeline
-// ============================================================================
-
-#[tauri::command]
-async fn db_list_timeline(
-    pool: State<'_, SqlitePool>,
-    application_id: String,
-) -> Result<Vec<TimelineEvent>, DbError> {
-    db::timeline::list_for_application(pool.inner(), &application_id).await
-}
-
-#[tauri::command]
-async fn db_create_timeline_event(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::timeline::CreateTimelineInput,) -> Result<TimelineEvent, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::timeline::create(pool.inner(), input).await
-}
-
-// ============================================================================
-// DB commands — Interview
-// ============================================================================
-
-#[tauri::command]
-async fn db_start_interview(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::interview::StartInterviewInput,) -> Result<InterviewSession, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::interview::start(pool.inner(), input).await
-}
-
-#[tauri::command]
-async fn db_append_transcript(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,
-    entry: TranscriptEntry,) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::interview::append_transcript(pool.inner(), &id, entry).await
-}
-
-#[tauri::command]
-async fn db_append_response(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,
-    response: String,) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::interview::append_response(pool.inner(), &id, response).await
-}
-
-#[tauri::command]
-async fn db_end_interview(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,
-    summary: Option<String>,) -> Result<InterviewSession, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::interview::end(pool.inner(), &id, summary).await
-}
-
-#[tauri::command]
-async fn db_list_interviews(
-    pool: State<'_, SqlitePool>,
-    limit: Option<u32>,
-) -> Result<Vec<InterviewSession>, DbError> {
-    db::interview::list(pool.inner(), db::DEFAULT_USER_ID, limit.unwrap_or(50) as i64).await
-}
-
-// ============================================================================
-// DB commands — Prep
-// ============================================================================
-
-#[tauri::command]
-async fn db_create_prep_session(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::prep::CreatePrepInput,) -> Result<PrepSession, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::prep::create(pool.inner(), input).await
-}
-
-#[tauri::command]
-async fn db_list_prep_sessions(
-    pool: State<'_, SqlitePool>,
-    limit: Option<u32>,
-    offset: Option<u32>,
-) -> Result<Vec<PrepSession>, DbError> {
-    db::prep::list(
-        pool.inner(),
-        db::DEFAULT_USER_ID,
-        limit.unwrap_or(50) as i64,
-        offset.unwrap_or(0) as i64,
-    )
-    .await
-}
-
-#[tauri::command]
-async fn db_prep_stats(pool: State<'_, SqlitePool>) -> Result<PrepStats, DbError> {
-    db::prep::stats(pool.inner(), db::DEFAULT_USER_ID).await
-}
-
-// ============================================================================
-// DB commands — Integration
-// ============================================================================
-
-#[tauri::command]
-async fn db_list_integrations(pool: State<'_, SqlitePool>) -> Result<Vec<Integration>, DbError> {
-    db::integration::list(pool.inner()).await
-}
-
-#[tauri::command]
-async fn db_upsert_integration(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    input: db::integration::UpsertIntegrationInput,) -> Result<Integration, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::integration::upsert(pool.inner(), input).await
-}
-
-// ============================================================================
-// DB commands — Dashboard aggregates
-// ============================================================================
-
-#[tauri::command]
-async fn db_dashboard_stats(pool: State<'_, SqlitePool>) -> Result<DashboardStats, DbError> {
-    let pool = pool.inner();
-    let now = chrono::Utc::now().timestamp();
-    let week_ago = now - 7 * 24 * 3600;
-
-    let active_applications: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM application WHERE stage NOT IN ('rejected', 'offer')",
-    )
-    .fetch_one(pool)
-    .await?;
-
-    let interviews_this_week: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM interview_session WHERE started_at >= ?1",
-    )
-    .bind(week_ago)
-    .fetch_one(pool)
-    .await?;
-
-    let total_apps: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM application")
-        .fetch_one(pool)
-        .await?;
-    let responded: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM application WHERE stage IN ('phone_screen', 'interview', 'offer', 'rejected')",
-    )
-    .fetch_one(pool)
-    .await?;
-    let response_rate = if total_apps > 0 {
-        (responded as f64) / (total_apps as f64) * 100.0
-    } else {
-        0.0
-    };
-
-    // Avg time-to-reply: time between application created and first non-applied/sourced timeline event.
-    let avg_time_to_reply_secs: Option<i64> = sqlx::query_scalar(
-        "SELECT CAST(AVG(reply_secs) AS INTEGER) FROM (
-           SELECT MIN(t.occurred_at) - a.created_at AS reply_secs
-             FROM application a
-             JOIN timeline_event t ON t.application_id = a.id
-            WHERE t.event_type IN ('recruiter_viewed', 'interview_scheduled', 'stage_changed')
-              AND t.occurred_at > a.created_at
-            GROUP BY a.id
-         )",
-    )
-    .fetch_one(pool)
-    .await
-    .unwrap_or(None);
-
-    let counts: Vec<(String, i64)> =
-        sqlx::query_as("SELECT stage, COUNT(*) FROM application GROUP BY stage")
-            .fetch_all(pool)
-            .await?;
-    let mut pipeline_counts = PipelineCounts {
-        sourced: 0,
-        applied: 0,
-        phone_screen: 0,
-        interview: 0,
-        offer: 0,
-        rejected: 0,
-    };
-    for (stage, count) in counts {
-        match stage.as_str() {
-            "sourced" => pipeline_counts.sourced = count,
-            "applied" => pipeline_counts.applied = count,
-            "phone_screen" => pipeline_counts.phone_screen = count,
-            "interview" => pipeline_counts.interview = count,
-            "offer" => pipeline_counts.offer = count,
-            "rejected" => pipeline_counts.rejected = count,
-            _ => {}
-        }
-    }
-
-    let recent_activity = db::timeline::recent_global(pool, 5).await?;
-
-    Ok(DashboardStats {
-        active_applications,
-        interviews_this_week,
-        response_rate,
-        avg_time_to_reply_secs,
-        pipeline_counts,
-        recent_activity,
-    })
-}
+// DB commands (User / CV / Job / Application / Timeline / Interview /
+// Prep / Integration / Dashboard) moved to `commands::db` in Sprint 6.
+// They're re-exposed here via the glob `use commands::db::*;` near the
+// top of this file so the `invoke_handler!` macro keeps working with
+// bare idents.
 
 // ── AI: ATS analysis command ─────────────────────────────────────────────────
 
@@ -1165,76 +793,9 @@ async fn jobteaser_jobs_received(
     Ok(count)
 }
 
-// ─── DB persistence (Phase 6) ────────────────────────────────────────
-
-#[tauri::command]
-async fn db_load_ingest_sources(
-    pool: State<'_, SqlitePool>,
-) -> Result<Vec<db::ingest::IngestSourceRow>, DbError> {
-    db::ingest::load_ingest_sources(&pool).await
-}
-
-#[tauri::command]
-async fn db_upsert_ingest_source(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    source: db::ingest::IngestSourceRow,) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::ingest::upsert_ingest_source(&pool, &source).await
-}
-
-/// Sprint 5 PR-C: bulk seed (1 transaction, 1 IPC) for first install.
-/// Replaces the 30-iteration `db_upsert_ingest_source` loop in
-/// `useSeedIngestSources.ts`.
-#[tauri::command]
-async fn db_save_ingest_sources(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    sources: Vec<db::ingest::IngestSourceRow>,
-) -> Result<usize, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::ingest::save_ingest_sources(&pool, &sources).await
-}
-
-#[tauri::command]
-async fn db_delete_ingest_source(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    id: String,) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::ingest::delete_ingest_source(&pool, &id).await
-}
-
-#[tauri::command]
-async fn db_load_ingested_jobs(
-    pool: State<'_, SqlitePool>,
-) -> Result<Vec<db::ingest::IngestedJobRow>, DbError> {
-    db::ingest::load_ingested_jobs(&pool).await
-}
-
-#[tauri::command]
-async fn db_save_ingested_jobs(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    jobs: Vec<db::ingest::IngestedJobRow>,) -> Result<usize, DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::ingest::save_ingested_jobs(&pool, &jobs).await
-}
-
-#[tauri::command]
-async fn db_load_bookmarks(pool: State<'_, SqlitePool>) -> Result<Vec<String>, DbError> {
-    db::ingest::load_bookmarks(&pool).await
-}
-
-#[tauri::command]
-async fn db_set_bookmark(
-    window: WebviewWindow,
-    pool: State<'_, SqlitePool>,
-    job_id: String,
-    bookmarked: bool,) -> Result<(), DbError> {
-    assert_main_or_copilot_db(&window)?;
-    db::ingest::set_bookmark(&pool, &job_id, bookmarked).await
-}
+// DB persistence (Phase 6) commands moved to `commands::db` in Sprint 6.
+// They're re-exposed via the glob `use commands::db::*;` near the top
+// of this file.
 
 /// Cheap probe to verify a Greenhouse / Lever / Ashby identifier resolves
 /// before saving it as an `IngestSource` in Settings. Fetches the live
@@ -1261,10 +822,11 @@ async fn ingest_health_check(
 // validated against `secrets::SecretSlot` (a closed enum), so a
 // compromised webview can't poke at arbitrary Keychain accounts.
 
-/// Parse a wire-format slot name into the closed enum. Anything
-/// outside the allow-list returns an error — keeps the trust
-/// boundary tight (a compromised webview can't poke at arbitrary
-/// Keychain accounts).
+/// Parse a wire-format slot name ("anthropic_key", "openai_key",
+/// "assemblyai_key", "deepgram_key", "auth_jwt", "stripe_key") into
+/// the closed enum. Anything else returns an error — keeps the
+/// trust boundary tight (a compromised webview can't poke at
+/// arbitrary Keychain accounts).
 fn parse_slot(name: &str) -> Result<secrets::SecretSlot, String> {
     match name {
         "anthropic_key" => Ok(secrets::SecretSlot::AnthropicKey),
@@ -1272,6 +834,7 @@ fn parse_slot(name: &str) -> Result<secrets::SecretSlot, String> {
         "assemblyai_key" => Ok(secrets::SecretSlot::AssemblyaiKey),
         "deepgram_key" => Ok(secrets::SecretSlot::DeepgramKey),
         "auth_jwt" => Ok(secrets::SecretSlot::AuthJwt),
+        "stripe_key" => Ok(secrets::SecretSlot::StripeKey),
         other => Err(format!("Unknown secret slot: '{other}'")),
     }
 }
@@ -1295,6 +858,148 @@ fn secrets_delete(window: WebviewWindow, name: String) -> Result<(), String> {
     assert_main_or_copilot(&window)?;
     let slot = parse_slot(&name)?;
     secrets::delete(slot).map_err(|e| e.to_string())
+}
+
+// ─── Stripe Checkout / billing commands ──────────────────────────────
+//
+// Three commands gated with `assert_main_or_copilot`. Stripe key is
+// pulled from the Keychain at command entry — if missing, the user
+// gets a clear localized error and the UI keeps the user on the free
+// tier instead of crashing.
+//
+// NOTE: price ID is provided by the frontend (Vite env var). We don't
+// hardcode it server-side — different builds (test / live) need
+// different SKUs and that's a frontend deploy-time concern.
+
+/// DTO returned to the frontend. Mirrors the shape of the local
+/// subscription mirror but without the Stripe-internal columns.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SubscriptionDto {
+    status: String,
+    plan: String,
+    current_period_end: Option<i64>,
+    cancel_at_period_end: bool,
+    stripe_subscription_id: Option<String>,
+}
+
+/// Read the Stripe key from the Keychain. Returns a localized error
+/// when unset so the UI can surface a "configure Stripe first" hint.
+fn require_stripe_key() -> Result<String, String> {
+    secrets::get(secrets::SecretSlot::StripeKey)
+        .map_err(|e| e.to_string())?
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| "Stripe non configuré".to_string())
+}
+
+/// Create a Checkout Session. Returns the redirect URL for the user's
+/// default browser (the frontend opens it via `tauri-plugin-shell`).
+///
+/// `price_id` is provided by the frontend so a single binary can ship
+/// against test or live Stripe environments without a rebuild.
+#[tauri::command]
+async fn billing_create_checkout(
+    window: WebviewWindow,
+    customer_email: String,
+    price_id: String,
+) -> Result<String, String> {
+    assert_main_or_copilot(&window)?;
+    if price_id.trim().is_empty() {
+        return Err("price_id manquant".into());
+    }
+    if customer_email.trim().is_empty() {
+        return Err("Email requis pour la facturation".into());
+    }
+
+    let key = require_stripe_key()?;
+
+    // Hard-coded callback URLs — they round-trip through career-os.app
+    // because the desktop app can't host its own redirect target.
+    // The landing page reads the query string and pings the desktop
+    // back via the deep-link protocol when it ships. Until then, the
+    // user just closes the tab.
+    let success_url = "https://career-os.app/billing/success?session_id={CHECKOUT_SESSION_ID}";
+    let cancel_url = "https://career-os.app/billing/cancel";
+
+    let session = billing::create_checkout_session(
+        &key,
+        &price_id,
+        &customer_email,
+        success_url,
+        cancel_url,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(session.url)
+}
+
+/// Read the local subscription mirror. `None` means the user has no
+/// Stripe record on this device — the UI treats that as the free
+/// tier without making any HTTP calls.
+#[tauri::command]
+async fn billing_get_subscription(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+) -> Result<Option<SubscriptionDto>, String> {
+    assert_main_or_copilot(&window)?;
+    let row = db::subscription::get_subscription(pool.inner(), db::DEFAULT_USER_ID)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(row.map(|r| SubscriptionDto {
+        status: r.status,
+        plan: r.plan,
+        current_period_end: r.current_period_end,
+        cancel_at_period_end: r.cancel_at_period_end != 0,
+        stripe_subscription_id: r.stripe_subscription_id,
+    }))
+}
+
+/// Cancel the current subscription at period end (NOT immediate —
+/// see `billing::cancel_subscription` for the rationale).
+///
+/// Updates the local mirror so the UI reflects the change without
+/// waiting for a webhook round-trip.
+#[tauri::command]
+async fn billing_cancel(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let key = require_stripe_key()?;
+
+    let row = db::subscription::get_subscription(pool.inner(), db::DEFAULT_USER_ID)
+        .await
+        .map_err(|e| e.to_string())?;
+    let row = row.ok_or_else(|| "Aucun abonnement actif".to_string())?;
+    let sub_id = row
+        .stripe_subscription_id
+        .clone()
+        .ok_or_else(|| "Aucun identifiant d'abonnement Stripe".to_string())?;
+
+    billing::cancel_subscription(&key, &sub_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Reflect the change locally so the UI updates without waiting
+    // for the webhook. `status` stays `active` until period end —
+    // we just flip the cancel flag.
+    db::subscription::upsert_subscription(
+        pool.inner(),
+        db::subscription::UpsertSubscriptionInput {
+            user_id: db::DEFAULT_USER_ID.to_string(),
+            stripe_customer_id: row.stripe_customer_id,
+            stripe_subscription_id: Some(sub_id),
+            status: row.status,
+            plan: row.plan,
+            current_period_end: row.current_period_end,
+            cancel_at_period_end: true,
+        },
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1467,7 +1172,11 @@ pub fn run() {
             // Sprint 1 PR-B: Keychain-backed secrets (replaces localStorage)
             secrets_set,
             secrets_get,
-            secrets_delete
+            secrets_delete,
+            // Stripe Checkout / billing
+            billing_create_checkout,
+            billing_get_subscription,
+            billing_cancel
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

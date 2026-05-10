@@ -39,6 +39,11 @@ pub enum SecretSlot {
     /// JWT issued by the Career OS auth Worker after a successful
     /// magic-link sign-in. ~30-day TTL. Cleared on sign-out.
     AuthJwt,
+    /// Stripe secret key (sk_test_... / sk_live_...). Used by the
+    /// billing module for Checkout sessions + subscription lookups.
+    /// Same trust boundary as the LLM keys — never persisted outside
+    /// the Keychain.
+    StripeKey,
 }
 
 impl SecretSlot {
@@ -52,6 +57,7 @@ impl SecretSlot {
             SecretSlot::AssemblyaiKey => "secret.assemblyai_key",
             SecretSlot::DeepgramKey => "secret.deepgram_key",
             SecretSlot::AuthJwt => "secret.auth_jwt",
+            SecretSlot::StripeKey => "secret.stripe_key",
         }
     }
 }

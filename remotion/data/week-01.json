@@ -1,0 +1,161 @@
+[
+  {
+    "id": "01-cv-chatgpt-ats",
+    "composition": "HotTake",
+    "props": {
+      "hook": "Ton CV 'tailored ChatGPT' ne passe plus les ATS.",
+      "argument": "Depuis octobre 2025, Workday et Greenhouse détectent les patterns LLM. Trop de buzzwords, phrasing trop lisse. Si t'as collé la sortie de ChatGPT, t'es flagué silencieusement.",
+      "chase": "Cible 5 mots-clés. Pas un de plus."
+    }
+  },
+  {
+    "id": "02-mots-virer-cv",
+    "composition": "ListeRapide",
+    "props": {
+      "hook": "5 mots à virer de ton CV en 2026.",
+      "items": [
+        "Passionné",
+        "Synergie",
+        "Polyvalent",
+        "Dynamique",
+        "Force de proposition"
+      ],
+      "cta": "Save pour ton prochain CV."
+    }
+  },
+  {
+    "id": "03-mck-6-secondes",
+    "composition": "VeriteMarche",
+    "props": {
+      "hook": "Ton CV passe 6 secondes sous l'œil d'un recruteur MBB.",
+      "stat": "6s",
+      "statLabel": "le temps moyen de la première lecture humaine d'un CV chez MBB.",
+      "explanation": "Sur ces 6 secondes, le recruteur scanne le nom de l'école, la dernière ligne d'expérience, un seul chiffre quantifié. Si ces trois zones ne pop pas, ton CV finit en pile no.",
+      "cta": "Career OS scanne ce que les recruteurs voient en 6s."
+    }
+  },
+  {
+    "id": "04-notion-piege",
+    "composition": "HotTake",
+    "props": {
+      "hook": "Notion pour ta recherche de stage : mauvaise idée.",
+      "argument": "Notion est passif. Tu dois l'ouvrir, scroller, te rappeler quoi faire. Sur 40 candidatures, c'est pas un problème de stockage — c'est un problème de cadence. L'outil doit pousser la prochaine action.",
+      "chase": "Outil = comportement."
+    }
+  },
+  {
+    "id": "05-erreurs-cv-no",
+    "composition": "ListeRapide",
+    "props": {
+      "hook": "3 erreurs CV qui mettent ton candidat directement dans la pile 'no'.",
+      "items": [
+        "Pas un seul chiffre dans tes expériences",
+        "Email perso pourri (prout42@hotmail.com)",
+        "CV en 2 pages avec moins de 3 ans d'XP"
+      ],
+      "cta": "Save pour ta prochaine relecture."
+    }
+  },
+  {
+    "id": "06-mck-3-patterns",
+    "composition": "VeriteMarche",
+    "props": {
+      "hook": "J'ai analysé 500 questions d'entretien McKinsey.",
+      "stat": "3",
+      "statLabel": "patterns reviennent dans 80% des cas.",
+      "explanation": "Un cas chiffré, un trade-off éthique, une question sur ton passé. Si t'as pas drillé les trois en STAR compressé, t'es out au tour 2. Le reste, c'est du bruit.",
+      "cta": "Career OS génère ces 3 questions à partir de ta JD."
+    }
+  },
+  {
+    "id": "07-passion-finance",
+    "composition": "HotTake",
+    "props": {
+      "hook": "Dire 'je suis passionné par la finance' en entretien, c'est rouge.",
+      "argument": "Le mot 'passionné' s'évalue à des actes, pas des affirmations. Le recruteur attend un signal mesurable : un blog, une thèse, un side project, une lecture précise. Sans signal, la phrase fait l'effet inverse.",
+      "chase": "Montre. Ne raconte pas."
+    }
+  },
+  {
+    "id": "08-questions-poser",
+    "composition": "ListeRapide",
+    "props": {
+      "hook": "5 questions à poser au recruteur — et qui te démarquent.",
+      "items": [
+        "Sur quoi vous mesurez la perf au bout d'un an ?",
+        "Quel a été le dernier projet où l'équipe a échoué ?",
+        "Qu'est-ce qui vous a fait passer de votre dernier poste ici ?",
+        "Quelle est la skill la plus rare dans votre équipe actuelle ?",
+        "Si je signe demain, quel serait mon premier livrable ?"
+      ],
+      "cta": "Save · à utiliser dans ton prochain final round."
+    }
+  },
+  {
+    "id": "09-ats-mots-cles",
+    "composition": "VeriteMarche",
+    "props": {
+      "hook": "Combien de mots-clés tu dois matcher pour passer un ATS ?",
+      "stat": "65%",
+      "statLabel": "le seuil moyen au-dessus duquel un CV passe la première barrière algorithmique.",
+      "explanation": "En dessous de 65% de keywords match avec la JD, l'ATS de Workday ou Greenhouse écarte le CV avant qu'un humain le voie. C'est pour ça que 'tailored' n'est plus un luxe — c'est le minimum pour exister.",
+      "cta": "Career OS calcule ce score en local en 2 secondes."
+    }
+  },
+  {
+    "id": "10-cooptation-mythe",
+    "composition": "HotTake",
+    "props": {
+      "hook": "La cooptation : surcotée pour 80% des candidats.",
+      "argument": "Une cooptation marche QUE si le coopteur a du capital interne. Un consultant junior qui te coopte chez McKinsey vaut zéro point. Un partner, vingt. Avant de chercher 'qui peut me coopter', demande-toi qui a du poids.",
+      "chase": "Capital > contact."
+    }
+  },
+  {
+    "id": "11-jobs-jamais-linkedin",
+    "composition": "ListeRapide",
+    "props": {
+      "hook": "3 jobs où tu dois JAMAIS postuler via LinkedIn.",
+      "items": [
+        "Funds (PE / VC) — toujours par mail au CFO ou à un partner",
+        "Top consulting (MBB) — passe par le portail école ou le campus recruiter",
+        "Startups Series A — DM Twitter / X au founder, pas LinkedIn EasyApply"
+      ],
+      "cta": "Save · canal = signal."
+    }
+  },
+  {
+    "id": "12-stage-cesure-pese",
+    "composition": "VeriteMarche",
+    "props": {
+      "hook": "Ton stage de césure pèse plus lourd que ton M2.",
+      "stat": "73%",
+      "statLabel": "des recruteurs MBB regardent d'abord le stage de césure quand ton M2 est en cours.",
+      "explanation": "Le M2 en cours = tu n'as pas livré. Le stage de césure = un projet de 6 mois où tu as livré quelque chose de concret. Pour un junior, c'est le meilleur prédicteur d'output. Donc c'est lu en premier.",
+      "cta": "Career OS te suggère quoi mettre en haut selon le poste visé."
+    }
+  },
+  {
+    "id": "13-relancer-recruteur",
+    "composition": "HotTake",
+    "props": {
+      "hook": "Le bon timing pour relancer un recruteur, c'est pas 'sous une semaine'.",
+      "argument": "C'est précisément 7 jours après l'entretien, avant 11h, un mardi ou un mercredi. Lundi t'as l'air désespéré, jeudi-vendredi t'es dans le bruit du week-end. La fenêtre est étroite mais elle est claire.",
+      "chase": "Relance comme un opérateur, pas un candidat."
+    }
+  },
+  {
+    "id": "14-pyramide-entretien",
+    "composition": "ListeRapide",
+    "props": {
+      "hook": "La technique pyramide en entretien — 4 règles.",
+      "items": [
+        "Phrase 1 = la conclusion. Toujours.",
+        "Phrase 2-3 = situation + action en une seule respiration",
+        "Phrase 4 = un chiffre du CV qui prouve",
+        "Phrase 5 = l'insight que seul 1% des candidats dirait"
+      ],
+      "cta": "Save · à drill avant ton prochain final round."
+    }
+  }
+]

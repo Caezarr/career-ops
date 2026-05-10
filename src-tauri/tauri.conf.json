@@ -27,7 +27,8 @@
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "shadow": true,
-        "visible": true
+        "visible": true,
+        "dragDropEnabled": false
       },
       {
         "title": "Copilot",

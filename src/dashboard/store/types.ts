@@ -31,8 +31,23 @@ export interface User {
    *  the structured fields so the CV generator and the Copilot have richer
    *  context than just bullets in a CV. Think of it as a 'profile.md'. */
   profileMarkdown?: string;
-  /** True once the user has completed (or skipped) the onboarding flow. */
+  /** Legacy first-launch flag, retained so older persisted stores keep
+   *  reading correctly. Mirrored to / from `onboarded` by the user
+   *  slice so consumers can use either. */
   onboardingComplete?: boolean;
+  /** True once the user has completed (or skipped past) the first-launch
+   *  setup wizard. Drives whether `<Onboarding />` mounts on app boot. */
+  onboarded?: boolean;
+  /** Last step index the user reached in the wizard (0..3). Used to
+   *  resume mid-flow if the app is closed before completion. */
+  onboardingStep?: number;
+  /** École (HEC, ESCP, Polytechnique, …) captured during onboarding.
+   *  Free-form when the user picks "Autre". */
+  school?: string;
+  /** Target firm/track tags chosen during onboarding (e.g. "Conseil",
+   *  "IB / PE / VC"). Surfaced to the AI prompts so generations match
+   *  the user's actual goals. */
+  targetTracks?: string[];
 }
 
 // ─── Notifications ──────────────────────────────────────────────────────────
