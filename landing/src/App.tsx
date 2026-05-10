@@ -4,6 +4,7 @@ import Demo from "./components/Demo.tsx";
 import Features from "./components/Features.tsx";
 import HowItWorks from "./components/HowItWorks.tsx";
 import Privacy from "./components/Privacy.tsx";
+import InstallHelp from "./components/InstallHelp.tsx";
 import BetaCTA from "./components/BetaCTA.tsx";
 import Footer from "./components/Footer.tsx";
 
@@ -17,6 +18,7 @@ export default function App() {
         <Features />
         <HowItWorks />
         <Privacy />
+        <InstallHelp />
         <BetaCTA />
       </main>
       <Footer />
