@@ -3,7 +3,7 @@ import { ArrowRight, AlertTriangle, KeyRound, Sparkles, FileDown, FilePlus, Rota
 import { Modal, ModalBody, ModalFooter, ModalHeader, useToast } from '../../primitives';
 import { useAppStore } from '../../store';
 import { getCvParsedText } from '../../store/slices/cvs';
-import { readAnthropicKey, readClaudeModel } from '../../hooks/useAnthropicKey';
+import { readAnthropicKey } from '../../hooks/useAnthropicKey';
 import {
   generateOptimizedCv,
   isProfileReadyForCv,
@@ -96,8 +96,6 @@ export default function GenerateOptimizedModal({
         jdText: effectiveJd,
         analysis: analysis ?? null,
         user,
-        anthropicKey: readAnthropicKey() ?? '',
-        model: readClaudeModel(),
         refinementInstructions: notes,
       })
         .then((res) => {

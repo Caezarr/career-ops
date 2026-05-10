@@ -527,6 +527,54 @@ async fn generate_optimized_cv(
     })
 }
 
+/// Compile a .tex source produced by the Worker's
+/// /v1/ai/optimize-cv endpoint into a PDF on disk. Splits step 2-5
+/// of `generate_optimized_cv` so the LLM call can live on the
+/// server (with the central Anthropic key) while LaTeX compilation
+/// stays on the user's machine (where pdflatex / tectonic actually
+/// run).
+#[tauri::command]
+async fn compile_optimized_cv_tex(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    tex_source: String,
+) -> Result<OptimizedCvResult, String> {
+    assert_main_or_copilot(&window)?;
+    use crate::latex::pick_compiler;
+
+    let cleaned = strip_markdown_fences(&tex_source).trim().to_string();
+    if cleaned.is_empty() {
+        return Err("Empty .tex source".into());
+    }
+
+    let compiler = pick_compiler()
+        .await
+        .map_err(|e| format!("LaTeX compiler unavailable: {e}"))?;
+
+    let app_data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("app data dir: {e}"))?;
+    let optims_dir = app_data.join("optimizations");
+
+    let pdf_path = compiler
+        .compile(&cleaned, &optims_dir)
+        .await
+        .map_err(|e| format!("LaTeX compilation failed:\n{e}"))?;
+
+    let tex_path = pdf_path.with_extension("tex");
+    tokio::fs::write(&tex_path, cleaned.as_bytes())
+        .await
+        .map_err(|e| format!("save .tex: {e}"))?;
+
+    Ok(OptimizedCvResult {
+        pdf_path: pdf_path.to_string_lossy().into_owned(),
+        tex_path: tex_path.to_string_lossy().into_owned(),
+        compiler: compiler.name(),
+        tex_source: cleaned,
+    })
+}
+
 /// Surface which LaTeX backends are available on this host so the UI can
 /// show a 'MacTeX missing — install it' banner when nothing's found.
 #[tauri::command]
@@ -1052,6 +1100,11 @@ pub fn run() {
         // (`plugins.deep-link.desktop.schemes`) so macOS registers
         // it at install time.
         .plugin(tauri_plugin_deep_link::init())
+        // Auto-updater — checks the endpoints in
+        // `tauri.conf.json::plugins.updater.endpoints` for a newer
+        // version. The frontend hook (`useAutoUpdate`) drives the
+        // user-visible flow (toast on available, download → install).
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let state = Arc::new(Mutex::new(AppState::default()));
             app.manage(state);
@@ -1167,8 +1220,13 @@ pub fn run() {
             db_dashboard_stats,
             // AI: ATS analysis
             analyze_cv_ats,
-            // AI: CV optimization (LaTeX → PDF)
+            // AI: CV optimization (LaTeX → PDF). The legacy
+            // `generate_optimized_cv` is kept as the BYOK fallback;
+            // `compile_optimized_cv_tex` is the new path that takes
+            // the .tex from the Worker's /v1/ai/optimize-cv endpoint
+            // and only handles the local LaTeX → PDF compilation.
             generate_optimized_cv,
+            compile_optimized_cv_tex,
             detect_latex_compilers,
             // AI: Application next steps
             generate_application_next_steps,

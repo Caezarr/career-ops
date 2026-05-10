@@ -26,6 +26,9 @@ export interface Env {
   WEB_BASE_URL: string;           // e.g. "https://api.careeros.app"
   MAGIC_LINK_TTL_SECONDS: string; // string per Cloudflare convention
   JWT_TTL_SECONDS: string;
+  /** GitHub `<owner>/<repo>` the auto-updater proxies. When unset
+   *  the /v1/updates endpoint responds 204 (no update check). */
+  GITHUB_REPO?: string;
 }
 
 /** What the JWT carries. Kept tight on purpose — every claim that

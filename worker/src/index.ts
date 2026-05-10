@@ -12,6 +12,7 @@ import { authRoutes } from "./routes/auth";
 import { meRoutes } from "./routes/me";
 import { healthRoutes } from "./routes/health";
 import { aiRoutes } from "./routes/ai";
+import { updateRoutes } from "./routes/updates";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -41,6 +42,9 @@ app.route("/health", healthRoutes);
 // users never bring their own keys). All routes JWT-gated +
 // per-user daily rate-limited.
 app.route("/v1/ai", aiRoutes);
+// Auto-updater manifest. Public (no JWT) — installed apps need to
+// reach this on every startup. Cached at the edge by Cloudflare.
+app.route("/v1/updates", updateRoutes);
 
 app.get("/", (c) =>
   c.text(

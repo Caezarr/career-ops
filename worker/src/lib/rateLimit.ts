@@ -83,15 +83,24 @@ export async function checkAndBumpAiUsage(
 }
 
 /**
- * Per-endpoint defaults. Tune these as we see real usage.
+ * Per-endpoint defaults. Tune as real usage data comes in.
  *
- * `polish-profile`: 5 / day. Onboarding once, +/- a few re-runs
- * if the user wants to refine. Generous enough that no honest
- * user hits the wall, tight enough that someone scripting it
- * gets stopped fast.
+ * Rough sizing logic for a €150/year subscription with ~$0.01-0.05
+ * per call (depending on prompt size + model):
+ *   - polish-profile  → 5/day  (onboarding-shaped, 1-2 calls realistic)
+ *   - analyze-cv-ats  → 30/day (frequent — every CV variant × every JD)
+ *   - next-steps      → 30/day (one per application, can re-roll)
+ *   - optimize-cv     → 10/day (heavy — generates full LaTeX)
+ *
+ * Worst-case daily cost per user at the cap: ~$2-3 if every endpoint
+ * is maxed. That's ~$600/year vs €150 revenue — but the cap is
+ * deliberately above any honest use; abuse mitigation is the goal.
  */
 export const RATE_LIMITS = {
   polishProfile: { kind: "polish-profile", limit: 5 } satisfies RateLimitConfig,
+  analyzeCvAts: { kind: "analyze-cv-ats", limit: 30 } satisfies RateLimitConfig,
+  nextSteps: { kind: "next-steps", limit: 30 } satisfies RateLimitConfig,
+  optimizeCv: { kind: "optimize-cv", limit: 10 } satisfies RateLimitConfig,
 } as const;
 
 export type Env_ = Env; // re-export so callers don't need to dance around types

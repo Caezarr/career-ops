@@ -11,6 +11,7 @@
   },
   "app": {
     "macOSPrivateApi": true,
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Career OS",
@@ -60,6 +61,14 @@
       "desktop": {
         "schemes": ["careeros"]
       }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://api.careeros.fr/v1/updates/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY0MzBBNzVCNDBGQTUwNjUKUldSbFVQcEFXNmN3WkpudWJ3dlJvMXBWWnB3MzRHY0xJZlNXeVRkZGhqZ3JaVlA1NU5vTWg5T2kK"
     }
   },
   "bundle": {

@@ -59,7 +59,10 @@ function isAllEmpty(a: NarrativeAnswers): boolean {
 export async function polishProfileMarkdown(
   args: PolishProfileArgs,
 ): Promise<string | null> {
-  if (isAllEmpty(args.answers)) return null;
+  // Short-circuit only when BOTH user answers AND CV are empty —
+  // a user who skipped the narrative but uploaded a CV still
+  // wants Claude to draft a profile.md from the CV alone.
+  if (isAllEmpty(args.answers) && !args.cvText?.trim()) return null;
 
   const jwt = await readJwt();
   if (!jwt) {
