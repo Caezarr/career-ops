@@ -1,8 +1,7 @@
 /**
- * Minimal footer — brand left, legal/social right. The legal links
- * are placeholders today; CNIL-required mentions ("mentions légales",
- * "politique de confidentialité") need real text before any paid
- * advertising spend in France.
+ * Minimal footer — brand left, legal/social/download links right.
+ * Privacy + Terms are RGPD-compliant FR drafts in `landing/public/`,
+ * served directly as `.md` files by the static host.
  */
 export default function Footer() {
   return (
@@ -16,13 +15,18 @@ export default function Footer() {
             </span>
           </div>
           <nav className="footer__links" aria-label="Liens">
+            <a
+              href="https://github.com/Caezarr/career-ops/releases/latest"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Télécharger
+            </a>
             <a href="https://github.com/Caezarr/career-ops" target="_blank" rel="noreferrer">
               GitHub
             </a>
-            <a href="#privacy">Privacy</a>
-            <a href="/legal" aria-disabled="true" tabIndex={-1} style={{ opacity: 0.6 }}>
-              Mentions légales
-            </a>
+            <a href="/privacy.md">Confidentialité</a>
+            <a href="/terms.md">CGU</a>
           </nav>
         </div>
       </div>
