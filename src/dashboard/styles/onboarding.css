@@ -53,6 +53,8 @@
   flex-direction: column;
   gap: 24px;
   min-height: 480px;
+  /* Anchor for the polish overlay (Sprint 6). */
+  position: relative;
   /* Sprint 6: cap panel height so the inner stage scrolls
      instead of the whole overlay. Footer stays anchored. */
   max-height: calc(100vh - 64px);
@@ -546,4 +548,51 @@
   color: var(--text-2);
   font-size: 12px;
   line-height: 1.5;
+}
+
+/* ── Polish overlay (Sprint 6 — Claude profile.md generation) ──── */
+
+.dashboard-root .onboarding__polish-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-xl);
+  background: color-mix(in oklab, var(--bg-1) 92%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+  animation: onboarding-fade-in 200ms ease-out both;
+}
+
+.dashboard-root .onboarding__polish-spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--indigo);
+  animation: onboarding-spin 700ms linear infinite;
+}
+
+.dashboard-root .onboarding__polish-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+
+.dashboard-root .onboarding__polish-sub {
+  font-size: 13px;
+  color: var(--text-2);
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+@keyframes onboarding-spin {
+  to { transform: rotate(360deg); }
 }

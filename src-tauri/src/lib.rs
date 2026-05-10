@@ -372,6 +372,81 @@ async fn analyze_cv_ats(
     Ok(analysis)
 }
 
+// ── AI: Polish onboarding narrative → profile.md ─────────────────────────────
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PolishProfileInput {
+    /// Four free-form raw answers from `StepNarrative`. Empty
+    /// strings are tolerated — the prompt instructs Claude to
+    /// omit sections rather than invent.
+    pub story: String,
+    pub wins: String,
+    pub lesson: String,
+    pub north_star: String,
+    /// Optional: parsed CV text from the same onboarding session.
+    /// Helps Claude ground the Highlights bullets in real numbers.
+    pub cv_text: Option<String>,
+    /// Optional context the prompt uses to tune tone.
+    pub target_tracks: Option<Vec<String>>,
+    pub experience_level: Option<String>,
+    pub anthropic_key: String,
+    pub model: Option<String>,
+}
+
+/// Transform the four onboarding narrative answers into a clean,
+/// structured profile.md. The output uses the same headings the
+/// rest of the app already understands (`# Quick story`,
+/// `# Highlights`, `# Anecdotes & lessons`,
+/// `# What I'm looking for next`).
+///
+/// Frontend should fall back to a brut concat when `anthropic_key`
+/// is empty / missing — we surface `AiError::KeyMissing` for that
+/// path so the caller can branch without a try/catch around the
+/// whole flow.
+#[tauri::command]
+async fn polish_profile_markdown(
+    window: WebviewWindow,
+    input: PolishProfileInput,
+) -> Result<String, ai::AiError> {
+    assert_main_or_copilot(&window).map_err(ai::AiError::InvalidResponse)?;
+
+    // All four blank → nothing to polish; signal "no input" by
+    // returning an empty string. Caller renders the brut fallback.
+    let any_input = !input.story.trim().is_empty()
+        || !input.wins.trim().is_empty()
+        || !input.lesson.trim().is_empty()
+        || !input.north_star.trim().is_empty();
+    if !any_input {
+        return Ok(String::new());
+    }
+
+    let cfg = ai::AiConfig::new(input.anthropic_key, input.model);
+    let tracks = input.target_tracks.unwrap_or_default();
+    let user_msg = ai::prompts::profile::build_user_message(
+        &input.story,
+        &input.wins,
+        &input.lesson,
+        &input.north_star,
+        input.cv_text.as_deref(),
+        &tracks,
+        input.experience_level.as_deref(),
+    );
+
+    let md = ai::anthropic::ask_completion(
+        &cfg,
+        ai::prompts::profile::PROFILE_SYSTEM,
+        &user_msg,
+        1500,
+    )
+    .await?;
+
+    // Defensive trim — Claude is reliable here but a stray trailing
+    // newline in production is annoying when the user re-edits the
+    // result in Settings → Profile.
+    Ok(md.trim().to_string())
+}
+
 // ── AI: Application "next steps" generator ───────────────────────────────────
 
 #[derive(Debug, serde::Deserialize)]
@@ -1172,6 +1247,8 @@ pub fn run() {
             detect_latex_compilers,
             // AI: Application next steps
             generate_application_next_steps,
+            // AI: Onboarding narrative → polished profile.md
+            polish_profile_markdown,
             // Job ingestion (Greenhouse / Lever / Ashby / YC)
             ingest_run_source,
             ingest_run_all,

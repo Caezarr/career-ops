@@ -1,14 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Mic, MicOff, Sparkles } from "lucide-react";
-
 /** Sprint 6 — Career Narrative step. Captures the free-form
  *  context that drives `profile.md`: 4 reflective prompts, all
- *  skippable. Voice-to-text is wired via the browser
- *  SpeechRecognition API (free, on-device on modern macOS) so the
- *  user can talk through long anecdotes instead of typing.
+ *  skippable. The four raw answers are then sent to Claude (via
+ *  the parent's `polishProfileMarkdown` call in `finish()`) which
+ *  reformulates them into a structured Markdown narrative the CV
+ *  generator + Copilot can pull from.
+ *
+ *  Voice-to-text was prototyped via `webkitSpeechRecognition` but
+ *  Tauri 2's WKWebView blocks it by default (no microphone
+ *  permission plumbing through to the webview). Re-introducing it
+ *  cleanly requires a dedicated Rust command around the Apple
+ *  Speech framework — tracked separately. For now: keyboard only,
+ *  honest UX.
  *
  *  The parent (`Onboarding.tsx`) owns the 4 string answers and
- *  builds a Markdown blob in `finish()`. We don't persist the raw
+ *  builds the Markdown blob in `finish()`. We don't persist the raw
  *  Q&A — only the assembled `profileMarkdown` lives in
  *  `user.profileMarkdown`. */
 
@@ -47,223 +52,52 @@ interface Props {
   setAnswers: (next: NarrativeAnswers) => void;
 }
 
-// Type for the SpeechRecognition browser API (TypeScript doesn't
-// ship a built-in def for it — webkit + standard are both gated
-// to a vendor-prefixed global). We declare the minimum surface
-// we use rather than pulling a full polyfill type.
-interface MinimalSpeechRecognition extends EventTarget {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start: () => void;
-  stop: () => void;
-  onresult: ((ev: { results: SpeechRecognitionResultList }) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((ev: unknown) => void) | null;
-}
-type SpeechRecognitionConstructor = new () => MinimalSpeechRecognition;
-
-function getSpeechRecognitionCtor(): SpeechRecognitionConstructor | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as Record<string, unknown>;
-  return ((w.SpeechRecognition ||
-    w.webkitSpeechRecognition) as SpeechRecognitionConstructor | undefined) ?? null;
-}
-
 export default function StepNarrative({ answers, setAnswers }: Props) {
-  const [recordingKey, setRecordingKey] = useState<NarrativeKey | null>(null);
-  const recognitionRef = useRef<MinimalSpeechRecognition | null>(null);
-
-  // Sticky reference to the answers that voice-to-text appends to —
-  // stale-closure protection inside `onresult`.
-  const answersRef = useRef(answers);
-  useEffect(() => {
-    answersRef.current = answers;
-  }, [answers]);
-
-  // SpeechRecognition only exists on Chromium-based browsers / WebKit
-  // (Safari macOS 13+, Tauri's WKWebView). We hide the mic button on
-  // platforms that don't support it rather than show a broken affordance.
-  const speechSupported = useMemo(() => Boolean(getSpeechRecognitionCtor()), []);
-
   function setOne(key: NarrativeKey, value: string) {
-    setAnswers({ ...answersRef.current, [key]: value });
+    setAnswers({ ...answers, [key]: value });
   }
-
-  function startRecording(key: NarrativeKey) {
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return;
-
-    // Stop any running session first — avoids two concurrent mic
-    // streams which Safari handles poorly.
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        /* noop */
-      }
-    }
-
-    const rec = new Ctor();
-    rec.lang = "fr-FR";
-    rec.continuous = true;
-    rec.interimResults = true;
-    let buffer = answersRef.current[key] ?? "";
-
-    rec.onresult = (ev) => {
-      let interim = "";
-      let final = "";
-      for (let i = 0; i < ev.results.length; i++) {
-        const r = ev.results[i];
-        if (r.isFinal) {
-          final += r[0].transcript;
-        } else {
-          interim += r[0].transcript;
-        }
-      }
-      // Append final results to the persistent buffer; show interim
-      // results live but not committed.
-      const next = (buffer + " " + final).trim();
-      setOne(key, interim ? `${next} ${interim}` : next);
-      if (final) buffer = next;
-    };
-
-    rec.onend = () => {
-      setRecordingKey(null);
-      recognitionRef.current = null;
-    };
-    rec.onerror = () => {
-      setRecordingKey(null);
-      recognitionRef.current = null;
-    };
-
-    try {
-      rec.start();
-      recognitionRef.current = rec;
-      setRecordingKey(key);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn("[narrative] SpeechRecognition.start failed:", e);
-    }
-  }
-
-  function stopRecording() {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        /* noop */
-      }
-    }
-    setRecordingKey(null);
-  }
-
-  // Stop the mic when the step unmounts (user advances the wizard).
-  useEffect(() => {
-    return () => stopRecording();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className="onboarding__step onboarding__step--compact">
       <h1 className="onboarding__title">Raconte-toi</h1>
       <p className="onboarding__subtitle">
-        On utilise tes réponses pour personnaliser les CVs générés et le
-        Copilot. Tout est facultatif — vise 2-3 phrases par question.
-        {speechSupported && (
-          <>
-            {" "}
-            <Sparkles
-              size={12}
-              strokeWidth={2}
-              style={{ verticalAlign: "middle" }}
-            />{" "}
-            Tu peux dicter au lieu d&apos;écrire.
-          </>
-        )}
+        On structure ensuite tes réponses avec Claude pour générer un
+        narratif réutilisable par les CVs tirés et le Copilot. Tout est
+        facultatif — vise 2-3 phrases par question.
       </p>
 
-      {PROMPTS.map((p) => {
-        const recording = recordingKey === p.id;
-        return (
-          <div className="onboarding__field" key={p.id}>
-            <label
-              className="onboarding__label"
-              htmlFor={`narrative-${p.id}`}
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
-            >
-              <span style={{ flex: 1 }}>{p.label}</span>
-              {speechSupported && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    recording ? stopRecording() : startRecording(p.id)
-                  }
-                  aria-pressed={recording}
-                  aria-label={
-                    recording
-                      ? `Stop dictée pour ${p.label}`
-                      : `Dicter pour ${p.label}`
-                  }
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "2px 8px",
-                    fontSize: 11,
-                    fontWeight: 500,
-                    textTransform: "none",
-                    letterSpacing: 0,
-                    border: "1px solid var(--border)",
-                    borderRadius: 999,
-                    background: recording
-                      ? "color-mix(in oklab, var(--indigo) 18%, var(--bg))"
-                      : "var(--bg)",
-                    color: recording ? "var(--indigo)" : "var(--text-2)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {recording ? (
-                    <>
-                      <MicOff size={11} strokeWidth={2.2} />
-                      <span>Stop</span>
-                    </>
-                  ) : (
-                    <>
-                      <Mic size={11} strokeWidth={2.2} />
-                      <span>Dicter</span>
-                    </>
-                  )}
-                </button>
-              )}
-            </label>
-            <textarea
-              id={`narrative-${p.id}`}
-              className="onboarding__input onboarding__textarea"
-              value={answers[p.id]}
-              onChange={(e) => setOne(p.id, e.target.value)}
-              placeholder={p.placeholder}
-              rows={3}
-              style={{
-                height: "auto",
-                minHeight: 72,
-                padding: "10px 12px",
-                resize: "vertical",
-                lineHeight: 1.5,
-              }}
-            />
-          </div>
-        );
-      })}
+      {PROMPTS.map((p) => (
+        <div className="onboarding__field" key={p.id}>
+          <label className="onboarding__label" htmlFor={`narrative-${p.id}`}>
+            {p.label}
+          </label>
+          <textarea
+            id={`narrative-${p.id}`}
+            className="onboarding__input onboarding__textarea"
+            value={answers[p.id]}
+            onChange={(e) => setOne(p.id, e.target.value)}
+            placeholder={p.placeholder}
+            rows={3}
+            style={{
+              height: "auto",
+              minHeight: 72,
+              padding: "10px 12px",
+              resize: "vertical",
+              lineHeight: 1.5,
+            }}
+          />
+        </div>
+      ))}
     </div>
   );
 }
 
-/** Build a structured Markdown blob from the 4 answers. Empty
- *  answers are omitted (so a user who fills only "story" still
- *  gets a clean profile.md, not a wall of empty headings). The
- *  output mirrors the placeholder template in `ProfileCard` so a
- *  user re-editing in Settings sees a consistent shape. */
+/** Build a structured Markdown blob from the 4 answers. Used as
+ *  a fallback when the LLM polish path is unavailable (no
+ *  Anthropic key, network failure). Empty answers are omitted so
+ *  a partial fill still produces a clean profile.md, not a wall
+ *  of empty headings. The headings mirror the placeholder template
+ *  in `ProfileCard` for editing consistency. */
 export function buildProfileMarkdown(answers: NarrativeAnswers): string {
   const sections: string[] = [];
   if (answers.story.trim()) {

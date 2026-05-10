@@ -11,6 +11,8 @@ import StepNarrative, {
   type NarrativeAnswers,
 } from "./StepNarrative";
 import StepFirstSource from "./StepFirstSource";
+import { readAnthropicKey } from "../../lib/secrets";
+import { polishProfileMarkdown } from "../../lib/polishProfile";
 import "../../styles/onboarding.css";
 
 // Sprint 6 (CV OCR + extended profile + narrative): 6-step wizard.
@@ -44,6 +46,10 @@ export default function Onboarding() {
   );
   const [exiting, setExiting] = useState(false);
   const [direction, setDirection] = useState<"next" | "back">("next");
+  // Sprint 6: in-flight while Claude polishes the narrative into a
+  // structured profile.md. Drives the "Optimisation de ton profil…"
+  // overlay shown over the wizard during finish().
+  const [polishing, setPolishing] = useState(false);
 
   // Identity (Step 1) — seeded from any persisted partial.
   const [firstName, setFirstName] = useState<string>(
@@ -129,25 +135,59 @@ export default function Onboarding() {
     setStep((s) => Math.max(0, s - 1));
   }
 
-  function finish() {
+  /** Resolve the final profile.md for `markOnboarded`:
+   *
+   *   1. Try the AI polish path — Claude transforms the four raw
+   *      answers into a structured narrative with real Highlights
+   *      bullets pulled from the CV.
+   *   2. If the polish call returns null (no Anthropic key, network
+   *      failure, empty answers) fall back to the brut concat from
+   *      `buildProfileMarkdown`.
+   *   3. Re-running onboarding: append rather than clobber any
+   *      existing profileMarkdown — Settings → Profile remains the
+   *      canonical edit surface.
+   */
+  async function resolveProfileMarkdown(): Promise<string | undefined> {
+    const anthropicKey = readAnthropicKey();
+    // Pull the most recently imported CV's parsed text — Claude
+    // uses it to ground the Highlights bullets in real numbers.
+    const allCvs = useAppStore.getState().cvs;
+    const latestCvText = allCvs[0]?.parsedText ?? null;
+
+    let polished: string | null = null;
+    if (anthropicKey) {
+      polished = await polishProfileMarkdown({
+        answers: narrative,
+        cvText: latestCvText,
+        user: {
+          targetTracks: tracks,
+          experienceLevel,
+        },
+        anthropicKey,
+      });
+    }
+
+    const fresh = polished ?? buildProfileMarkdown(narrative);
+    if (!fresh) return user.profileMarkdown; // nothing new to add
+
+    if (user.profileMarkdown && user.profileMarkdown.trim()) {
+      return `${user.profileMarkdown.trim()}\n\n${fresh}`;
+    }
+    return fresh;
+  }
+
+  async function finish() {
+    setPolishing(true);
+    const profileMarkdown = await resolveProfileMarkdown();
+    setPolishing(false);
     setExiting(true);
+
     const finalSchool =
       school === "Autre" ? schoolOther.trim() : school;
     const targetCompany = tracks.map(trackLabel).join(", ");
     const gradYearNum = gradYear ? parseInt(gradYear, 10) : undefined;
     const salaryMinNum = salaryMin ? parseInt(salaryMin, 10) : undefined;
     const salaryMaxNum = salaryMax ? parseInt(salaryMax, 10) : undefined;
-
-    // Narrative (Step 4) → profile.md. If the user already had a
-    // profile.md (re-running onboarding), append the new sections
-    // rather than clobber — the Settings → Profile editor remains
-    // the canonical place to clean it up.
-    const narrativeMd = buildProfileMarkdown(narrative);
-    const profileMarkdown = narrativeMd
-      ? user.profileMarkdown && user.profileMarkdown.trim()
-        ? `${user.profileMarkdown.trim()}\n\n${narrativeMd}`
-        : narrativeMd
-      : user.profileMarkdown;
 
     // 320ms — matches the fade-out animation duration in onboarding.css.
     window.setTimeout(() => {
@@ -284,11 +324,13 @@ export default function Onboarding() {
               type="button"
               className="onboarding__btn onboarding__btn--primary"
               onClick={goNext}
-              disabled={!canAdvance}
+              disabled={!canAdvance || polishing}
             >
               <span>
                 {step === STEP_COUNT - 1
-                  ? "Plonger dans Career OS"
+                  ? polishing
+                    ? "Optimisation…"
+                    : "Plonger dans Career OS"
                   : "Suivant"}
               </span>
               {step !== STEP_COUNT - 1 && (
@@ -297,6 +339,24 @@ export default function Onboarding() {
             </button>
           </div>
         </div>
+
+        {/* Sprint 6: blocking overlay shown over the panel while
+            Claude polishes the narrative answers into the final
+            profile.md. Cap visible duration ≈ 3-6s on a typical
+            Anthropic call; falls through gracefully if the call
+            errors / has no key. */}
+        {polishing && (
+          <div className="onboarding__polish-overlay" role="status" aria-live="polite">
+            <div className="onboarding__polish-spinner" aria-hidden="true" />
+            <div className="onboarding__polish-title">
+              On structure ton profil…
+            </div>
+            <div className="onboarding__polish-sub">
+              Claude reformule tes réponses en un narratif que les CVs
+              tirés et le Copilot pourront utiliser.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
