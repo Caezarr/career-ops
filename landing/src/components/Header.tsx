@@ -15,15 +15,17 @@ export default function Header() {
     <header className="header">
       <div className="header__inner">
         <a href="#top" className="header__brand" aria-label="Career OS">
-          <span className="header__logo" aria-hidden>
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M3 3 L13 3 L13 6 L6.5 6 L6.5 7.5 L11.5 7.5 L11.5 10.5 L6.5 10.5 L6.5 13 L3 13 Z"
-                fill="currentColor"
-              />
-            </svg>
-          </span>
-          <span>Career OS</span>
+          {/* Real brand logo. The image's "Career OS" wordmark is
+              dark-on-light by design — relies on the theme cascade
+              CSS to invert in dark mode (see `header.css`). Width
+              caps with min-w to stay readable on narrow screens. */}
+          <img
+            src="/logo.png"
+            alt="Career OS"
+            className="header__logo-img"
+            width="140"
+            height="32"
+          />
         </a>
 
         <nav className="header__nav" aria-label="Sections">

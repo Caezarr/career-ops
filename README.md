@@ -1,6 +1,8 @@
 <div align="center">
 
-# Career OS
+<img src="brand/logo-horizontal-dark.png" alt="Career OS" width="420" />
+
+<br />
 
 ### **The career operating system for people targeting top firms.**
 
