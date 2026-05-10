@@ -14,50 +14,60 @@
 export interface CompanyMeta {
   sector?: string;
   stage?: string;
+  /** Primary domain — drives the Clearbit Logo API lookup so
+   *  jobs render with a real company logo instead of the
+   *  letter-tile fallback. Sprint 6. */
+  domain?: string;
 }
 
 // Keys are matched case-insensitively against the company name.
 const META: Record<string, CompanyMeta> = {
   // ── AI / ML ───────────────────────────────────────────────
-  Anthropic: { sector: "AI/ML", stage: "Series F+" },
-  OpenAI: { sector: "AI/ML", stage: "Series F+" },
-  Cohere: { sector: "AI/ML", stage: "Series D" },
-  Mistral: { sector: "AI/ML", stage: "Series B" },
-  "Mistral AI": { sector: "AI/ML", stage: "Series B" },
-  Cursor: { sector: "AI/ML", stage: "Series C" },
+  Anthropic: { sector: "AI/ML", stage: "Series F+", domain: "anthropic.com" },
+  OpenAI: { sector: "AI/ML", stage: "Series F+", domain: "openai.com" },
+  Cohere: { sector: "AI/ML", stage: "Series D", domain: "cohere.com" },
+  Mistral: { sector: "AI/ML", stage: "Series B", domain: "mistral.ai" },
+  "Mistral AI": { sector: "AI/ML", stage: "Series B", domain: "mistral.ai" },
+  Cursor: { sector: "AI/ML", stage: "Series C", domain: "cursor.com" },
   // ── Fintech ───────────────────────────────────────────────
-  Stripe: { sector: "Fintech", stage: "Pre-IPO" },
-  Mercury: { sector: "Fintech", stage: "Series C" },
-  Brex: { sector: "Fintech", stage: "Series D+" },
-  Robinhood: { sector: "Fintech", stage: "Public" },
-  Coinbase: { sector: "Fintech", stage: "Public" },
-  Plaid: { sector: "Fintech", stage: "Series D+" },
-  Ramp: { sector: "Fintech", stage: "Series D" },
-  Sardine: { sector: "Fintech", stage: "Series B" },
+  Stripe: { sector: "Fintech", stage: "Pre-IPO", domain: "stripe.com" },
+  Mercury: { sector: "Fintech", stage: "Series C", domain: "mercury.com" },
+  Brex: { sector: "Fintech", stage: "Series D+", domain: "brex.com" },
+  Robinhood: { sector: "Fintech", stage: "Public", domain: "robinhood.com" },
+  Coinbase: { sector: "Fintech", stage: "Public", domain: "coinbase.com" },
+  Plaid: { sector: "Fintech", stage: "Series D+", domain: "plaid.com" },
+  Ramp: { sector: "Fintech", stage: "Series D", domain: "ramp.com" },
+  Sardine: { sector: "Fintech", stage: "Series B", domain: "sardine.ai" },
+  // ── French scale-ups (seed-data jobs) ─────────────────────
+  Qonto: { sector: "Fintech", stage: "Series D", domain: "qonto.com" },
+  Alan: { sector: "Insurtech", stage: "Series E", domain: "alan.com" },
+  Doctolib: { sector: "Healthtech", stage: "Pre-IPO", domain: "doctolib.fr" },
+  Pennylane: { sector: "Fintech", stage: "Series C", domain: "pennylane.com" },
+  Mirakl: { sector: "E-commerce", stage: "Series E", domain: "mirakl.com" },
   // ── Dev tools / SaaS ──────────────────────────────────────
-  Notion: { sector: "Dev tools / SaaS", stage: "Series C+" },
-  Figma: { sector: "Dev tools / SaaS", stage: "Pre-IPO" },
-  Linear: { sector: "Dev tools / SaaS", stage: "Series B" },
-  Vercel: { sector: "Dev tools / SaaS", stage: "Series E" },
-  Replit: { sector: "Dev tools / SaaS", stage: "Series B" },
-  Posthog: { sector: "Dev tools / SaaS", stage: "Series C" },
-  Resend: { sector: "Dev tools / SaaS", stage: "Series A" },
-  Substack: { sector: "Consumer / Media", stage: "Series B" },
-  Browserbase: { sector: "Dev tools / SaaS", stage: "Series A" },
-  Mintlify: { sector: "Dev tools / SaaS", stage: "Series A" },
-  Granola: { sector: "Dev tools / SaaS", stage: "Series A" },
-  GitLab: { sector: "Dev tools / SaaS", stage: "Public" },
+  Notion: { sector: "Dev tools / SaaS", stage: "Series C+", domain: "notion.so" },
+  Figma: { sector: "Dev tools / SaaS", stage: "Pre-IPO", domain: "figma.com" },
+  Linear: { sector: "Dev tools / SaaS", stage: "Series B", domain: "linear.app" },
+  Vercel: { sector: "Dev tools / SaaS", stage: "Series E", domain: "vercel.com" },
+  Replit: { sector: "Dev tools / SaaS", stage: "Series B", domain: "replit.com" },
+  Posthog: { sector: "Dev tools / SaaS", stage: "Series C", domain: "posthog.com" },
+  Resend: { sector: "Dev tools / SaaS", stage: "Series A", domain: "resend.com" },
+  Substack: { sector: "Consumer / Media", stage: "Series B", domain: "substack.com" },
+  Browserbase: { sector: "Dev tools / SaaS", stage: "Series A", domain: "browserbase.com" },
+  Mintlify: { sector: "Dev tools / SaaS", stage: "Series A", domain: "mintlify.com" },
+  Granola: { sector: "Dev tools / SaaS", stage: "Series A", domain: "granola.ai" },
+  GitLab: { sector: "Dev tools / SaaS", stage: "Public", domain: "gitlab.com" },
   // ── Consumer / Communication ──────────────────────────────
-  Airbnb: { sector: "Consumer / Travel", stage: "Public" },
-  Pinterest: { sector: "Consumer / Media", stage: "Public" },
-  Reddit: { sector: "Consumer / Media", stage: "Public" },
-  Discord: { sector: "Consumer / Communication", stage: "Series H" },
-  Twilio: { sector: "Consumer / Communication", stage: "Public" },
+  Airbnb: { sector: "Consumer / Travel", stage: "Public", domain: "airbnb.com" },
+  Pinterest: { sector: "Consumer / Media", stage: "Public", domain: "pinterest.com" },
+  Reddit: { sector: "Consumer / Media", stage: "Public", domain: "reddit.com" },
+  Discord: { sector: "Consumer / Communication", stage: "Series H", domain: "discord.com" },
+  Twilio: { sector: "Consumer / Communication", stage: "Public", domain: "twilio.com" },
   // ── Data / Enterprise ─────────────────────────────────────
-  Databricks: { sector: "Data / Enterprise", stage: "Pre-IPO" },
-  Palantir: { sector: "Data / Enterprise", stage: "Public" },
+  Databricks: { sector: "Data / Enterprise", stage: "Pre-IPO", domain: "databricks.com" },
+  Palantir: { sector: "Data / Enterprise", stage: "Public", domain: "palantir.com" },
   // ── Climate ───────────────────────────────────────────────
-  Watershed: { sector: "Climate", stage: "Series C" },
+  Watershed: { sector: "Climate", stage: "Series C", domain: "watershed.com" },
 };
 
 const LOOKUP = new Map<string, CompanyMeta>(
@@ -67,6 +77,20 @@ const LOOKUP = new Map<string, CompanyMeta>(
 /** Look up curated sector + stage for a company by name (case-insensitive). */
 export function companyMeta(name: string): CompanyMeta {
   return LOOKUP.get(name.trim().toLowerCase()) ?? {};
+}
+
+/** Resolve a public logo URL for a company name, when we have a
+ *  curated domain. We use Clearbit's free Logo API
+ *  (https://clearbit.com/logo) — no auth, no rate limit at the
+ *  small volumes the app produces, served via CDN.
+ *
+ *  Returns `undefined` when the company isn't in our META map,
+ *  letting callers fall back to the colored letter-tile avatar.
+ *  Sprint 6. */
+export function companyLogoUrl(name: string): string | undefined {
+  const meta = companyMeta(name);
+  if (!meta.domain) return undefined;
+  return `https://logo.clearbit.com/${meta.domain}`;
 }
 
 /** Translate a YC batch identifier ("S25", "W19", "F24") into a
