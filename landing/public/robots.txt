@@ -1,0 +1,15 @@
+# Career OS — careeros.fr
+# Allow all reputable crawlers. We have nothing to hide and we want
+# both Google + Bing to index every public page. Legal pages and
+# /a-propos.html are linked from the footer; sitemap below lists
+# them explicitly so they get crawled even on a first hit.
+
+User-agent: *
+Allow: /
+
+# Don't waste crawl budget on the auto-updater proxy, the API itself,
+# or asset binaries we link from CSS only.
+Disallow: /api/
+
+# Sitemap for explicit crawler hinting.
+Sitemap: https://careeros.fr/sitemap.xml

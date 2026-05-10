@@ -122,6 +122,21 @@
   gap: 16px;
 }
 
+/* Brand block sits above the first step's H1. Only StepIdentity
+   renders it — the rest of the steps rely on the sticky progress
+   header for branding. */
+.dashboard-root .onboarding__brand {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 4px;
+}
+.dashboard-root .onboarding__brand-mark {
+  display: block;
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+}
+
 /* Compact step variant — used by StepBackground (4 sections) so
    everything fits without forcing the inner stage into scroll
    territory at standard heights. */

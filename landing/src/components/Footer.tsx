@@ -12,7 +12,14 @@
 
 interface Column {
   title: string;
-  links: Array<{ label: string; href: string; external?: boolean }>;
+  links: Array<{
+    label: string;
+    href: string;
+    external?: boolean;
+    /** When set, the link doesn't navigate — it opens an overlay
+     *  (currently only "demo" is supported, hooked to DemoModal). */
+    action?: "demo";
+  }>;
 }
 
 const COLUMNS: Column[] = [
@@ -21,22 +28,25 @@ const COLUMNS: Column[] = [
     links: [
       { label: "Fonctionnalités", href: "#features" },
       { label: "Comment ça marche", href: "#how" },
-      { label: "Tarifs", href: "#beta" },
+      { label: "Résultats", href: "#results" },
+      { label: "Témoignages", href: "#testimonials" },
+      { label: "Postuler à la bêta", href: "#beta" },
     ],
   },
   {
     title: "Ressources",
     links: [
-      { label: "Guides Carrière", href: "#install-help" },
-      { label: "Modèles de CV", href: "#features" },
-      { label: "Préparation entretien", href: "#how" },
-      { label: "Blog", href: "https://github.com/Caezarr/career-ops", external: true },
+      { label: "Démo (1 min)", href: "#beta", action: "demo" },
+      { label: "Blog", href: "/blog/" },
+      { label: "Comment rentrer chez Bain", href: "/blog/comment-rentrer-chez-bain.html" },
+      { label: "Le CV qui passe les ATS", href: "/blog/cv-qui-passe-ats-top-firms.html" },
+      { label: "Préparation entretien de cas", href: "/blog/preparation-entretien-cas-mbb.html" },
     ],
   },
   {
     title: "Entreprise",
     links: [
-      { label: "À propos", href: "#about" },
+      { label: "À propos", href: "/a-propos.html" },
       { label: "Contact", href: "mailto:gabranpro@gmail.com" },
       { label: "Partenariats", href: "mailto:gabranpro@gmail.com" },
     ],
@@ -44,9 +54,10 @@ const COLUMNS: Column[] = [
   {
     title: "Legal",
     links: [
-      { label: "Mentions légales", href: "/terms.md" },
-      { label: "CGU", href: "/terms.md" },
-      { label: "Politique de cookies", href: "/privacy.md" },
+      { label: "Mentions légales", href: "/legal/mentions-legales.html" },
+      { label: "CGU", href: "/legal/cgu.html" },
+      { label: "Confidentialité", href: "/legal/confidentialite.html" },
+      { label: "Cookies", href: "/legal/cookies.html" },
     ],
   },
 ];
@@ -110,9 +121,9 @@ export default function Footer() {
               <span className="footer__brand-name">Career OS</span>
             </div>
             <p className="footer__brand-tagline">
-              Ton système. Ta carrière.
+              L'OS de carrière pour viser haut.
               <br />
-              Plus de clarté. Plus de résultats.
+              Moins d'heures. Plus d'entretiens. Plus d'offres.
             </p>
             <div className="footer__socials">
               {SOCIALS.map((s) => (
@@ -137,13 +148,27 @@ export default function Footer() {
               <ul className="footer__col-list">
                 {col.links.map((link) => (
                   <li key={link.label}>
-                    <a
-                      href={link.href}
-                      target={link.external ? "_blank" : undefined}
-                      rel={link.external ? "noreferrer noopener" : undefined}
-                    >
-                      {link.label}
-                    </a>
+                    {link.action === "demo" ? (
+                      <a
+                        href={link.href}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.dispatchEvent(
+                            new CustomEvent("careeros:open-demo"),
+                          );
+                        }}
+                      >
+                        {link.label}
+                      </a>
+                    ) : (
+                      <a
+                        href={link.href}
+                        target={link.external ? "_blank" : undefined}
+                        rel={link.external ? "noreferrer noopener" : undefined}
+                      >
+                        {link.label}
+                      </a>
+                    )}
                   </li>
                 ))}
               </ul>

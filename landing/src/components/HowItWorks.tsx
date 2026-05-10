@@ -6,7 +6,12 @@
  *
  * Connecting horizontal line between steps is a CSS
  * pseudo-element drawn in landing.css.
+ *
+ * Steps fade in with a staggered delay as the section enters the
+ * viewport (`useReveal`).
  */
+
+import { useReveal } from "../hooks/useReveal.ts";
 
 interface Step {
   num: string;
@@ -73,14 +78,30 @@ const STEPS: Step[] = [
 ];
 
 export default function HowItWorks() {
+  const { ref, shown } = useReveal<HTMLDivElement>();
   return (
     <section className="section how-it-works" id="how">
-      <div className="container">
-        <p className="how-it-works__eyebrow">Un process simple en 4 étapes</p>
+      <div
+        ref={ref}
+        className={`container reveal ${shown ? "reveal--shown" : ""}`}
+      >
+        <header className="section__header">
+          <span className="section__eyebrow">Comment ça marche</span>
+          <h2 className="section__title">
+            Du chaos à l'offre signée en 4 étapes.
+          </h2>
+          <p className="section__sub">
+            Pas de méthode magique. Un système exécutable dès lundi matin.
+          </p>
+        </header>
 
         <div className="how-it-works__timeline">
-          {STEPS.map((s) => (
-            <div className="how-it-works__step" key={s.title}>
+          {STEPS.map((s, i) => (
+            <div
+              className="how-it-works__step"
+              key={s.title}
+              style={{ transitionDelay: `${i * 110}ms` }}
+            >
               <div className="how-it-works__icon" aria-hidden>
                 {s.icon}
               </div>

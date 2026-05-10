@@ -10,20 +10,39 @@
  * Bullets are intentionally raw failures of the current workflow
  * (left) vs raw wins (right) — no marketing softening. The
  * little chevron between the two cards is a CSS pseudo-element.
+ *
+ * Cards fade in on scroll via `useReveal`.
  */
 
+import { useReveal } from "../hooks/useReveal.ts";
+
 export default function BeforeAfter() {
+  const { ref, shown } = useReveal<HTMLDivElement>();
   return (
     <section className="section before-after" id="before-after">
-      <div className="container">
+      <div
+        ref={ref}
+        className={`container reveal ${shown ? "reveal--shown" : ""}`}
+      >
+        <header className="section__header">
+          <span className="section__eyebrow">Avant / Après</span>
+          <h2 className="section__title">
+            Pourquoi tu n'avances pas — et ce qui change.
+          </h2>
+          <p className="section__sub">
+            La majorité des candidatures échouent parce que le système de
+            recherche est cassé, pas parce que le candidat l'est.
+          </p>
+        </header>
+
         <div className="before-after__grid">
           {/* ── Before card ──────────────────────────────────────── */}
           <article className="before-after__card before-after__card--before">
             <span className="before-after__eyebrow before-after__eyebrow--red">
-              Avant
+              Avant Career OS
             </span>
             <h3 className="before-after__title">
-              12 onglets, du chaos.
+              12 onglets. 0 offre.
             </h3>
 
             <div className="before-after__tools">
@@ -47,15 +66,19 @@ export default function BeforeAfter() {
             <ul className="before-after__list">
               <li>
                 <CrossIcon />
-                <span>Perte de temps à tout chercher</span>
+                <span>10h/semaine perdues à tout chercher</span>
               </li>
               <li>
                 <CrossIcon />
-                <span>Outils mal alignés</span>
+                <span>CV bricolé, rejeté par les ATS</span>
               </li>
               <li>
                 <CrossIcon />
-                <span>Opportunités manquées</span>
+                <span>Entretiens improvisés, jamais préparés</span>
+              </li>
+              <li>
+                <CrossIcon />
+                <span>Aucune visibilité sur ton pipeline</span>
               </li>
             </ul>
           </article>
@@ -79,7 +102,7 @@ export default function BeforeAfter() {
               Avec Career OS
             </span>
             <h3 className="before-after__title">
-              1 système, une exécution claire.
+              1 système. 8 entretiens en 30 jours.
             </h3>
 
             <div className="before-after__tools">
@@ -103,15 +126,19 @@ export default function BeforeAfter() {
             <ul className="before-after__list">
               <li>
                 <CheckIcon />
-                <span>Tout au même endroit</span>
+                <span>Pipeline visuel : 40 candidatures, 1 vue</span>
               </li>
               <li>
                 <CheckIcon />
-                <span>Rappels et suivi automatisés</span>
+                <span>CV adapté en 2 min, score ATS &gt; 90</span>
               </li>
               <li>
                 <CheckIcon />
-                <span>Plus d'entretiens obtenus</span>
+                <span>Brief d'entretien IA pour chaque offre</span>
+              </li>
+              <li>
+                <CheckIcon />
+                <span>+65% d'entretiens obtenus, moyenne cohorte</span>
               </li>
             </ul>
           </article>

@@ -1,3 +1,5 @@
+import { openDemoModal } from "./DemoModal.tsx";
+
 /**
  * Hero — two-column layout matching the v2 mockup.
  *
@@ -9,6 +11,11 @@
  * blue→violet gradient via the `.hero__title-accent` class
  * (defined in landing.css) — used sparingly so it really
  * draws the eye. Same applies to the body word in the CTA.
+ *
+ * The "Voir la démo" CTA opens the global `DemoModal` overlay via
+ * `openDemoModal()` — same trigger used by the Footer link. We use
+ * a button (not an anchor) because there's no URL we're navigating
+ * to; clicking opens an overlay, not a section.
  *
  * Mobile collapses to a single column with the mockup stacked
  * under the CTA row — handled by `.hero__grid` media queries.
@@ -23,25 +30,26 @@ export default function Hero() {
             <span className="hero__eyebrow">
               <span className="hero__eyebrow-star" aria-hidden>✶</span>
               {" "}
-              Le système de carrière des ambitieux
+              L'OS de carrière pour viser McKinsey, Goldman, Anthropic
             </span>
 
             <h1 className="hero__title">
-              Décroche les meilleurs jobs
+              Triple ton taux d'entretiens
               <br />
-              sans y laisser{" "}
-              <span className="hero__title-accent">300 heures.</span>
+              en{" "}
+              <span className="hero__title-accent">30 jours.</span>
             </h1>
 
             <p className="hero__subtitle">
-              Career OS remplace les outils éparpillés et les 12 onglets
-              ouverts par un système unique pour sourcer, optimiser vos
-              CV, suivre vos candidatures et préparer vos entretiens.
+              Tu vises les top firms. Tu envoies 12 candidatures par semaine.
+              Tu obtiens 0 retours. Career OS remplace tes 12 onglets, tes 4
+              Notion, ton Excel et ton coach à 400€/h par un système unique —
+              et te fait gagner 250 heures sur ta recherche.
             </p>
 
             <div className="hero__cta-row">
               <a href="#beta" className="btn-primary">
-                Postuler à la bêta
+                Réserver ma place
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
                   <path
                     d="M3 8 H13 M9 4 L13 8 L9 12"
@@ -52,18 +60,22 @@ export default function Hero() {
                   />
                 </svg>
               </a>
-              <a href="#how" className="btn-ghost">
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={openDemoModal}
+              >
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden style={{ marginRight: 4 }}>
                   <path d="M5 3 L13 8 L5 13 Z" />
                 </svg>
-                Voir la démo
-              </a>
+                Voir la démo (1 min)
+              </button>
             </div>
 
             <ul className="hero__meta-list">
-              <li><CheckDot /> Bêta privée</li>
+              <li><CheckDot /> Bêta gratuite</li>
               <li><CheckDot /> Réponse sous 7 jours</li>
-              <li><CheckDot /> Places limitées</li>
+              <li><CheckDot /> 20 places / semaine</li>
             </ul>
           </div>
 

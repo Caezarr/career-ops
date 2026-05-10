@@ -1295,8 +1295,9 @@ main {
    TrustBar
    ───────────────────────────────────────────────────────────────── */
 .trust-bar {
-  padding: 48px 0 32px;
+  padding: 48px 0 40px;
   border-top: 1px solid var(--border-soft);
+  overflow: hidden;
 }
 .trust-bar__eyebrow {
   text-align: center;
@@ -1307,33 +1308,74 @@ main {
   text-transform: uppercase;
   margin: 0 0 32px;
 }
-.trust-bar__logos {
-  /* Auto-fit responsive grid — handles 8, 11, or any other count
-     without breaking. 110px min keeps the brand marks readable;
-     row-gap absorbs the natural wrap to a 2nd line when we cross
-     the column threshold. */
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+/* Marquee viewport — full-bleed, edges faded so logos don't pop in. */
+.trust-bar__marquee {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+}
+/* The track holds 2× the logo set (first pass + .trust-bar__dup).
+   It's animated to slide left by exactly 50%, looping seamlessly
+   because the duplicate fills the gap. */
+.trust-bar__track {
+  display: flex;
   align-items: center;
-  column-gap: 28px;
-  row-gap: 28px;
-  opacity: 0.75;
+  gap: 56px;
+  width: max-content;
+  animation: trust-marquee 40s linear infinite;
+}
+.trust-bar__track:hover {
+  animation-play-state: paused;
+}
+.trust-bar__dup {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+}
+@keyframes trust-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
 }
 .trust-bar__logo-wrap {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
+  min-width: 130px;
 }
 .trust-bar__logo {
   max-width: 100%;
   max-height: 32px;
   filter: grayscale(100%);
-  opacity: 0.85;
-  transition: opacity 200ms ease, filter 200ms ease;
+  opacity: 0.7;
+  transition: opacity 220ms ease, filter 220ms ease, transform 220ms ease;
 }
 .trust-bar__logo:hover {
   filter: grayscale(0%);
   opacity: 1;
+  transform: scale(1.06);
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-bar__track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -1550,105 +1592,161 @@ main {
 /* ─────────────────────────────────────────────────────────────────
    Results (stats + testimonials)
    ───────────────────────────────────────────────────────────────── */
-.results { padding: 64px 0; }
-.results__grid {
-  display: grid;
-  grid-template-columns: 1fr 1.6fr;
-  gap: 24px;
-  align-items: stretch;
+.results { padding: 72px 0 48px; }
+.results--xl { padding-top: 88px; }
+
+.results__header {
+  text-align: center;
+  margin-bottom: 40px;
 }
 .results__eyebrow {
-  display: block;
+  display: inline-block;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
-.results__stats-card {
-  padding: 24px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--r-xl);
+.results__title {
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  margin: 0;
 }
-.results__stats {
+
+/* 3 large stat cards, icon isolated at the top inside a tinted
+   square tile, value below, label below that. */
+.results__stat-grid {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: 20px;
 }
-.results__stat {
+.results__stat-card {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 28px 26px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+.results__stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px -22px rgba(99, 102, 241, 0.35);
+  border-color: var(--border-strong);
 }
 .results__stat-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--accent-soft);
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent-soft), rgba(139, 92, 246, 0.12));
   color: var(--accent);
 }
 .results__stat-value {
   display: block;
-  font-size: 28px;
+  font-size: clamp(34px, 4vw, 44px);
   font-weight: 800;
   color: var(--text-1);
   line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--text-1), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .results__stat-label {
   display: block;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-3);
-  margin-top: 4px;
-  line-height: 1.3;
+  line-height: 1.45;
 }
-.results__testimonials {
-  display: flex;
-  flex-direction: column;
+@media (max-width: 880px) {
+  .results__stat-grid { grid-template-columns: 1fr; }
 }
-.results__testi-grid {
+
+/* ─────────────────────────────────────────────────────────────────
+   Testimonials (separate section, 2 horizontal cards)
+   ───────────────────────────────────────────────────────────────── */
+.testimonials { padding: 48px 0 80px; }
+.testimonials__header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+.testimonials__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.testimonials__title {
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  margin: 0;
+}
+.testimonials__grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  gap: 24px;
 }
-.testimonial {
-  padding: 20px;
+.testimonial-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px 26px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-xl);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
 }
-.testimonial__quote {
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--text-1);
-  margin: 0 0 18px;
-  font-style: italic;
+.testimonial-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 44px -22px rgba(139, 92, 246, 0.30);
+  border-color: var(--border-strong);
 }
-.testimonial__author {
+.testimonial-card__author {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
-.testimonial__avatar {
+.testimonial-card__avatar {
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
 }
-.testimonial__avatar-img {
-  width: 40px;
-  height: 40px;
+.testimonial-card__avatar-img {
+  width: 56px;
+  height: 56px;
   border-radius: 999px;
   object-fit: cover;
+  display: block;
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 0 0 1px var(--border);
 }
-.testimonial__avatar-initials {
+.testimonial-card__avatar-initials {
   position: absolute;
   inset: 0;
   align-items: center;
@@ -1656,22 +1754,45 @@ main {
   border-radius: 999px;
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
 }
-.testimonial__name {
-  font-size: 13px;
+.testimonial-card__id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.testimonial-card__name {
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-1);
 }
-.testimonial__role {
-  font-size: 12px;
+.testimonial-card__role {
+  font-size: 13px;
   color: var(--text-3);
 }
-@media (max-width: 960px) {
-  .results__grid { grid-template-columns: 1fr; }
-  .results__stats { grid-template-columns: 1fr; }
-  .results__testi-grid { grid-template-columns: 1fr; }
+.testimonial-card__pill {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  align-self: flex-start;
+  width: max-content;
+}
+.testimonial-card__quote {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2, var(--text-1));
+  margin: 0;
+  font-style: italic;
+}
+@media (max-width: 880px) {
+  .testimonials__grid { grid-template-columns: 1fr; }
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -1680,30 +1801,43 @@ main {
 .beta-cta--dark {
   background: #0E1430;
   color: #fff;
-  padding: 72px 0;
+  padding: 80px 0;
   border-radius: var(--r-xl);
   margin: 0 var(--s-6) 64px;
   position: relative;
   overflow: hidden;
+  isolation: isolate;
 }
+/* Inline SVG constellation sits absolutely behind everything. */
+.beta-cta__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Keep the soft radial glows on top of the SVG to give the
+   constellation depth without overpowering the dots. */
 .beta-cta--dark::before,
 .beta-cta--dark::after {
   content: "";
   position: absolute;
-  width: 320px;
-  height: 320px;
+  width: 360px;
+  height: 360px;
   border-radius: 999px;
-  filter: blur(80px);
-  opacity: 0.45;
+  filter: blur(90px);
+  opacity: 0.35;
   pointer-events: none;
+  z-index: 0;
 }
 .beta-cta--dark::before {
-  background: radial-gradient(circle, rgba(99,102,241,0.35), transparent 70%);
-  top: -100px; right: -100px;
+  background: radial-gradient(circle, rgba(99,102,241,0.55), transparent 70%);
+  top: -120px; right: -120px;
 }
 .beta-cta--dark::after {
-  background: radial-gradient(circle, rgba(139,92,246,0.3), transparent 70%);
-  bottom: -120px; left: -80px;
+  background: radial-gradient(circle, rgba(139,92,246,0.45), transparent 70%);
+  bottom: -140px; left: -100px;
 }
 .beta-cta__split {
   display: grid;
@@ -1876,4 +2010,378 @@ main {
 }
 @media (max-width: 560px) {
   .footer__grid { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Reveal-on-scroll — paired with `useReveal` hook.
+   Elements start invisible + nudged down, fade-up when they cross
+   the viewport. `transition-delay` is set inline on staggered
+   children (cards) so each one comes in slightly behind the last.
+   Respects `prefers-reduced-motion`.
+   ───────────────────────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: opacity, transform;
+}
+.reveal--shown {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Global hover polish — zoom + soft shadow on the main card types.
+   These are additive; if a card already has hover styles they win.
+   ───────────────────────────────────────────────────────────────── */
+.feature-card--with-mockup,
+.process-step,
+.before-card {
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+}
+.feature-card--with-mockup:hover,
+.process-step:hover,
+.before-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 38px -22px rgba(99, 102, 241, 0.30);
+  border-color: var(--border-strong);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Beta form — input with leading icon, +update select to match.
+   The `__input-wrap` / `__select-wrap--with-icon` is a positioning
+   parent for the lead icon. We pad the input left so text doesn't
+   collide with the icon glyph.
+   ───────────────────────────────────────────────────────────────── */
+.beta-field__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.beta-field__lead-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  z-index: 1;
+}
+.beta-application--card .beta-field__lead-icon {
+  color: rgba(255, 255, 255, 0.55);
+}
+.beta-field__input--with-icon,
+.beta-field__select--with-icon {
+  padding-left: 40px !important;
+}
+.beta-field__select-wrap--with-icon {
+  position: relative;
+}
+/* Make sure the chevron stays right-aligned even when we add a
+   leading icon on the select. */
+.beta-field__select-wrap--with-icon .beta-field__select-chevron {
+  right: 14px;
+}
+/* Subtle focus halo on the dark form so users feel the input
+   activate. */
+.beta-application--card .beta-field__input:focus,
+.beta-application--card .beta-field__select:focus {
+  outline: none;
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BetaCTA — Hormozi value-stack
+   The "ce que tu reçois" list with valeur sublines + a totals
+   box with strike-through and final 0€. This is the conversion
+   block — keep contrast high (we're inside the dark poster).
+   ───────────────────────────────────────────────────────────────── */
+.beta-cta__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+.beta-cta__intro {
+  margin: 8px 0 14px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.beta-cta__stack {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.beta-cta__stack li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.beta-cta__stack-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.beta-cta__stack-name {
+  color: #fff;
+  font-weight: 600;
+}
+.beta-cta__stack-val {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12.5px;
+  font-style: italic;
+}
+.beta-cta__totals {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.beta-cta__totals-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.beta-cta__totals-row--final {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.18);
+  margin-top: 4px;
+}
+.beta-cta__totals-strike {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.55);
+}
+.beta-cta__totals-final {
+  background: linear-gradient(135deg, #34d399, #a7f3d0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Demo modal — overlay that plays /demo.mp4 inline.
+   Triggered by Hero "Voir la démo" + Footer "Démo (1 min)".
+   ───────────────────────────────────────────────────────────────── */
+.demo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 10, 18, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: demo-modal-fade 180ms ease-out;
+}
+@keyframes demo-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.demo-modal__panel {
+  width: 100%;
+  max-width: 960px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6);
+  overflow: hidden;
+  animation: demo-modal-pop 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes demo-modal-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.demo-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 12px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.demo-modal__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.demo-modal__close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.demo-modal__close:hover {
+  color: var(--text-1);
+  border-color: var(--border-strong);
+  background: var(--bg-soft);
+}
+.demo-modal__close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.demo-modal__video-wrap {
+  /* 16:9 letterbox so the video keeps its aspect regardless of the
+     source dimensions. */
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+.demo-modal__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.demo-modal__hint {
+  margin: 0;
+  padding: 12px 20px 16px;
+  font-size: 13px;
+  color: var(--text-3);
+  text-align: center;
+}
+@media (max-width: 560px) {
+  .demo-modal { padding: 12px; }
+  .demo-modal__title { font-size: 14px; }
+}
+
+/* Results sub-paragraph under the title. */
+.results__sub {
+  max-width: 640px;
+  margin: 14px auto 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Generic section header — used by Features, BeforeAfter, HowItWorks.
+   Pulls together eyebrow + h2 + sub. All theme-aware (no hardcoded
+   colours). Centered for symmetry with Results + Testimonials.
+   ───────────────────────────────────────────────────────────────── */
+.section__header {
+  text-align: center;
+  margin: 0 auto 40px;
+  max-width: 720px;
+}
+.section__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.section__title {
+  font-size: clamp(24px, 2.8vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  line-height: 1.2;
+  margin: 0;
+}
+.section__sub {
+  margin: 14px auto 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-3);
+  max-width: 560px;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Dark-mode polish overrides — light mode is the default in tokens,
+   so these only target [data-theme="light"] for cases where the
+   default token resolution doesn't look great on bright surfaces.
+   The dark theme (default) already gets the right look from tokens.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Trust-bar logos are forced grayscale + 0.7 opacity. On light mode
+   that reads "almost gone"; bump back up so the brand marks register. */
+[data-theme="light"] .trust-bar__logo {
+  opacity: 0.55;
+}
+[data-theme="light"] .trust-bar__logo:hover {
+  opacity: 0.9;
+}
+
+/* Hero accent gradient + Results stat-value gradient resolve through
+   var(--text-1) → var(--accent). On light, that goes (near-black →
+   indigo), which can read flat. Re-bias to (indigo-dark → indigo).
+   Stat-value only, because the hero accent already works. */
+[data-theme="light"] .results__stat-value {
+  background: linear-gradient(135deg, #2d3187, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Feature cards / before-after cards / process steps / testimonial cards
+   get a subtle elevation in light mode. In dark, the border alone reads;
+   in light, a hint of shadow makes them sit. */
+[data-theme="light"] .feature-card--with-mockup,
+[data-theme="light"] .before-after__card,
+[data-theme="light"] .process-step,
+[data-theme="light"] .results__stat-card,
+[data-theme="light"] .testimonial-card {
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="light"] .feature-card--with-mockup:hover,
+[data-theme="light"] .before-after__card:hover,
+[data-theme="light"] .process-step:hover,
+[data-theme="light"] .results__stat-card:hover,
+[data-theme="light"] .testimonial-card:hover {
+  box-shadow: var(--shadow-md);
 }

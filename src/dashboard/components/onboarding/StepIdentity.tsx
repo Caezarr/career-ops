@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import brandMark from "../../assets/brand-mark.png";
 
 const SCHOOLS = [
   "HEC Paris",
@@ -50,6 +51,15 @@ export default function StepIdentity({
 
   return (
     <div className="onboarding__step">
+      <div className="onboarding__brand" aria-hidden>
+        <img
+          src={brandMark}
+          alt=""
+          width={48}
+          height={48}
+          className="onboarding__brand-mark"
+        />
+      </div>
       <h1 className="onboarding__title">Bienvenue dans Career OS</h1>
       <p className="onboarding__subtitle">
         Trois minutes pour calibrer l&apos;app sur ton parcours.

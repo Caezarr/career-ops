@@ -1,17 +1,23 @@
 /**
- * "Des résultats concrets" + "Ils ont accéléré leur carrière" —
- * combined section matching the mockup: 3 stat tiles on the left,
- * 2 testimonial cards on the right.
+ * "Des résultats concrets" — 3 big stat cards.
+ *
+ * This used to be a combined section (stats + testimonials side by
+ * side). The mockup the user shipped wants stats and testimonials
+ * as **two distinct sections**, each given its own vertical real
+ * estate. Stats stay here; testimonials moved to `Testimonials.tsx`.
  *
  * The stats are deliberately stated **as averages, not promises**.
  * "+65% d'entretiens obtenus" reads as the median lift our beta
  * cohort sees, not a guarantee. We'll back this with the real
  * cohort number once we have ~20 weeks of usage data.
  *
- * Testimonial photos live in `landing/public/assets/`
- * (`testimonial-camille.jpg`, `testimonial-thomas.jpg`).
- * Initials avatars fall in when the asset is missing.
+ * Card layout: icon isolated in a square tile at the top, big
+ * value below, label below that. The icon-on-top arrangement
+ * pulls the eye into the card before the number does — much more
+ * scannable than the old inline "icon + number side-by-side".
  */
+
+import { useReveal } from "../hooks/useReveal.ts";
 
 interface Stat {
   value: string;
@@ -24,7 +30,7 @@ const STATS: Stat[] = [
     value: "40",
     label: "candidatures suivies en moyenne",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
           d="M16 18 C 16 15.5 13.5 14 12 14 S 8 15.5 8 18 M12 11 a3 3 0 1 0 0 -6 3 3 0 0 0 0 6 M19 18 C 19 16 17.5 14.7 16 14.4 M16 11.4 a2.4 2.4 0 1 0 0 -4.8 M5 18 C 5 16 6.5 14.7 8 14.4 M8 11.4 a2.4 2.4 0 1 1 0 -4.8"
           stroke="currentColor"
@@ -37,9 +43,9 @@ const STATS: Stat[] = [
   },
   {
     value: "2 min",
-    label: "pour adapter un CV",
+    label: "pour adapter un CV à une offre",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
           d="M13 3 L4 14 L11 14 L10 21 L20 10 L13 10 Z"
           stroke="currentColor"
@@ -51,9 +57,9 @@ const STATS: Stat[] = [
   },
   {
     value: "+65%",
-    label: "d'entretiens obtenus",
+    label: "d'entretiens obtenus en moyenne",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
           d="M3 17 L9 11 L13 15 L21 7 M15 7 L21 7 L21 13"
           stroke="currentColor"
@@ -66,96 +72,40 @@ const STATS: Stat[] = [
   },
 ];
 
-interface Testimonial {
-  quote: string;
-  name: string;
-  role: string;
-  photo: string;
-  initials: string;
-}
-
-const TESTIMONIALS: Testimonial[] = [
-  {
-    quote:
-      "Career OS m'a fait gagner un temps fou. J'ai décroché mon entretien en 10 jours.",
-    name: "Camille R.",
-    role: "Consultante, Paris 16e",
-    photo: "testimonial-camille.jpg",
-    initials: "CR",
-  },
-  {
-    quote:
-      "L'ATS optimizer m'a redonné vie ! 3 réponses en 2 semaines et des entretiens qui s'enchaînent.",
-    name: "Thomas L.",
-    role: "PM, éditeur de logiciels",
-    photo: "testimonial-thomas.jpg",
-    initials: "TL",
-  },
-];
-
 export default function Results() {
+  const { ref, shown } = useReveal<HTMLDivElement>();
   return (
-    <section className="section results" id="results">
-      <div className="container">
-        <div className="results__grid">
-          {/* ── Left: stats card ─────────────────────────────── */}
-          <div className="results__stats-card">
-            <span className="results__eyebrow">Des résultats concrets</span>
-            <ul className="results__stats">
-              {STATS.map((s) => (
-                <li className="results__stat" key={s.label}>
-                  <span className="results__stat-icon" aria-hidden>{s.icon}</span>
-                  <div>
-                    <span className="results__stat-value">{s.value}</span>
-                    <span className="results__stat-label">{s.label}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
+    <section className="section results results--xl" id="results">
+      <div
+        ref={ref}
+        className={`container reveal ${shown ? "reveal--shown" : ""}`}
+      >
+        <header className="results__header">
+          <span className="results__eyebrow">Résultats moyens — bêta privée, n=14</span>
+          <h2 className="results__title">
+            Plus de candidatures. Moins de temps. Plus d'entretiens.
+          </h2>
+          <p className="results__sub">
+            Pas une promesse marketing — la moyenne réelle de notre cohorte
+            bêta sur les 30 premiers jours d'utilisation.
+          </p>
+        </header>
 
-          {/* ── Right: testimonials ──────────────────────────── */}
-          <div className="results__testimonials">
-            <span className="results__eyebrow">
-              Ils ont accéléré leur carrière
-            </span>
-            <div className="results__testi-grid">
-              {TESTIMONIALS.map((t) => (
-                <article className="testimonial" key={t.name}>
-                  <p className="testimonial__quote">
-                    «&nbsp;{t.quote}&nbsp;»
-                  </p>
-                  <div className="testimonial__author">
-                    <div className="testimonial__avatar">
-                      <img
-                        src={`/assets/${t.photo}`}
-                        alt={t.name}
-                        className="testimonial__avatar-img"
-                        loading="lazy"
-                        onError={(e) => {
-                          const el = e.currentTarget;
-                          el.style.display = "none";
-                          const sib = el.nextElementSibling as HTMLElement | null;
-                          if (sib) sib.style.display = "flex";
-                        }}
-                      />
-                      <span
-                        className="testimonial__avatar-initials"
-                        style={{ display: "none" }}
-                      >
-                        {t.initials}
-                      </span>
-                    </div>
-                    <div>
-                      <div className="testimonial__name">{t.name}</div>
-                      <div className="testimonial__role">{t.role}</div>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </div>
+        <ul className="results__stat-grid">
+          {STATS.map((s, i) => (
+            <li
+              key={s.label}
+              className="results__stat-card"
+              style={{ transitionDelay: `${i * 80}ms` }}
+            >
+              <span className="results__stat-icon" aria-hidden>
+                {s.icon}
+              </span>
+              <span className="results__stat-value">{s.value}</span>
+              <span className="results__stat-label">{s.label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

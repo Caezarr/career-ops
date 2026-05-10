@@ -1,0 +1,176 @@
+/* Shared stylesheet for static HTML pages served from `/public/`
+   (About, Legal pages). Mirrors the brand palette but is intentionally
+   minimal — these pages are read-once, must look professional, and
+   must render zero-JS so search engines + privacy-blockers see the
+   whole content.
+
+   Dark/light theme follows OS preference via `prefers-color-scheme`,
+   with the same indigo accent as the SPA. No theme toggle on these
+   pages — keeping the contract simple. */
+
+:root {
+  --bg:        #fafafb;
+  --bg-card:   #ffffff;
+  --text-1:    #0E1422;
+  --text-2:    #4B5366;
+  --text-3:    #6B7184;
+  --border:    #e6e8ef;
+  --accent:    #5b62e6;
+  --accent-soft: rgba(91, 98, 230, 0.10);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:        #0A0B0F;
+    --bg-card:   #16181F;
+    --text-1:    #F4F5F8;
+    --text-2:    #B8BAC4;
+    --text-3:    #82858F;
+    --border:    #21232C;
+    --accent:    #818cf8;
+    --accent-soft: rgba(99, 102, 241, 0.14);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: -0.005em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Header / brand ─────────────────────────────────────────────── */
+.page-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 85%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+.page-header__inner {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.page-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--text-1);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+.page-header__brand img {
+  width: 24px;
+  height: 24px;
+  border-radius: 0;
+}
+.page-header__back {
+  font-size: 13px;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.page-header__back:hover { color: var(--text-1); }
+
+/* ── Article body ───────────────────────────────────────────────── */
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 24px 96px;
+}
+h1 {
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+  line-height: 1.15;
+}
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 40px 0 12px;
+  color: var(--text-1);
+}
+h3 {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 28px 0 8px;
+  color: var(--text-1);
+}
+p, ul, ol {
+  color: var(--text-2);
+  margin: 0 0 16px;
+}
+ul, ol {
+  padding-left: 22px;
+}
+li { margin-bottom: 6px; }
+a { color: var(--accent); }
+strong { color: var(--text-1); }
+
+.page-meta {
+  font-size: 13px;
+  color: var(--text-3);
+  margin: 0 0 32px;
+}
+.page-meta time { font-variant-numeric: tabular-nums; }
+
+.callout {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin: 24px 0;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.callout strong { display: block; margin-bottom: 4px; color: var(--text-1); }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 24px;
+  font-size: 14px;
+}
+th, td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+th {
+  font-weight: 700;
+  color: var(--text-1);
+  background: var(--bg-card);
+}
+
+/* ── Footer ─────────────────────────────────────────────────────── */
+.page-footer {
+  border-top: 1px solid var(--border);
+  padding: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.page-footer a {
+  color: var(--text-3);
+  text-decoration: none;
+  margin: 0 8px;
+}
+.page-footer a:hover { color: var(--text-1); }

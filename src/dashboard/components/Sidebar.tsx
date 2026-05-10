@@ -13,6 +13,10 @@ import { useAppStore } from '../store';
 import { useNavigation, type Page } from '../navigation';
 import UserMenu from './menus/UserMenu';
 import UserAvatar from './UserAvatar';
+// Brand "C" mark — same asset used as the macOS app icon, kept inside
+// `src/` so Vite hashes and bundles it. Single source of truth: copy
+// from `brand/icon-only.png` whenever the brand identity is updated.
+import brandMark from '../assets/brand-mark.png';
 
 interface NavEntry {
   id: string;
@@ -64,7 +68,16 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <div className="sidebar__logo">Career</div>
+      <div className="sidebar__logo" aria-label="Career OS">
+        <img
+          src={brandMark}
+          alt=""
+          width={24}
+          height={24}
+          className="sidebar__logo-mark"
+        />
+        <span className="sidebar__logo-text">Career OS</span>
+      </div>
 
       <nav className="sidebar__nav" aria-label="Primary">
         {topNav.map((item) => {
