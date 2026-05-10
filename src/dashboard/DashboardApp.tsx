@@ -104,6 +104,68 @@ function CommandPaletteHost() {
   return <CommandPalette open={open} onClose={() => setOpen(false)} />;
 }
 
+/** Minimalist skeleton painted while a lazy route chunk loads.
+ *  Uses the existing dashboard layout tokens so it lines up
+ *  pixel-perfect with the eventual page (no shift on swap). We
+ *  deliberately avoid importing Sidebar / TopBar — those would
+ *  defeat code-splitting by re-bundling them into the eager
+ *  bundle. Three colored bars + a centered shimmer is enough to
+ *  read as "loading", not "crashed". */
+function RouteFallback() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "var(--bg, #0a0b0f)",
+        display: "grid",
+        gridTemplateColumns: "240px 1fr",
+        gridTemplateRows: "56px 1fr",
+        zIndex: 1,
+      }}
+      aria-busy="true"
+      aria-label="Chargement de la page"
+    >
+      {/* Sidebar slot */}
+      <div
+        style={{
+          gridRow: "1 / span 2",
+          background: "var(--bg-1, #16181f)",
+          borderRight: "1px solid var(--border, #21232c)",
+        }}
+      />
+      {/* TopBar slot */}
+      <div
+        style={{
+          background: "var(--bg-1, #16181f)",
+          borderBottom: "1px solid var(--border, #21232c)",
+        }}
+      />
+      {/* Main content shimmer */}
+      <div
+        style={{
+          padding: 32,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            border: "2px solid var(--border, #21232c)",
+            borderTopColor: "var(--indigo, #6366f1)",
+            animation: "route-fallback-spin 600ms linear infinite",
+          }}
+        />
+      </div>
+      <style>{`@keyframes route-fallback-spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 /** Tiny zero-render component whose only job is to run useApplyAppearance
  *  inside the store-aware tree, mirroring the GlobalKeyboardShortcuts
  *  pattern. Keeps DashboardApp itself dumb. */
@@ -195,15 +257,16 @@ export function DashboardApp() {
             <GlobalKeyboardShortcuts />
             {/*
               Sprint 5 PR-B: lazy routes need a Suspense boundary.
-              The fallback is `null` on purpose — the page transition
-              is sub-100ms once the chunk lands (Tauri serves locally,
-              no network), so a spinner just creates a flash. If the
-              chunk fails to load (rare; would need a build mismatch
-              between window contexts), React surfaces the error via
-              its error boundary instead of leaving the user staring
-              at a blank screen.
+              Sprint 6 update: the previous `fallback={null}`
+              produced a stark blank flash on slower machines /
+              cold disk caches when a chunk took >50ms to land.
+              `<RouteFallback />` paints the surrounding chrome
+              (Sidebar + TopBar shell) so the transition reads
+              like a load, not a crash. Sub-50ms loads still feel
+              snappy because the skeleton has the same layout
+              footprint as the eventual page.
             */}
-            <Suspense fallback={null}>
+            <Suspense fallback={<RouteFallback />}>
               <PageRouter />
             </Suspense>
             <CommandPaletteHost />
