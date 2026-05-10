@@ -54,6 +54,13 @@
       "csp": null
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["careeros"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "dmg",
