@@ -264,18 +264,6 @@ export default function AuthCard() {
           </button>
         </div>
       </form>
-
-      <p
-        style={{
-          marginTop: 12,
-          fontSize: 11,
-          color: "var(--color-text-muted, #8a8d99)",
-        }}
-      >
-        Anti-bot : pas de mot de passe = pas de fuite de mot de passe. Le lien
-        magique sert aussi de filtre — un bot sans vraie boîte mail ne peut
-        pas finaliser la connexion.
-      </p>
     </section>
   );
 }

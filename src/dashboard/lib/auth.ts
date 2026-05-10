@@ -94,16 +94,33 @@ export async function clearJwt(): Promise<void> {
  * known (anti-enumeration), so a non-error here just means "email
  * dispatched if the address was valid". Surfacing 429 / 5xx so the
  * UI can tell the user to retry.
+ *
+ * `fetch` throws a `TypeError("Load failed" / "Failed to fetch")`
+ * when the network call never reaches the server (DNS failure,
+ * Worker not deployed yet, dev Worker not running). We translate
+ * that into a `status: 0` AuthError so the UI message stays
+ * actionable instead of leaking the browser's terse default.
  */
 export async function requestMagicLink(email: string): Promise<void> {
   const trimmed = email.trim();
   if (!trimmed) throw new AuthError("Email vide", 400);
 
-  const res = await fetch(`${API_BASE_URL}/auth/request`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ email: trimmed }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}/auth/request`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: trimmed }),
+    });
+  } catch (e) {
+    // Network-level failure — TypeError on fetch. Convert to a
+    // user-meaningful error rather than letting "Load failed"
+    // bubble up.
+    throw new AuthError(
+      `Serveur d'authentification injoignable (${API_BASE_URL}). Vérifie ta connexion ou réessaye plus tard.`,
+      0,
+    );
+  }
 
   if (!res.ok) {
     // 429 = rate-limited at the Cloudflare edge; 5xx = Worker down /
