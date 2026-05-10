@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useAppStore } from "../../store";
+import type { User } from "../../store";
 import StepIdentity from "./StepIdentity";
 import StepTargets, { trackLabel } from "./StepTargets";
+import StepBackground from "./StepBackground";
 import StepFirstCV from "./StepFirstCV";
 import StepFirstSource from "./StepFirstSource";
 import "../../styles/onboarding.css";
 
-const STEP_COUNT = 4;
+// Sprint 6 (CV OCR + extended profile): added a 5th step
+// (StepBackground) between Targets and FirstCV. The order is
+// deliberate: we capture cibles + contexte BEFORE asking for the
+// CV, so that even a user who skips the upload leaves with a
+// usable profile.
+const STEP_COUNT = 5;
 
 /** First-launch setup wizard.
  *
@@ -38,9 +45,28 @@ export default function Onboarding() {
   );
   const [school, setSchool] = useState<string>(user.school ?? "");
   const [schoolOther, setSchoolOther] = useState<string>("");
+  const [degree, setDegree] = useState<string>(user.degree ?? "");
+  const [gradYear, setGradYear] = useState<string>(
+    user.gradYear ? String(user.gradYear) : "",
+  );
 
   // Targets (Step 2).
   const [tracks, setTracks] = useState<string[]>(user.targetTracks ?? []);
+
+  // Background (Step 3) — Sprint 6, all optional.
+  const [experienceLevel, setExperienceLevel] = useState<User["experienceLevel"]>(
+    user.experienceLevel,
+  );
+  const [targetGeo, setTargetGeo] = useState<string[]>(user.targetGeo ?? []);
+  const [contractType, setContractType] = useState<User["contractType"]>(
+    user.contractType,
+  );
+  const [salaryMin, setSalaryMin] = useState<string>(
+    user.salaryMin ? String(user.salaryMin) : "",
+  );
+  const [salaryMax, setSalaryMax] = useState<string>(
+    user.salaryMax ? String(user.salaryMax) : "",
+  );
 
   // Persist resume position whenever the user advances.
   useEffect(() => {
@@ -59,10 +85,13 @@ export default function Onboarding() {
   const targetsValid = tracks.length > 0;
 
   // Whether the current step's primary action should be enabled.
+  // Step 0 = Identity, 1 = Targets, 2 = Background (always
+  // advanceable), 3 = FirstCV (skippable), 4 = FirstSource
+  // (skippable).
   const canAdvance = useMemo(() => {
     if (step === 0) return identityValid;
     if (step === 1) return targetsValid;
-    return true; // Steps 3 / 4 are always skippable.
+    return true; // Steps 2 / 3 / 4 are always skippable.
   }, [step, identityValid, targetsValid]);
 
   function goNext() {
@@ -86,12 +115,24 @@ export default function Onboarding() {
     const finalSchool =
       school === "Autre" ? schoolOther.trim() : school;
     const targetCompany = tracks.map(trackLabel).join(", ");
+    const gradYearNum = gradYear ? parseInt(gradYear, 10) : undefined;
+    const salaryMinNum = salaryMin ? parseInt(salaryMin, 10) : undefined;
+    const salaryMaxNum = salaryMax ? parseInt(salaryMax, 10) : undefined;
 
     // 320ms — matches the fade-out animation duration in onboarding.css.
     window.setTimeout(() => {
       markOnboarded({
-        name: firstName.trim(),
+        // Sprint 6: respect the auto-fill from StepFirstCV — only
+        // overwrite `name` if the user typed a prénom in StepIdentity.
+        // Otherwise keep whatever extractCvProfile injected via
+        // updateUser (could be the full "Camille Durand" extracted
+        // from the CV header).
+        ...(firstName.trim() ? { name: firstName.trim() } : {}),
         school: finalSchool,
+        ...(degree.trim() ? { degree: degree.trim() } : {}),
+        ...(gradYearNum && !Number.isNaN(gradYearNum)
+          ? { gradYear: gradYearNum }
+          : {}),
         // Mirror école into `location` only if location is empty —
         // we don't want to clobber a real city the user typed via
         // Settings later. Empty string is fine; downstream consumers
@@ -99,6 +140,16 @@ export default function Onboarding() {
         location: user.location || finalSchool,
         targetTracks: tracks,
         targetCompany: targetCompany || user.targetCompany,
+        // Sprint 6 background fields — all optional.
+        ...(experienceLevel ? { experienceLevel } : {}),
+        ...(targetGeo.length > 0 ? { targetGeo } : {}),
+        ...(contractType ? { contractType } : {}),
+        ...(salaryMinNum && !Number.isNaN(salaryMinNum)
+          ? { salaryMin: salaryMinNum }
+          : {}),
+        ...(salaryMaxNum && !Number.isNaN(salaryMaxNum)
+          ? { salaryMax: salaryMaxNum }
+          : {}),
         avatarInitials: firstName.trim().charAt(0).toUpperCase() || "",
       });
     }, 320);
@@ -141,13 +192,31 @@ export default function Onboarding() {
               setSchool={setSchool}
               schoolOther={schoolOther}
               setSchoolOther={setSchoolOther}
+              degree={degree}
+              setDegree={setDegree}
+              gradYear={gradYear}
+              setGradYear={setGradYear}
             />
           )}
           {step === 1 && (
             <StepTargets selected={tracks} setSelected={setTracks} />
           )}
-          {step === 2 && <StepFirstCV />}
-          {step === 3 && <StepFirstSource />}
+          {step === 2 && (
+            <StepBackground
+              experienceLevel={experienceLevel}
+              setExperienceLevel={setExperienceLevel}
+              targetGeo={targetGeo}
+              setTargetGeo={setTargetGeo}
+              contractType={contractType}
+              setContractType={setContractType}
+              salaryMin={salaryMin}
+              setSalaryMin={setSalaryMin}
+              salaryMax={salaryMax}
+              setSalaryMax={setSalaryMax}
+            />
+          )}
+          {step === 3 && <StepFirstCV />}
+          {step === 4 && <StepFirstSource />}
         </div>
 
         <div className="onboarding__footer">
@@ -165,7 +234,10 @@ export default function Onboarding() {
           </div>
 
           <div className="onboarding__footer-right">
-            {(step === 2 || step === 3) && (
+            {/* Step 2 (Background), 3 (FirstCV), 4 (FirstSource)
+                are skippable. Step 0/1 are required so no skip
+                button there. */}
+            {(step === 2 || step === 3 || step === 4) && (
               <button
                 type="button"
                 className="onboarding__btn onboarding__btn--ghost"

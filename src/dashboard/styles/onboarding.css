@@ -440,4 +440,53 @@
   .dashboard-root .onboarding__cards {
     grid-template-columns: 1fr;
   }
+  .dashboard-root .onboarding__field-row {
+    flex-direction: column;
+  }
+  .dashboard-root .onboarding__field-row .onboarding__field {
+    width: 100% !important;
+  }
+}
+
+/* Sprint 6 — extended onboarding ──────────────────────────────────────── */
+
+/* Tiny "(facultatif)" hint shown after a label on optional inputs. */
+.dashboard-root .onboarding__optional {
+  font-weight: 400;
+  color: var(--text-2);
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+/* Two-column inline field row (used by Diplôme + Promo on StepIdentity). */
+.dashboard-root .onboarding__field-row {
+  display: flex;
+  gap: 12px;
+}
+
+/* Auto-fill recap card shown on StepFirstCV after extraction. */
+.dashboard-root .onboarding__autofill {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--indigo) 40%, var(--border));
+  background: color-mix(in oklab, var(--indigo) 8%, var(--bg-soft));
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.dashboard-root .onboarding__autofill-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .onboarding__autofill-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
 }

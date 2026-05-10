@@ -18,9 +18,16 @@ interface Props {
   setSchool: (v: string) => void;
   schoolOther: string;
   setSchoolOther: (v: string) => void;
+  // Sprint 6 — optional academic context. Both can stay empty.
+  degree: string;
+  setDegree: (v: string) => void;
+  gradYear: string;
+  setGradYear: (v: string) => void;
 }
 
-/** Step 1 — required identity fields (prénom + école). Drives the
+/** Step 1 — required identity fields (prénom + école) plus the
+ *  optional diplôme / promo year captured Sprint 6 so prep + CV
+ *  generators have a richer profile from the start. Drives the
  *  enabled state of the Next button via the parent's validation. */
 export default function StepIdentity({
   firstName,
@@ -29,6 +36,10 @@ export default function StepIdentity({
   setSchool,
   schoolOther,
   setSchoolOther,
+  degree,
+  setDegree,
+  gradYear,
+  setGradYear,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -96,6 +107,46 @@ export default function StepIdentity({
           />
         </div>
       )}
+
+      <div
+        className="onboarding__field-row"
+        style={{ display: "flex", gap: 12 }}
+      >
+        <div className="onboarding__field" style={{ flex: 1 }}>
+          <label className="onboarding__label" htmlFor="onb-degree">
+            Diplôme <span className="onboarding__optional">(facultatif)</span>
+          </label>
+          <input
+            id="onb-degree"
+            className="onboarding__input"
+            type="text"
+            value={degree}
+            onChange={(e) => setDegree(e.target.value)}
+            placeholder="ex: MSc Strategy, Bachelor CS, MBA"
+            autoComplete="off"
+          />
+        </div>
+        <div className="onboarding__field" style={{ width: 140 }}>
+          <label className="onboarding__label" htmlFor="onb-gradYear">
+            Promo
+          </label>
+          <input
+            id="onb-gradYear"
+            className="onboarding__input"
+            type="text"
+            inputMode="numeric"
+            value={gradYear}
+            onChange={(e) => {
+              // Keep input numeric-only without forcing controlled
+              // type="number" (which has UX warts on Safari/Tauri).
+              const v = e.target.value.replace(/\D/g, "").slice(0, 4);
+              setGradYear(v);
+            }}
+            placeholder="2025"
+            autoComplete="off"
+          />
+        </div>
+      </div>
     </div>
   );
 }
