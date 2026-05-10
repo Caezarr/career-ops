@@ -67,20 +67,40 @@ authRoutes.post("/request", async (c) => {
 
   const magicLink = `${c.env.WEB_BASE_URL}/auth/verify?token=${token}`;
 
-  try {
-    await sendMagicLinkEmail({
-      apiKey: c.env.LOOPS_API_KEY,
-      templateId: c.env.LOOPS_TRANSACTIONAL_ID,
-      email: emailRaw,
-      magicLink,
-    });
-  } catch (err) {
-    const status = err instanceof LoopsError ? err.status : 0;
-    console.error(
-      `auth/request: send failed (loops status=${status}) for user=${user.id}`,
+  // Dev-only escape hatch: when no real Loops key is configured
+  // (we're in `pnpm dev` with `.dev.vars` placeholder values), log
+  // the magic link to the worker console so the developer can
+  // copy-paste it into their browser. The "dev-noop" / empty
+  // string sentinel keeps prod safe — Cloudflare secrets are
+  // always real strings, never "dev-noop".
+  const isDevNoop =
+    !c.env.LOOPS_API_KEY ||
+    c.env.LOOPS_API_KEY === "dev-noop" ||
+    c.env.LOOPS_API_KEY.startsWith("dev-");
+
+  if (isDevNoop) {
+    // Loud, copy-pasteable. Open the worker terminal during dev,
+    // paste this URL into your browser → /auth/verify hands the
+    // app a JWT via the careeros:// deep link.
+    console.log(
+      `\n[auth/request] DEV mode (no Loops) — magic link for ${emailRaw}:\n  ${magicLink}\n`,
     );
-    // Still return 200 — never reveal email enumeration via error
-    // shape. The user will retry if they don't see the email.
+  } else {
+    try {
+      await sendMagicLinkEmail({
+        apiKey: c.env.LOOPS_API_KEY,
+        templateId: c.env.LOOPS_TRANSACTIONAL_ID,
+        email: emailRaw,
+        magicLink,
+      });
+    } catch (err) {
+      const status = err instanceof LoopsError ? err.status : 0;
+      console.error(
+        `auth/request: send failed (loops status=${status}) for user=${user.id}`,
+      );
+      // Still return 200 — never reveal email enumeration via error
+      // shape. The user will retry if they don't see the email.
+    }
   }
 
   return c.json({ ok: true });
