@@ -60,6 +60,14 @@
       "desktop": {
         "schemes": ["careeros"]
       }
+    },
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://api.careeros.app/v1/updates/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "dialog": false,
+      "pubkey": "REPLACE_WITH_TAURI_SIGNER_GENERATE_PUBKEY"
     }
   },
   "bundle": {

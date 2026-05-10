@@ -31,6 +31,10 @@ APP_DEEP_LINK = "careeros://auth/callback"
 WEB_BASE_URL = "https://api.careeros.app"
 MAGIC_LINK_TTL_SECONDS = "900"
 JWT_TTL_SECONDS = "2592000"
+# GitHub repo the auto-updater proxies for the latest release. Set
+# to your fork or leave commented to disable update checks (the
+# /v1/updates endpoint will respond 204 No Content).
+GITHUB_REPO = "Caezarr/career-ops"
 
 # Bundle the LaTeX template as a text-import. Wrangler resolves
 # `import x from "./templates/cv-template.tex"` to a string at

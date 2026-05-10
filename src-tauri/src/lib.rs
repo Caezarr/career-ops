@@ -1100,6 +1100,11 @@ pub fn run() {
         // (`plugins.deep-link.desktop.schemes`) so macOS registers
         // it at install time.
         .plugin(tauri_plugin_deep_link::init())
+        // Auto-updater — checks the endpoints in
+        // `tauri.conf.json::plugins.updater.endpoints` for a newer
+        // version. The frontend hook (`useAutoUpdate`) drives the
+        // user-visible flow (toast on available, download → install).
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let state = Arc::new(Mutex::new(AppState::default()));
             app.manage(state);

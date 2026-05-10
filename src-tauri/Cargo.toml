@@ -59,6 +59,13 @@ tauri-plugin-autostart = "2.5.1"
 # matching URL to the running app. Drives the auth magic-link
 # callback (`careeros://auth/callback#jwt=…`).
 tauri-plugin-deep-link = "2"
+# Auto-updater plugin — checks the endpoint declared in
+# `tauri.conf.json::plugins.updater.endpoints` for a newer
+# version's `latest.json` manifest, downloads + verifies the DMG
+# signature against the public key, then prompts the user.
+# Required signing keypair generated via `pnpm tauri signer
+# generate -- -w ~/.tauri/career-os.key`.
+tauri-plugin-updater = "2"
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
