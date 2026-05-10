@@ -200,6 +200,12 @@ export const useAppStore = create<AppStore>()(
       plan: state.plan,
       paymentIntentId: state.paymentIntentId,
       sprintEndsAt: state.sprintEndsAt,
+      // Stripe Checkout (post-beta) — mirrored locally so the
+      // Billing tab paints instantly on cold start while the boot
+      // hook re-hydrates from the Tauri side.
+      subscriptionStatus: state.subscriptionStatus,
+      currentPeriodEnd: state.currentPeriodEnd,
+      cancelAtPeriodEnd: state.cancelAtPeriodEnd,
       // Persist Copilot session history so the user can review past
       // interviews. We DO NOT persist pendingTranscript / pendingAnswer
       // / activeSessionId / copilotStatus — those are runtime-only and

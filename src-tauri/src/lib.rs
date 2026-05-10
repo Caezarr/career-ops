@@ -1,5 +1,6 @@
 mod ai;
 mod audio;
+mod billing;
 mod cloud;
 mod db;
 mod ingest;
@@ -1262,14 +1263,16 @@ async fn ingest_health_check(
 // compromised webview can't poke at arbitrary Keychain accounts.
 
 /// Parse a wire-format slot name ("anthropic_key", "openai_key",
-/// "assemblyai_key", "deepgram_key") into the closed enum. Anything
-/// else returns an error — keeps the trust boundary tight.
+/// "assemblyai_key", "deepgram_key", "stripe_key") into the closed
+/// enum. Anything else returns an error — keeps the trust boundary
+/// tight.
 fn parse_slot(name: &str) -> Result<secrets::SecretSlot, String> {
     match name {
         "anthropic_key" => Ok(secrets::SecretSlot::AnthropicKey),
         "openai_key" => Ok(secrets::SecretSlot::OpenaiKey),
         "assemblyai_key" => Ok(secrets::SecretSlot::AssemblyaiKey),
         "deepgram_key" => Ok(secrets::SecretSlot::DeepgramKey),
+        "stripe_key" => Ok(secrets::SecretSlot::StripeKey),
         other => Err(format!("Unknown secret slot: '{other}'")),
     }
 }
@@ -1293,6 +1296,148 @@ fn secrets_delete(window: WebviewWindow, name: String) -> Result<(), String> {
     assert_main_or_copilot(&window)?;
     let slot = parse_slot(&name)?;
     secrets::delete(slot).map_err(|e| e.to_string())
+}
+
+// ─── Stripe Checkout / billing commands ──────────────────────────────
+//
+// Three commands gated with `assert_main_or_copilot`. Stripe key is
+// pulled from the Keychain at command entry — if missing, the user
+// gets a clear localized error and the UI keeps the user on the free
+// tier instead of crashing.
+//
+// NOTE: price ID is provided by the frontend (Vite env var). We don't
+// hardcode it server-side — different builds (test / live) need
+// different SKUs and that's a frontend deploy-time concern.
+
+/// DTO returned to the frontend. Mirrors the shape of the local
+/// subscription mirror but without the Stripe-internal columns.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SubscriptionDto {
+    status: String,
+    plan: String,
+    current_period_end: Option<i64>,
+    cancel_at_period_end: bool,
+    stripe_subscription_id: Option<String>,
+}
+
+/// Read the Stripe key from the Keychain. Returns a localized error
+/// when unset so the UI can surface a "configure Stripe first" hint.
+fn require_stripe_key() -> Result<String, String> {
+    secrets::get(secrets::SecretSlot::StripeKey)
+        .map_err(|e| e.to_string())?
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| "Stripe non configuré".to_string())
+}
+
+/// Create a Checkout Session. Returns the redirect URL for the user's
+/// default browser (the frontend opens it via `tauri-plugin-shell`).
+///
+/// `price_id` is provided by the frontend so a single binary can ship
+/// against test or live Stripe environments without a rebuild.
+#[tauri::command]
+async fn billing_create_checkout(
+    window: WebviewWindow,
+    customer_email: String,
+    price_id: String,
+) -> Result<String, String> {
+    assert_main_or_copilot(&window)?;
+    if price_id.trim().is_empty() {
+        return Err("price_id manquant".into());
+    }
+    if customer_email.trim().is_empty() {
+        return Err("Email requis pour la facturation".into());
+    }
+
+    let key = require_stripe_key()?;
+
+    // Hard-coded callback URLs — they round-trip through career-os.app
+    // because the desktop app can't host its own redirect target.
+    // The landing page reads the query string and pings the desktop
+    // back via the deep-link protocol when it ships. Until then, the
+    // user just closes the tab.
+    let success_url = "https://career-os.app/billing/success?session_id={CHECKOUT_SESSION_ID}";
+    let cancel_url = "https://career-os.app/billing/cancel";
+
+    let session = billing::create_checkout_session(
+        &key,
+        &price_id,
+        &customer_email,
+        success_url,
+        cancel_url,
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(session.url)
+}
+
+/// Read the local subscription mirror. `None` means the user has no
+/// Stripe record on this device — the UI treats that as the free
+/// tier without making any HTTP calls.
+#[tauri::command]
+async fn billing_get_subscription(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+) -> Result<Option<SubscriptionDto>, String> {
+    assert_main_or_copilot(&window)?;
+    let row = db::subscription::get_subscription(pool.inner(), db::DEFAULT_USER_ID)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(row.map(|r| SubscriptionDto {
+        status: r.status,
+        plan: r.plan,
+        current_period_end: r.current_period_end,
+        cancel_at_period_end: r.cancel_at_period_end != 0,
+        stripe_subscription_id: r.stripe_subscription_id,
+    }))
+}
+
+/// Cancel the current subscription at period end (NOT immediate —
+/// see `billing::cancel_subscription` for the rationale).
+///
+/// Updates the local mirror so the UI reflects the change without
+/// waiting for a webhook round-trip.
+#[tauri::command]
+async fn billing_cancel(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let key = require_stripe_key()?;
+
+    let row = db::subscription::get_subscription(pool.inner(), db::DEFAULT_USER_ID)
+        .await
+        .map_err(|e| e.to_string())?;
+    let row = row.ok_or_else(|| "Aucun abonnement actif".to_string())?;
+    let sub_id = row
+        .stripe_subscription_id
+        .clone()
+        .ok_or_else(|| "Aucun identifiant d'abonnement Stripe".to_string())?;
+
+    billing::cancel_subscription(&key, &sub_id)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Reflect the change locally so the UI updates without waiting
+    // for the webhook. `status` stays `active` until period end —
+    // we just flip the cancel flag.
+    db::subscription::upsert_subscription(
+        pool.inner(),
+        db::subscription::UpsertSubscriptionInput {
+            user_id: db::DEFAULT_USER_ID.to_string(),
+            stripe_customer_id: row.stripe_customer_id,
+            stripe_subscription_id: Some(sub_id),
+            status: row.status,
+            plan: row.plan,
+            current_period_end: row.current_period_end,
+            cancel_at_period_end: true,
+        },
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1423,7 +1568,11 @@ pub fn run() {
             // Sprint 1 PR-B: Keychain-backed secrets (replaces localStorage)
             secrets_set,
             secrets_get,
-            secrets_delete
+            secrets_delete,
+            // Stripe Checkout / billing
+            billing_create_checkout,
+            billing_get_subscription,
+            billing_cancel
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
