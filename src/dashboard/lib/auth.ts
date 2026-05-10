@@ -164,6 +164,13 @@ export async function fetchMe(): Promise<MeResponse | null> {
  * the Worker logs / browser history as a query string. Returns
  * `null` when the URL doesn't match the expected shape — cheap
  * defence against the OS routing us an unrelated `careeros://` URL.
+ *
+ * Sprint 6 bug fix: the WHATWG URL parser treats `auth` as the
+ * **host** and `/callback` as the **pathname** for custom schemes,
+ * not as a single path segment. So `pathname.endsWith("/auth/callback")`
+ * was always false and the JWT was never extracted. We now check the
+ * combined host+pathname and trust the fragment payload as the real
+ * auth signal.
  */
 export function parseDeepLink(url: string): string | null {
   // URL parsing on custom schemes is consistent across modern
@@ -175,13 +182,17 @@ export function parseDeepLink(url: string): string | null {
     return null;
   }
   if (parsed.protocol !== "careeros:") return null;
-  // Hosts on custom schemes vary by platform. Accept any path that
-  // ends in `/auth/callback` — the only thing we actually trust is
-  // the fragment payload.
-  const pathname = parsed.pathname || "";
+  // Custom-scheme URLs split host + path differently across
+  // platforms. `careeros://auth/callback` parses as
+  // host="auth", pathname="/callback" on macOS WKWebView. We
+  // recombine before checking so any reasonable variant matches.
+  const combined = (parsed.host ?? "") + (parsed.pathname ?? "");
+  // Strip leading slashes, then verify the path ends in
+  // `auth/callback`. Accept variants like `auth/callback`,
+  // `/auth/callback`, `careeros://auth/callback/` (trailing slash).
+  const normalised = combined.replace(/\/+$/, "").replace(/^\/+/, "");
   const looksRight =
-    pathname.endsWith("/auth/callback") ||
-    pathname.endsWith("auth/callback");
+    normalised === "auth/callback" || normalised.endsWith("/auth/callback");
   if (!looksRight) return null;
 
   // Fragment is `jwt=…`. URL.hash includes the leading `#`.
