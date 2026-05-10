@@ -144,6 +144,21 @@ authRoutes.get("/verify", async (c) => {
   // the fragment client-side.
   const redirectUrl = `${c.env.APP_DEEP_LINK}#jwt=${encodeURIComponent(jwt)}`;
 
+  // Dev escape hatch: in `pnpm tauri dev`, macOS routes
+  // `careeros://` to the bundled release app (not the running
+  // debug binary), so the deep-link round-trip can't reach the
+  // dev instance. The page below shows the raw JWT with a
+  // "Copier" button so the developer can paste it via the dev
+  // input in Settings → Account. Production never hits this
+  // branch — `LOOPS_API_KEY` always has a real value there.
+  const isDevNoop =
+    !c.env.LOOPS_API_KEY ||
+    c.env.LOOPS_API_KEY === "dev-noop" ||
+    c.env.LOOPS_API_KEY.startsWith("dev-");
+  if (isDevNoop) {
+    return c.html(devVerifyHtml(jwt, redirectUrl));
+  }
+
   // We send a tiny HTML page that does the redirect via JS. A 302
   // to a custom URL scheme works on macOS Safari but some browsers
   // strip the location header on schemes they don't recognise; the
@@ -167,6 +182,50 @@ h1{font-size:18px;margin:0 0 12px;letter-spacing:-0.01em}
 p{margin:0;color:#B8BAC4}</style></head>
 <body><div class="box"><h1>Lien invalide</h1><p>${escapeHtml(msg)}</p></div></body>
 </html>`;
+}
+
+/** Dev-only landing for /auth/verify when LOOPS_API_KEY is the
+ *  "dev-noop" sentinel. macOS routes `careeros://` to the
+ *  bundled release app (not the running `pnpm tauri dev`
+ *  instance), so the deep-link round-trip can't reach the dev
+ *  process. We display the raw JWT with a Copier button so the
+ *  developer can paste it via Settings → Account → "Coller un
+ *  JWT (dev)". */
+function devVerifyHtml(jwt: string, redirectUrl: string): string {
+  return `<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Career OS — Dev sign-in</title>
+<style>body{font:14px/1.6 system-ui,-apple-system,sans-serif;background:#0A0B0F;color:#F4F5F8;display:grid;place-items:center;min-height:100vh;margin:0;padding:24px}
+.box{max-width:560px;width:100%;padding:32px;border:1px solid #21232C;border-radius:14px;background:#16181F}
+h1{font-size:18px;margin:0 0 6px;letter-spacing:-0.01em}
+.tag{display:inline-block;font-size:11px;font-weight:600;color:#fcd34d;background:rgba(252,211,77,0.12);padding:2px 8px;border-radius:999px;margin-bottom:12px}
+p{margin:0 0 14px;color:#B8BAC4;font-size:13px}
+ol{margin:0 0 18px;padding-left:18px;color:#B8BAC4;font-size:13px;line-height:1.7}
+.jwt{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;background:#0A0B0F;border:1px solid #21232C;border-radius:8px;padding:10px;margin:0 0 12px;word-break:break-all;color:#F4F5F8}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button,a.btn{font:inherit;font-size:13px;font-weight:600;padding:9px 14px;border-radius:8px;border:1px solid #21232C;background:#16181F;color:#F4F5F8;cursor:pointer;text-decoration:none;display:inline-block}
+button.primary{background:#6366f1;border-color:#6366f1;color:#fff}
+.ok{color:#22c55e;font-weight:600;display:none}</style></head>
+<body><div class="box">
+<span class="tag">DEV mode</span>
+<h1>Authentification réussie</h1>
+<p>macOS route les liens <code>careeros://</code> vers la version bundle, pas la version dev. En attendant, copie le JWT et colle-le dans l'app : <strong>Settings → Account → Coller un JWT (dev)</strong>.</p>
+<div class="jwt" id="jwt">${escapeHtml(jwt)}</div>
+<div class="row">
+  <button class="primary" onclick="copyJwt()">Copier le JWT</button>
+  <a class="btn" href="${escapeAttr(redirectUrl)}">Tenter le deep-link quand même</a>
+</div>
+<span class="ok" id="ok">✅ Copié — colle dans Settings → Account</span>
+</div>
+<script>
+function copyJwt() {
+  const jwt = ${JSON.stringify(jwt)};
+  navigator.clipboard.writeText(jwt).then(() => {
+    document.getElementById("ok").style.display = "inline-block";
+  });
+}
+</script>
+</body></html>`;
 }
 
 function redirectHtml(target: string): string {

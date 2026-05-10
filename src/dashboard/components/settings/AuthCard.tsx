@@ -264,6 +264,104 @@ export default function AuthCard() {
           </button>
         </div>
       </form>
+
+      {/* Dev-only manual JWT paste — Tauri 2 + macOS route the
+          `careeros://` deep link to the bundled release app, not
+          the running `pnpm tauri dev` instance, so the round-trip
+          can't reach the dev process. The /auth/verify page in
+          dev shows the raw JWT with a Copier button; this input
+          accepts the paste. Hidden in production builds via
+          import.meta.env.DEV. */}
+      {import.meta.env.DEV && <DevJwtPasteInput />}
     </section>
+  );
+}
+
+/** Dev-only utility — visible only when `import.meta.env.DEV` is
+ *  true (Vite strips this whole component out of production
+ *  builds via tree-shaking). Lets the developer paste a JWT
+ *  obtained from the worker's /auth/verify dev page directly,
+ *  bypassing the macOS deep-link round-trip. */
+function DevJwtPasteInput() {
+  const completeSignIn = useAppStore((s) => s.completeSignIn);
+  const toast = useToast();
+  const [pasted, setPasted] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <details
+      style={{
+        marginTop: 18,
+        padding: 12,
+        borderRadius: 8,
+        border: "1px dashed var(--color-border, #21232c)",
+        background: "rgba(252,211,77,0.04)",
+      }}
+    >
+      <summary
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: "#fcd34d",
+          cursor: "pointer",
+          letterSpacing: "0.04em",
+          textTransform: "uppercase",
+        }}
+      >
+        Dev — coller un JWT manuellement
+      </summary>
+      <p
+        style={{
+          fontSize: 11,
+          color: "var(--color-text-muted, #8a8d99)",
+          marginTop: 8,
+          marginBottom: 8,
+          lineHeight: 1.5,
+        }}
+      >
+        Sur macOS, <code>careeros://</code> route vers la version bundle. En
+        dev, copie le JWT depuis la page <code>/auth/verify</code> du worker
+        et colle-le ici.
+      </p>
+      <textarea
+        value={pasted}
+        onChange={(e) => setPasted(e.target.value)}
+        placeholder="eyJhbGciOiJIUzI1NiIs..."
+        rows={3}
+        style={{
+          width: "100%",
+          padding: "8px 10px",
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+          fontSize: 11,
+          borderRadius: 6,
+          border: "1px solid var(--color-border, #21232c)",
+          background: "var(--color-surface-input, #16181f)",
+          color: "var(--color-text, #f4f5f8)",
+          resize: "vertical",
+        }}
+      />
+      <button
+        type="button"
+        className="settings-btn settings-btn--outline"
+        disabled={busy || !pasted.trim()}
+        style={{ marginTop: 8 }}
+        onClick={async () => {
+          const jwt = pasted.trim();
+          if (!jwt) return;
+          setBusy(true);
+          try {
+            await completeSignIn(jwt);
+            toast.success("JWT enregistré.");
+            setPasted("");
+          } catch (e) {
+            toast.error(`Échec : ${(e as Error).message ?? "inconnu"}`);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? "Validation…" : "Valider le JWT"}
+      </button>
+    </details>
   );
 }
