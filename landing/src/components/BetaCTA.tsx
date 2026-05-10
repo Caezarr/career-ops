@@ -83,19 +83,36 @@ export default function BetaCTA() {
   }
 
   return (
-    <section className="beta-cta" id="beta">
+    <section className="beta-cta beta-cta--dark beta-cta--split" id="beta">
       <div className="container">
-        <div className="beta-cta__inner">
-          <span className="section__eyebrow">Beta privée · 47 places restantes</span>
-          <h2 className="beta-cta__title">
-            Postule à la beta. Réponse sous 7 jours.
-          </h2>
-          <p className="beta-cta__sub">
-            On lit chaque candidature à la main. Chaque vague de 25 personnes est
-            sélectionnée selon le sérieux du projet — pas l'ordre d'arrivée.
-          </p>
+        <div className="beta-cta__split">
+          {/* ── Left: copy ─────────────────────────────────────── */}
+          <div className="beta-cta__copy">
+            <h2 className="beta-cta__title">
+              Prêt à décrocher mieux,
+              <br />
+              sans y laisser{" "}
+              <span className="beta-cta__title-accent">300 heures&nbsp;?</span>
+            </h2>
 
-          <form className="beta-application" onSubmit={handleSubmit} noValidate>
+            <ul className="beta-cta__perks">
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                Accès anticipé à la bêta privée
+              </li>
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                Réponse sous 7 jours ouvrés
+              </li>
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                Places limitées chaque semaine
+              </li>
+            </ul>
+          </div>
+
+          {/* ── Right: form ────────────────────────────────────── */}
+          <form className="beta-application beta-application--card" onSubmit={handleSubmit} noValidate>
             <label className="beta-field">
               <span className="beta-field__label">Email</span>
               <input
@@ -172,15 +189,15 @@ export default function BetaCTA() {
                 {message}
               </p>
             )}
-          </form>
 
-          <div className="beta-meta">
-            <span>Mac · macOS 13+</span>
-            <span className="beta-meta__dot" aria-hidden />
-            <span>Gratuit pendant la beta</span>
-            <span className="beta-meta__dot" aria-hidden />
-            <span>Aucun spam, jamais</span>
-          </div>
+            <p className="beta-application__fineprint">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden style={{ verticalAlign: "middle", marginRight: 4 }}>
+                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M8 4.5 V8.5 L10.5 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              Sans engagement. Réponse sous 7 jours.
+            </p>
+          </form>
         </div>
       </div>
     </section>

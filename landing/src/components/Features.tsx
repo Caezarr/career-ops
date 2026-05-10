@@ -1,101 +1,111 @@
 /**
- * Three feature cards — benefit-led titles, each anchored to a real
- * pain point of the ICP (HEC/ESCP/Polytechnique student in M2 with
- * 40 active applications).
+ * Features grid v2 — 4 cards, each pairs a benefit-titled card with
+ * a real product-mockup screenshot below the copy. Matches the
+ * "Trust bar → 4 features" layout in the design.
  *
- * Order is deliberate:
- *   1. Tracker first  — the most immediate, daily pain
- *   2. ATS second     — the recurring weekly task that compounds
- *   3. Copilot last   — the high-intensity magic moment, kept
- *                       visually subdued so the brand never reads
- *                       as "the cheating tool"
- *
- * Card titles speak the user's outcome ("Plus jamais figé en
- * entretien"), not the feature name. The feature name shows up as
- * a small kicker so a tech reader can still anchor.
+ * The mockups (`feature-*.png`) come from the actual app, exported
+ * from Figma or directly screenshotted on a 2× macbook. Falling
+ * back to a dashed placeholder when the asset isn't dropped yet.
  */
 
 interface Feature {
   icon: React.ReactNode;
-  kicker: string;
   title: string;
   body: string;
+  /** Filename inside `landing/public/assets/`. */
+  mockup: string;
+  /** Accessibility label for the mockup image. */
+  mockupAlt: string;
 }
 
 const FEATURES: Feature[] = [
   {
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.6" />
-        <path d="M8 9 H16 M8 13 H13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M16.5 16.5 L21 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     ),
-    kicker: "Tracker",
-    title: "Plus jamais 12 onglets ouverts",
+    title: "Sourcing intelligent",
     body:
-      "Tes candidatures Greenhouse, Lever, Ashby, JobTeaser, ton calendar, tes notes — une seule fenêtre. Drag-and-drop pipeline. Plus de Notion à maintenir, plus de tableau Excel partagé sur WhatsApp.",
+      "Trouve les meilleures opportunités avant les autres grâce à des sources premium et des filtres fins.",
+    mockup: "feature-sourcing.png",
+    mockupAlt: "Carte Opportunités pertinentes : McKinsey Business Analyst, Google Product Manager",
   },
   {
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M4 14 L9 9 L13 13 L20 6"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="M14 6 H20 V12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <rect x="5" y="3" width="14" height="18" rx="2" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M9 8 H15 M9 12 H15 M9 16 H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
       </svg>
     ),
-    kicker: "ATS Analyzer",
-    title: "Sache si tu passes l'ATS avant d'envoyer",
+    title: "CV qui passe les ATS",
     body:
-      "Score CV vs JD calculé en 2 secondes. Les keywords qui manquent, les reformulations exactes, en français comme en anglais. Une vraie analyse — pas du copier-coller ChatGPT que les ATS détectent en 2026.",
+      "Adaptez ton CV en 2 minutes à chaque offre pour passer le filtre automatique.",
+    mockup: "feature-ats.png",
+    mockupAlt: "Carte Score ATS 94 Excellent avec jauge verte",
   },
   {
     icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M12 3 V21 M5 8 V16 M19 8 V16 M9 5 V19 M16 5 V19"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          strokeLinecap="round"
-        />
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M4 5 L20 5 L20 17 L13 17 L8 21 L8 17 L4 17 Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       </svg>
     ),
-    kicker: "Live Copilot",
-    title: "Plus jamais figé en entretien",
+    title: "Préparation entretien",
     body:
-      "Pendant le call, le Copilot écoute, comprend la question, et te suggère une réponse en pyramide STAR ancrée dans ton CV. N'apparaît jamais sur l'écran partagé. Hotkey ⌘⇧Espace.",
+      "Obtiens des briefs de questions ciblées, tes réponses prêtes et un coaching IA.",
+    mockup: "feature-prep.png",
+    mockupAlt: "Carte Brief d'entretien avec waveform audio et progression des questions ciblées",
+  },
+  {
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M12 21 C12 21 4 14.5 4 9 a5 5 0 0 1 9.5 -2 a5 5 0 0 1 9.5 2 c0 5.5 -8 12 -8 12 Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    ),
+    title: "Momentum & suivi",
+    body:
+      "Un plan d'actions clair pour rester régulier, ne rien oublier et convertir plus d'entretiens en offres.",
+    mockup: "feature-momentum.png",
+    mockupAlt: "Plan d'actions : 24/40 candidatures, 8 entretiens, 2 offres",
   },
 ];
 
 export default function Features() {
   return (
-    <section className="section features" id="features">
+    <section className="section features features--cards" id="features">
       <div className="container">
-        <div className="features__head">
-          <span className="section__eyebrow">Trois surfaces · un seul flow</span>
-          <h2 className="section__title">
-            Pensé pour les candidats qui visent les top firms — pas pour les autres.
-          </h2>
-          <p className="section__lead">
-            Career OS vit à côté de ton travail sur Mac. Il sait quels rôles tu cibles,
-            quel CV tu envoies, ce que tu as répondu la dernière fois. Tout reste sur ta
-            machine — recruteurs, ATS et concurrents n'ont pas accès à cette donnée.
-          </p>
-        </div>
-
-        <div className="features__grid">
+        <div className="features__grid features__grid--4">
           {FEATURES.map((f) => (
-            <article className="feature-card" key={f.kicker}>
-              <div className="feature-card__icon" aria-hidden>
-                {f.icon}
-              </div>
-              <span className="feature-card__kicker">{f.kicker}</span>
-              <h3 className="feature-card__title">{f.title}</h3>
+            <article className="feature-card feature-card--with-mockup" key={f.title}>
+              <header className="feature-card__head">
+                <div className="feature-card__icon" aria-hidden>
+                  {f.icon}
+                </div>
+                <h3 className="feature-card__title">{f.title}</h3>
+              </header>
               <p className="feature-card__body">{f.body}</p>
+
+              <div className="feature-card__mockup-wrap">
+                <img
+                  src={`/assets/${f.mockup}`}
+                  alt={f.mockupAlt}
+                  className="feature-card__mockup-img"
+                  loading="lazy"
+                  onError={(e) => {
+                    const el = e.currentTarget;
+                    el.style.display = "none";
+                    const sib = el.nextElementSibling as HTMLElement | null;
+                    if (sib) sib.style.display = "flex";
+                  }}
+                />
+                <div className="asset-placeholder" style={{ display: "none", minHeight: 180 }}>
+                  <span>📷 {f.mockup}</span>
+                  <span style={{ fontSize: 11, opacity: 0.7 }}>
+                    Drop la card mockup ici
+                  </span>
+                </div>
+              </div>
             </article>
           ))}
         </div>
