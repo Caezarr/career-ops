@@ -1,36 +1,40 @@
 /**
  * Onboarding StepNarrative → polished profile.md
  *
- * The frontend hands Claude:
- *   - the four free-form raw answers from StepNarrative
- *   - the parsed CV text (when the user uploaded one in Step 4)
- *   - their target tracks + experience level (set in Identity /
- *     Targets / Background) — used by the prompt to tune tone
+ * Server-managed (Sprint 6 final): the call goes through the
+ * Career OS Worker, NOT directly to Anthropic, NOT to a
+ * user-provided key. The whole subscription model is "150€ flat,
+ * we host the upstream credit". So the only auth the frontend
+ * needs is the magic-link JWT in the Keychain.
  *
- * Backend command: `polish_profile_markdown` (defined in
- * `src-tauri/src/lib.rs`). Returns plain Markdown with the four
- * stable headings the rest of the app already understands.
+ * Worker endpoint:  POST /v1/ai/polish-profile
+ * Auth:             Bearer JWT (from `secret.auth_jwt`)
+ * Rate limit:       5 / day / user (server-side, returns 429)
+ * Body:             { story, wins, lesson, northStar, cvText?,
+ *                     targetTracks?, experienceLevel? }
+ * Response 200:     { markdown, remaining }
+ * Response 401:     not signed in / stale JWT
+ * Response 429:     daily quota exhausted
+ * Response 5xx:     upstream Anthropic / Worker failure
  *
- * Fallback strategy: when the user has no Anthropic key configured
- * yet (very common at first launch — keys are typically set after
- * onboarding from Settings → API Keys), we surface
- * `AiError::KeyMissing` from the command. The caller catches it
- * and uses the brut concat from `buildProfileMarkdown` instead.
+ * Fallback strategy: when the JWT is missing (user didn't sign
+ * in during onboarding), or any non-200 response surfaces, we
+ * return null. The caller (Onboarding.finish) falls back to the
+ * brut concat from `buildProfileMarkdown` so the user still
+ * leaves with *some* profile.md.
  */
-import { invoke } from "@tauri-apps/api/core";
 import type { User } from "../store";
 import type { NarrativeAnswers } from "../components/onboarding/StepNarrative";
+import { API_BASE_URL, readJwt } from "./auth";
 
 export interface PolishProfileArgs {
   answers: NarrativeAnswers;
   cvText?: string | null;
   user: Pick<User, "targetTracks" | "experienceLevel">;
-  anthropicKey: string;
-  model?: string | null;
 }
 
-/** True if every answer is empty/whitespace — no point burning a
- *  Claude call on the equivalent of zero tokens. */
+/** True if every answer is empty/whitespace — no point hitting
+ *  the network on the equivalent of zero tokens. */
 function isAllEmpty(a: NarrativeAnswers): boolean {
   return (
     !a.story.trim() &&
@@ -40,23 +44,39 @@ function isAllEmpty(a: NarrativeAnswers): boolean {
   );
 }
 
-/** Call the `polish_profile_markdown` Tauri command. Returns the
- *  polished markdown on success, or `null` on:
+/**
+ * Call the Worker's `/v1/ai/polish-profile` route. Returns the
+ * polished markdown on 200, or `null` on:
  *
- *   - empty answers (no input → no output)
- *   - missing API key (AiError::KeyMissing surfaces as a string)
- *   - any other backend error (network, rate limit, malformed
- *     response) — we log + return null so the caller can fall
- *     back to the brut concat without trapping the user behind a
- *     blocking error. */
+ *   - empty inputs (short-circuit, no network)
+ *   - missing JWT (user not signed in yet)
+ *   - non-200 responses (rate limit, upstream failure, network)
+ *
+ * Errors are logged via console.warn so dev mode catches them
+ * without trapping the user behind a blocking error — onboarding
+ * always completes, profile.md just degrades to brut concat.
+ */
 export async function polishProfileMarkdown(
   args: PolishProfileArgs,
 ): Promise<string | null> {
   if (isAllEmpty(args.answers)) return null;
 
+  const jwt = await readJwt();
+  if (!jwt) {
+    // User skipped sign-in during onboarding (or auth flow
+    // hasn't completed). Fallback to brut concat downstream.
+    return null;
+  }
+
+  let res: Response;
   try {
-    const result = await invoke<string>("polish_profile_markdown", {
-      input: {
+    res = await fetch(`${API_BASE_URL}/v1/ai/polish-profile`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${jwt}`,
+      },
+      body: JSON.stringify({
         story: args.answers.story,
         wins: args.answers.wins,
         lesson: args.answers.lesson,
@@ -64,19 +84,30 @@ export async function polishProfileMarkdown(
         cvText: args.cvText ?? null,
         targetTracks: args.user.targetTracks ?? null,
         experienceLevel: args.user.experienceLevel ?? null,
-        anthropicKey: args.anthropicKey,
-        model: args.model ?? null,
-      },
+      }),
     });
-    const trimmed = result.trim();
-    return trimmed.length > 0 ? trimmed : null;
   } catch (e) {
-    // The backend returns AiError::KeyMissing when the key is
-    // empty — the user just hasn't configured Anthropic yet. We
-    // also catch network / 429 / 5xx here. Caller falls back to
-    // the brut concat.
     // eslint-disable-next-line no-console
-    console.warn("[onboarding] polish profile.md failed:", e);
+    console.warn("[onboarding] polish profile.md network failed:", e);
+    return null;
+  }
+
+  if (!res.ok) {
+    // 401 = stale JWT, 429 = quota exhausted, 502 = Anthropic down,
+    // 500 = our bug. Always degrade gracefully — user gets brut
+    // markdown as fallback. Log so dev mode catches the cause.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[onboarding] polish profile.md returned ${res.status} (${res.statusText})`,
+    );
+    return null;
+  }
+
+  try {
+    const json = (await res.json()) as { markdown?: string };
+    const md = (json.markdown ?? "").trim();
+    return md.length > 0 ? md : null;
+  } catch {
     return null;
   }
 }

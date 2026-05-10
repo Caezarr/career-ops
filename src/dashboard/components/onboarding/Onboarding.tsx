@@ -11,7 +11,6 @@ import StepNarrative, {
   type NarrativeAnswers,
 } from "./StepNarrative";
 import StepFirstSource from "./StepFirstSource";
-import { readAnthropicKey } from "../../lib/secrets";
 import { polishProfileMarkdown } from "../../lib/polishProfile";
 import "../../styles/onboarding.css";
 
@@ -137,35 +136,31 @@ export default function Onboarding() {
 
   /** Resolve the final profile.md for `markOnboarded`:
    *
-   *   1. Try the AI polish path — Claude transforms the four raw
-   *      answers into a structured narrative with real Highlights
-   *      bullets pulled from the CV.
-   *   2. If the polish call returns null (no Anthropic key, network
-   *      failure, empty answers) fall back to the brut concat from
-   *      `buildProfileMarkdown`.
+   *   1. Try the server-managed AI polish — POSTs the raw answers
+   *      to the Career OS Worker which calls Claude with the
+   *      central Anthropic key. JWT-gated, daily-rate-limited.
+   *      No BYOK, no client-side credentials.
+   *   2. If the polish call returns null (user not signed in,
+   *      quota exhausted, network failure, empty answers) fall
+   *      back to the brut concat from `buildProfileMarkdown`.
    *   3. Re-running onboarding: append rather than clobber any
    *      existing profileMarkdown — Settings → Profile remains the
    *      canonical edit surface.
    */
   async function resolveProfileMarkdown(): Promise<string | undefined> {
-    const anthropicKey = readAnthropicKey();
     // Pull the most recently imported CV's parsed text — Claude
     // uses it to ground the Highlights bullets in real numbers.
     const allCvs = useAppStore.getState().cvs;
     const latestCvText = allCvs[0]?.parsedText ?? null;
 
-    let polished: string | null = null;
-    if (anthropicKey) {
-      polished = await polishProfileMarkdown({
-        answers: narrative,
-        cvText: latestCvText,
-        user: {
-          targetTracks: tracks,
-          experienceLevel,
-        },
-        anthropicKey,
-      });
-    }
+    const polished = await polishProfileMarkdown({
+      answers: narrative,
+      cvText: latestCvText,
+      user: {
+        targetTracks: tracks,
+        experienceLevel,
+      },
+    });
 
     const fresh = polished ?? buildProfileMarkdown(narrative);
     if (!fresh) return user.profileMarkdown; // nothing new to add
