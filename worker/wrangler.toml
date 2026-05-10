@@ -2,13 +2,18 @@ name = "career-os-api"
 main = "src/index.ts"
 compatibility_date = "2026-04-01"
 
-# Routes — set after deploy. The placeholder below maps the Worker
-# to api.careeros.app once the DNS / custom-domain step is done in
-# the Cloudflare dashboard. Until that's set, the Worker is reachable
-# at career-os-api.<account>.workers.dev.
-# routes = [
-#   { pattern = "api.careeros.app/*", custom_domain = true },
-# ]
+# Custom domain — already set up via Cloudflare Dashboard
+# (Workers → career-os-api → Settings → Triggers → Custom Domains).
+# Listing it here too is best-practice — keeps wrangler.toml the
+# single source of truth so a `wrangler deploy` from a fresh clone
+# re-creates the route automatically.
+#
+# NOTE: custom_domain entries take just the hostname (no `/*`, no
+# path). Wildcards belong to non-custom-domain `routes` which need
+# a zone subscription. Cloudflare rejects mixed forms.
+routes = [
+  { pattern = "api.careeros.fr", custom_domain = true },
+]
 
 # D1 database binding — created via:
 #   wrangler d1 create career_os
@@ -28,7 +33,7 @@ migrations_dir = "migrations"
 # `wrangler.toml [env.production].vars`.
 [vars]
 APP_DEEP_LINK = "careeros://auth/callback"
-WEB_BASE_URL = "https://api.careeros.app"
+WEB_BASE_URL = "https://api.careeros.fr"
 MAGIC_LINK_TTL_SECONDS = "900"
 JWT_TTL_SECONDS = "2592000"
 # GitHub repo the auto-updater proxies for the latest release. Set
