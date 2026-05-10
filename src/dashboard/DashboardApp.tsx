@@ -23,6 +23,7 @@ import { useAutostart } from "./hooks/useAutostart";
 import { useSeedIngestSources } from "./hooks/useSeedIngestSources";
 import { useJobTeaserAuthListener } from "./hooks/useJobTeaserAuthListener";
 import { useAuthDeepLink } from "./hooks/useAuthDeepLink";
+import { useAutoUpdate } from "./hooks/useAutoUpdate";
 import { useCopilotEventBridge } from "./hooks/useCopilotSession";
 import { useBillingHydrate } from "./hooks/useBillingHydrate";
 import "./styles/tokens.css";
@@ -219,6 +220,12 @@ function AuthDeepLinkBridge() {
   return null;
 }
 
+/** One-shot updater check on app boot — silently no-ops in dev. */
+function AutoUpdateBridge() {
+  useAutoUpdate();
+  return null;
+}
+
 /** Read the onboarded flag from the store and gate the wizard
  *  + dashboard-blur class. Kept as its own component so the rest
  *  of `DashboardApp` stays pure structural markup. */
@@ -253,6 +260,7 @@ export function DashboardApp() {
             <IngestSourcesSeeder />
             <JobTeaserAuthListener />
             <AuthDeepLinkBridge />
+            <AutoUpdateBridge />
             <BillingHydrate />
             <GlobalKeyboardShortcuts />
             {/*

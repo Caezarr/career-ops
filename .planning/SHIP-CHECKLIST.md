@@ -1,90 +1,159 @@
 # Career OS — Beta Ship Checklist
 
-État au 10 mai 2026. Coche au fur et à mesure. Ne pas shipper aux beta-users tant que la section "BLOQUANTS" n'est pas 100% verte.
+État au 10 mai 2026.
+
+Deux paths possibles :
+- **🪙 Beta Zero-Budget** (recommandé pour valider le produit) — 0€ + crédit Anthropic au prorata
+- **💳 Beta Production-Grade** (after Zero-Budget validation) — ~150€ initial puis 0,3€/an
+
+Le **Zero-Budget** sacrifie : signature Apple, domaine custom, paiement réel. Tout le reste fonctionne identiquement. Tu peux shipper aux 10-20 premiers beta users dans cette config, puis upgrader vers Production-Grade quand tu as validé que les utilisateurs en redemandent.
 
 ---
 
-## 🔴 BLOQUANTS — sans ça l'app ne fonctionne pas pour les utilisateurs
+## 🪙 Path A — Beta Zero-Budget (recommandé maintenant)
 
-### Infrastructure externe
-
-- [ ] **Apple Developer Program** ($99/an)
-  - https://developer.apple.com/programs/enroll/
-  - Validation manuelle Apple : 24-48h → **lance en premier**
-  - Sans ça, le DMG est bloqué par Gatekeeper sur la machine des beta-users
-
-- [ ] **Domaine `careeros.app`** (~10€/an)
-  - Cloudflare Registrar : https://dash.cloudflare.com/?to=/:account/registrar
-  - DNS auto-géré, rien à configurer côté NS
-
-- [ ] **Loops sending domain**
-  - app.loops.so → Settings → Sending Domain → `mail.careeros.app`
-  - Ajouter les 3 records SPF/DKIM/DMARC dans Cloudflare DNS
-  - Verify (~5 min)
-
-- [ ] **Loops Transactional template**
-  - Dashboard → Transactional → New → "Magic link · Career OS"
-  - Variables : `magicLink`, `email` (cf. `.planning/AUTH.md` §2)
-  - Subject : "Ton lien de connexion Career OS"
-  - Récupère l'API key + le transactional ID
-
-### Worker Cloudflare prod
+### A.1. Cloudflare Worker sans domaine custom
 
 ```bash
 cd worker
 # Secrets prod (les 4 obligatoires)
 openssl rand -base64 48 | npx wrangler secret put JWT_SECRET
 npx wrangler secret put ANTHROPIC_API_KEY        # ta clé sk-ant-...
-npx wrangler secret put LOOPS_API_KEY            # depuis Loops Settings
-npx wrangler secret put LOOPS_TRANSACTIONAL_ID   # ID du template
+npx wrangler secret put LOOPS_API_KEY            # depuis Loops Settings (free tier OK)
+npx wrangler secret put LOOPS_TRANSACTIONAL_ID
 
-# Migrations prod (déjà fait : 0001 + 0002)
+# Migrations prod (déjà fait : 0001 + 0002 — sinon :
 pnpm db:migrate:prod   # idempotent
 
-# Custom domain — Cloudflare Dashboard → Workers → career-os-api →
-# Settings → Triggers → Add Custom Domain → "api.careeros.app"
-# Décommente `routes` dans wrangler.toml après config DNS
-
-# Deploy
+# Deploy → Cloudflare te donne une URL gratuite :
+#   https://career-os-api.<ton-account>.workers.dev
 pnpm deploy
-curl https://api.careeros.app/health   # → {"ok":true}
 ```
 
-- [ ] Tous les `wrangler secret put` ✓
-- [ ] `pnpm deploy` réussit
-- [ ] `/health` répond `{"ok":true}` sur le domaine custom
-
-### App signée + notarisée Apple
+**Important** : note ton URL `https://career-os-api.<account>.workers.dev`. Tu vas l'utiliser :
+1. Dans `wrangler.toml::[vars] WEB_BASE_URL` → remplace `https://api.careeros.app` par ta vraie URL workers.dev
+2. Dans le frontend `.env.local` → `VITE_API_BASE_URL=https://career-os-api.<account>.workers.dev`
+3. Re-deploy : `pnpm deploy`
 
 ```bash
-# 1. Génère la keypair updater (à faire UNE fois)
-pnpm tauri signer generate -- -w ~/.tauri/career-os.key
-# → Note la PUBKEY affichée
-
-# 2. Colle la pubkey dans tauri.conf.json
-# Remplace REPLACE_WITH_TAURI_SIGNER_GENERATE_PUBKEY par la chaîne base64
-
-# 3. Configure les secrets de signing Apple
-# (après validation Apple Developer)
-# - Apple Team ID : trouvable sur developer.apple.com/account
-# - App password : appleid.apple.com → "Mots de passe spécifiques aux apps"
-# Documenter ces secrets dans 1Password / un .env.signing local
+curl https://career-os-api.<account>.workers.dev/health   # → {"ok":true}
 ```
 
-- [ ] Keypair updater générée + pubkey collée dans `tauri.conf.json::plugins.updater.pubkey`
-- [ ] Apple Team ID + App password configurés
-- [ ] `tauri.conf.json::bundle.macOS.signingIdentity` = ton certificat Developer ID
-- [ ] Build signé + notarisé : `pnpm tauri build` → DMG passe Gatekeeper sur une autre machine
-- [ ] Test : `xcrun stapler validate "src-tauri/target/release/bundle/dmg/Career OS_*.dmg"` → "The validate action worked!"
+- [ ] Worker déployé sur `*.workers.dev`
+- [ ] Tous les `wrangler secret put` ✓
+- [ ] `WEB_BASE_URL` dans wrangler.toml pointe sur l'URL workers.dev
+- [ ] `/health` répond `{"ok":true}`
 
-### Stripe en mode Live
+### A.2. Loops sur leur sous-domaine par défaut
 
-- [ ] Toggle "Test mode" → off dans dashboard Stripe
-- [ ] Note les **Live API keys** (`sk_live_...`, `pk_live_...`, `whsec_...`)
-- [ ] Crée un **Product "Career OS Annual"** → Price 150€/an recurring
-- [ ] Note le `price_xxx` (sera utilisé côté frontend dans `BillingTab.tsx`)
-- [ ] Webhook prod → `https://api.careeros.app/v1/billing/webhook` (signing secret en `wrangler secret put STRIPE_WEBHOOK_SECRET`)
-- [ ] Test paiement E2E avec une vraie carte (puis refund)
+Loops free tier permet d'envoyer depuis leur domaine `*.loops.so` sans valider ton propre domaine. Les emails arrivent parfois en spam, mais ça suffit pour 10-20 beta-users à qui tu auras prévenu.
+
+- [ ] Compte Loops créé (gratuit, jusqu'à 1000 emails/mois)
+- [ ] Template Transactional créé avec variables `magicLink` + `email`
+- [ ] From email : laisse leur `noreply@loops.so` par défaut, ou configure un alias gratuit type `careeros@send.loops.so` selon leur UI
+- [ ] LOOPS_API_KEY + LOOPS_TRANSACTIONAL_ID set comme secrets Worker
+
+### A.3. App non-signée distribuée via GitHub Releases
+
+Sans Apple Developer Program, l'app n'est pas signée. macOS Gatekeeper la bloquera au premier lancement. **Workaround utilisateur** : right-click sur l'app → "Open" → confirmer.
+
+```bash
+# Build local — produit le DMG dans src-tauri/target/release/bundle/dmg/
+pnpm tauri build
+
+# Pousse sur GitHub Releases (compte GitHub gratuit)
+gh release create v0.0.1 \
+  "src-tauri/target/release/bundle/dmg/Career OS_0.0.1_aarch64.dmg" \
+  --notes "First beta release. Sign in via magic link, generate CVs, prep interviews."
+
+# Le worker /v1/updates le détecte automatiquement (cf. routes/updates.ts)
+```
+
+- [ ] DMG buildé localement avec `pnpm tauri build`
+- [ ] Premier release `v0.0.1` poussé sur GitHub avec `gh release create`
+- [ ] README + landing page documentent le workaround Gatekeeper (right-click → Open)
+- [ ] **Note** : pas de keypair updater pour la beta zero-budget — les updates fonctionneront mais sans vérification de signature (Tauri émet juste un warning). On active la signature quand on passe Production-Grade.
+
+### A.4. Pas de Stripe — beta gratuite
+
+Pour la beta zero-budget, pas de paiement. **Toutes les fonctionnalités IA sont accessibles** aux signed-in users — c'est ton crédit Anthropic qui paye. Les rate-limits applicatifs (`5/30/30/10/jour`) gardent le coût borné.
+
+**Coût pour toi** : à 50 beta-users actifs avec usage réaliste (~5€/jour total Anthropic), ça fait ~150€/mois. Si ça décolle, tu bumps vers Production-Grade.
+
+- [ ] Settings → Billing dans l'app : afficher "Beta — accès complet sans abonnement" en remplaçant le bouton "S'abonner"
+- [ ] Surveiller le dashboard Anthropic Usage daily
+
+### A.5. Landing page + download
+
+Cloudflare Pages = gratuit, illimité.
+
+```bash
+cd landing
+pnpm build
+# Cloudflare Pages : connecte le repo → branch `main` → output `landing/dist`
+```
+
+URL gratuite : `https://career-os.pages.dev` (ou similaire). Lien download → GitHub Releases page directement (`https://github.com/Caezarr/career-ops/releases/latest`).
+
+- [ ] Cloudflare Pages connecté → auto-deploy on push
+- [ ] Hero CTA → lien GitHub Releases
+- [ ] Footer → liens `/privacy.md` + `/terms.md`
+- [ ] Page d'aide "Premier lancement" expliquant le right-click → Open
+
+### A.6. Coûts attendus
+
+| Poste | Free tier | Coût réel |
+|-------|-----------|-----------|
+| Cloudflare Worker | 100k req/jour gratuit | 0€ |
+| Cloudflare D1 | 5GB gratuit | 0€ |
+| Cloudflare Pages | Illimité | 0€ |
+| Loops | 1000 emails/mois gratuit | 0€ |
+| GitHub Releases | Illimité public | 0€ |
+| Anthropic | Pay-per-call | **~3-5€/utilisateur actif/mois** |
+
+**Total beta 50 users actifs : ~150€/mois.** Tu peux ajuster les rate-limits dans `worker/src/lib/rateLimit.ts::RATE_LIMITS` si le coût explose.
+
+---
+
+## 💳 Path B — Production-Grade (après validation Zero-Budget)
+
+À déclencher quand : 10+ users actifs te demandent l'app, ou tu veux passer payant.
+
+### B.1. Apple Developer Program ($99/an)
+- https://developer.apple.com/programs/enroll/
+- Validation 24-48h
+- Permet : signature DMG (plus de Gatekeeper warning) + notarization + auto-update vérifié
+
+### B.2. Domaine `careeros.app` (~10€/an)
+- Cloudflare Registrar
+- Custom domain `api.careeros.app` → Worker
+- Custom domain `careeros.app` → Cloudflare Pages
+
+### B.3. Loops sending domain
+- `mail.careeros.app` validé (SPF/DKIM/DMARC dans Cloudflare DNS)
+- Emails partent depuis ton propre domaine = beaucoup moins de spam
+
+### B.4. Stripe live + price 150€/an
+- Toggle "Test mode" → off
+- Product "Career OS Annual" → Price 150€/an recurring
+- Webhook prod → `https://api.careeros.app/v1/billing/webhook` (signing secret en `wrangler secret put STRIPE_WEBHOOK_SECRET`)
+- Coller le `price_xxx` côté frontend (`VITE_STRIPE_PRICE_ID`)
+
+### B.5. Keypair updater + signing identity
+```bash
+pnpm tauri signer generate -- -w ~/.tauri/career-os.key
+# Note la PUBKEY → coller dans tauri.conf.json::plugins.updater.pubkey
+# Configure tauri.conf.json::bundle.macOS.signingIdentity = ton certif Developer ID
+# Test : pnpm tauri build → DMG passe Gatekeeper sur autre machine
+```
+
+### B.6. Mise à jour des coûts
+| Poste | Coût |
+|-------|------|
+| Apple Developer | 99 $/an = ~92€/an |
+| Domaine careeros.app | ~10€/an |
+| Reste (CF + Loops + GitHub) | gratuit |
+| **Total** | **~102€/an** + crédit Anthropic au prorata des paying users |
 
 ---
 

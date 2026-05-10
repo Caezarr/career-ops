@@ -127,26 +127,48 @@ The crown jewel. While you're in a Zoom / Meet / Teams call:
 
 ## 🚀 Get started
 
-> ⚠️ Active development. The dashboard, War Room, CV Manager, Applications, and Prep surfaces are usable today. The Live Copilot pipeline lands at Phase 6 (the shipping gate).
+> ⚠️ Active development. Dashboard, War Room, CV Manager, Applications, Prep, server-managed AI (analyse ATS / next-steps / optimisation CV) are live. Live Copilot pipeline reaches v1 at Phase 6 (the shipping gate).
 
-### Prerequisites
+### Install (beta users — DMG)
+
+The latest unsigned DMG lives on the [Releases page](https://github.com/Caezarr/career-ops/releases/latest).
+
+1. Download `Career OS_x.y.z_aarch64.dmg`
+2. Open it → drag **Career OS** into `Applications`
+3. **First launch on a new Mac** : Gatekeeper bloque les apps non signées. **Right-click** sur `Career OS.app` dans Applications → **Open** → confirme dans la dialog. Une fois fait, l'app s'ouvre normalement par la suite.
+4. Première fenêtre : tu cliques "Settings → Account" et tu te connectes via magic-link
+
+> Pourquoi ce workaround ? On est en beta zero-budget — pas encore d'Apple Developer Program ($99/an). On signe l'app proprement quand on bascule en prod.
+
+### Prerequisites (developers only)
 
 - macOS 13+ (15+ recommended for screen-share masking)
 - Rust (stable) + Cargo
 - Node 20+ and `pnpm`
 - Xcode Command Line Tools
-- API keys: Anthropic (required for ATS / tailoring), Deepgram + AssemblyAI + OpenAI (required for Live Copilot)
+- (Optional) Deepgram + AssemblyAI + OpenAI keys for Live Copilot — **Anthropic is no longer needed locally**, the Worker hosts the credit
 
-### Run it
+### Run from source
 
 ```bash
 git clone https://github.com/Caezarr/career-ops.git
 cd career-ops
 pnpm install
+
+# Worker (terminal 1) — see worker/.dev.vars.example for the secrets
+cd worker
+cp .dev.vars.example .dev.vars   # then fill ANTHROPIC_API_KEY etc.
+pnpm install
+pnpm db:migrate:local
+pnpm dev    # http://localhost:8787
+
+# App (terminal 2) — point Vite at the local Worker
+cd ..
+echo 'VITE_API_BASE_URL=http://localhost:8787' > .env.local
 pnpm tauri dev
 ```
 
-First launch walks you through Microphone, Screen Recording, and Accessibility permissions before any feature unlocks. API keys are entered once and stored in the macOS Keychain via the `keyring` crate — never in plaintext, never in the frontend bundle, never in webview localStorage.
+First launch walks you through Microphone, Screen Recording, and Accessibility permissions before any feature unlocks. The magic-link JWT lives in the macOS Keychain via the `keyring` crate — never in plaintext, never in the frontend bundle, never in webview localStorage.
 
 ### Common commands
 

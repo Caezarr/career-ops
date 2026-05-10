@@ -237,14 +237,16 @@ function KeyMissingPrompt() {
     <div className="ats-setup">
       <KeyRound size={28} />
       <div>
-        <h3>Add your Anthropic API key</h3>
+        <h3>Connecte-toi à Career OS</h3>
         <p>
-          The ATS analyzer uses Claude to score your CV. Open the Copilot
-          window (sidebar → <strong>Copilot</strong> → <em>Open Copilot →</em>),
-          paste your key in Settings, then come back here.
+          L'analyseur ATS utilise Claude via le serveur Career OS — pas
+          besoin de clé API. Va dans <strong>Settings → Account</strong>,
+          renseigne ton email pour recevoir un lien magique, puis reviens
+          ici.
         </p>
         <p className="ats-setup__hint">
-          The key is stored locally on your Mac — never sent to our servers.
+          Inclus dans ton abonnement Career OS — quotas quotidiens
+          appliqués au niveau du compte.
         </p>
       </div>
     </div>

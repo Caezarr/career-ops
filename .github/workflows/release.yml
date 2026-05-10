@@ -1,0 +1,117 @@
+name: Release Career OS DMG
+
+# Trigger: pushing a tag like `v0.0.2` builds the macOS DMG and
+# attaches it (plus the .sig file the auto-updater needs) to the
+# matching GitHub Release.
+#
+# In Beta Zero-Budget mode the DMG is unsigned; users have to
+# right-click → Open the first time. When you upgrade to
+# Production-Grade, set the signing secrets below and the DMG
+# will be signed + notarised.
+#
+# Required secrets:
+#   TAURI_SIGNING_PRIVATE_KEY          (always — produces the .sig
+#                                       the updater plugin verifies)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD (always — keypair pwd)
+#
+# Optional (Production-Grade signing — leave unset for Zero-Budget):
+#   APPLE_CERTIFICATE                  (base64-encoded .p12)
+#   APPLE_CERTIFICATE_PASSWORD
+#   APPLE_SIGNING_IDENTITY             (e.g. "Developer ID Application: Gabriel Rance (TEAM_ID)")
+#   APPLE_ID                           (your Apple Developer email)
+#   APPLE_PASSWORD                     (app-specific password from appleid.apple.com)
+#   APPLE_TEAM_ID                      (10-char team id)
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write   # gh release create needs this
+
+jobs:
+  release:
+    name: Build + release macOS DMG
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node + pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install JS deps
+        run: pnpm install --frozen-lockfile
+
+      # ── Optional: import Apple signing certificate when present.
+      # The whole step is skipped silently in Beta Zero-Budget mode.
+      - name: Import Apple cert (production-grade only)
+        if: ${{ env.APPLE_CERTIFICATE != '' }}
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PWD=$(openssl rand -base64 24)
+          echo "$APPLE_CERTIFICATE" | base64 --decode > $RUNNER_TEMP/cert.p12
+          security create-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security import $RUNNER_TEMP/cert.p12 \
+            -k "$KEYCHAIN_PATH" -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+
+      # The Tauri Action runs `tauri build`, signs the DMG with the
+      # signing secrets when present, calls `xcrun notarytool` for
+      # notarisation when Apple secrets are set, and uploads
+      # everything (DMG + .sig) as release assets.
+      - name: Build + release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Updater keypair — required even in Zero-Budget so the
+          # client can verify the .sig (no Apple signing needed).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple signing — empty in Zero-Budget; tauri-action
+          # gracefully skips notarisation when these are unset.
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Worker base URL the bundled app points to. Set to your
+          # workers.dev URL for Zero-Budget, then later to
+          # https://api.careeros.app for Production-Grade.
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Career OS ${{ github.ref_name }}"
+          releaseBody: |
+            See full notes in the commit history.
+
+            **First launch on a new Mac**: macOS Gatekeeper may
+            block the unsigned DMG. Right-click the app in
+            `/Applications` → "Open" → confirm in the dialog.
+            Subsequent launches don't need this.
+          releaseDraft: false
+          prerelease: false
+          args: --target aarch64-apple-darwin
