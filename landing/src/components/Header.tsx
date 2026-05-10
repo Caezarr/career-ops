@@ -15,17 +15,20 @@ export default function Header() {
     <header className="header">
       <div className="header__inner">
         <a href="#top" className="header__brand" aria-label="Career OS">
-          {/* Real brand logo. The image's "Career OS" wordmark is
-              dark-on-light by design — relies on the theme cascade
-              CSS to invert in dark mode (see `header.css`). Width
-              caps with min-w to stay readable on narrow screens. */}
+          {/* The icon-only "C" mark + the HTML wordmark. We avoid
+              the bundled horizontal logo PNG because it has too
+              much built-in padding and the wordmark colour can't
+              react to the theme toggle. PNG icon stays crisp at
+              24px (source is 1254×1254). */}
           <img
-            src="/logo.png"
-            alt="Career OS"
-            className="header__logo-img"
-            width="140"
-            height="32"
+            src="/favicon.png"
+            alt=""
+            className="header__logo"
+            width="24"
+            height="24"
+            style={{ borderRadius: 0, background: "transparent" }}
           />
+          <span>Career OS</span>
         </a>
 
         <nav className="header__nav" aria-label="Sections">
