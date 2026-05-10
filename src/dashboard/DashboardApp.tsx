@@ -22,6 +22,7 @@ import { useAutostart } from "./hooks/useAutostart";
 import { useSeedIngestSources } from "./hooks/useSeedIngestSources";
 import { useJobTeaserAuthListener } from "./hooks/useJobTeaserAuthListener";
 import { useCopilotEventBridge } from "./hooks/useCopilotSession";
+import { useBillingHydrate } from "./hooks/useBillingHydrate";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
 import "./styles/topbar.css";
@@ -143,6 +144,13 @@ function JobTeaserAuthListener() {
   return null;
 }
 
+/** Hydrate the post-beta Stripe subscription mirror once on boot.
+ *  No-op when the user has no Stripe record (free tier, beta cohort). */
+function BillingHydrate() {
+  useBillingHydrate();
+  return null;
+}
+
 export function DashboardApp() {
   return (
     <div className="dashboard-root">
@@ -154,6 +162,7 @@ export function DashboardApp() {
             <CopilotEventBridge />
             <IngestSourcesSeeder />
             <JobTeaserAuthListener />
+            <BillingHydrate />
             <GlobalKeyboardShortcuts />
             {/*
               Sprint 5 PR-B: lazy routes need a Suspense boundary.

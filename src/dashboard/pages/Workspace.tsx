@@ -23,6 +23,7 @@ import {
   Play,
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
+import { useShallow } from 'zustand/shallow';
 import Sidebar from '../components/Sidebar';
 import TopBar from '../components/TopBar';
 import CompanyAvatar from '../components/CompanyAvatar';
@@ -116,27 +117,73 @@ function formatSalary(min: number, max: number, c: string): string | null {
 export default function Workspace() {
   const { navigate } = useNavigation();
   const toast = useToast();
-  const workspaceJobId = useAppStore((s) => s.workspaceJobId);
+  // Sprint 6 (audit Performance P0 #3): bundle the 7 setters/primitives
+  // we don't iterate over into one `useShallow` selector so the 1537-LOC
+  // War Room only re-renders when one of those primitives actually
+  // changes. Setters are stable refs in Zustand — bundling them lets
+  // the useShallow comparator short-circuit instantly on the common
+  // path. Primitives (`workspaceJobId`, `defaultCvId`, `analyzerRunning`)
+  // already short-circuit via `===`, but bundling them is free.
+  const {
+    workspaceJobId,
+    defaultCvId,
+    analyzerRunning,
+    setCopilotPickerJobId,
+    setCopilotPickerCvId,
+    setSelectedApplication,
+    setWorkspaceJobId,
+    updateApplicationNotes,
+  } = useAppStore(
+    useShallow((s) => ({
+      workspaceJobId: s.workspaceJobId,
+      defaultCvId: s.defaultCvId,
+      analyzerRunning: s.analyzerRunning,
+      setCopilotPickerJobId: s.setCopilotPickerJobId,
+      setCopilotPickerCvId: s.setCopilotPickerCvId,
+      setSelectedApplication: s.setSelectedApplication,
+      setWorkspaceJobId: s.setWorkspaceJobId,
+      updateApplicationNotes: s.updateApplicationNotes,
+    })),
+  );
+  // Lists kept as raw selectors — they're consumed directly downstream
+  // (filter / sort / map / .length / .some) so the component genuinely
+  // depends on the array reference. The expensive `find()` lookups below
+  // are now O(1) via the memoised `jobsById` / `applicationsByJobId` maps.
   const jobs = useAppStore((s) => s.jobs);
   const applications = useAppStore((s) => s.applications);
   const cvs = useAppStore((s) => s.cvs);
-  const defaultCvId = useAppStore((s) => s.defaultCvId);
   const atsByCv = useAppStore((s) => s.atsByCv);
   const copilotSessions = useAppStore((s) => s.copilotSessions);
-  const setCopilotPickerJobId = useAppStore((s) => s.setCopilotPickerJobId);
-  const setCopilotPickerCvId = useAppStore((s) => s.setCopilotPickerCvId);
-  const setSelectedApplication = useAppStore((s) => s.setSelectedApplication);
-  const setWorkspaceJobId = useAppStore((s) => s.setWorkspaceJobId);
-  const analyzerRunning = useAppStore((s) => s.analyzerRunning);
-  const updateApplicationNotes = useAppStore((s) => s.updateApplicationNotes);
 
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [switcherQuery, setSwitcherQuery] = useState('');
 
-  const job = jobs.find((j) => j.id === workspaceJobId);
-  const application = applications.find((a) => a.jobId === workspaceJobId);
+  // Sprint 6 (audit Performance P0 #3): O(N) `find()` per render → O(1).
+  // Mirrors the `jobsById` pattern shipped on `Pipeline.tsx` in Sprint 5.
+  // With 5000 jobs + 50 applications, this collapses 5050 comparisons
+  // per render to two map lookups.
+  const jobsById = useMemo(() => {
+    const m = new Map<string, Job>();
+    for (const j of jobs) m.set(j.id, j);
+    return m;
+  }, [jobs]);
+  const applicationsByJobId = useMemo(() => {
+    const m = new Map<string, typeof applications[number]>();
+    for (const a of applications) m.set(a.jobId, a);
+    return m;
+  }, [applications]);
+  const cvsById = useMemo(() => {
+    const m = new Map<string, typeof cvs[number]>();
+    for (const c of cvs) m.set(c.id, c);
+    return m;
+  }, [cvs]);
+
+  const job = workspaceJobId ? jobsById.get(workspaceJobId) : undefined;
+  const application = workspaceJobId
+    ? applicationsByJobId.get(workspaceJobId)
+    : undefined;
   const cv =
-    cvs.find((c) => c.id === (application?.cvId ?? defaultCvId)) ?? cvs[0];
+    cvsById.get(application?.cvId ?? defaultCvId ?? '') ?? cvs[0];
   const cachedAts = cv ? atsByCv[cv.id] : undefined;
   const jdSnippet = (job?.jdText ?? '').slice(0, JD_SNIPPET_LEN);
   const atsIsForThisJob =

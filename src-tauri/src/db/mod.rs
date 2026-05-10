@@ -7,6 +7,7 @@ pub mod interview;
 pub mod job;
 pub mod models;
 pub mod prep;
+pub mod subscription;
 pub mod timeline;
 pub mod user;
 
