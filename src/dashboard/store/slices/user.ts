@@ -44,7 +44,10 @@ export const createUserSlice: StateCreator<UserSlice> = (set) => ({
     set((state) => ({ user: { ...state.user, ...patch } })),
   setOnboardingStep: (n) =>
     set((state) => ({
-      user: { ...state.user, onboardingStep: Math.max(0, Math.min(3, n)) },
+      // Clamp 0..4 — wizard now has 5 outer steps (Identity, Targets,
+      // FirstCV, Narrative, FirstSource). Bumped from 3 when the
+      // Career Narrative step landed.
+      user: { ...state.user, onboardingStep: Math.max(0, Math.min(4, n)) },
     })),
   markOnboarded: (patch) =>
     set((state) => ({
@@ -53,7 +56,7 @@ export const createUserSlice: StateCreator<UserSlice> = (set) => ({
         ...(patch ?? {}),
         onboarded: true,
         onboardingComplete: true,
-        onboardingStep: 3,
+        onboardingStep: 4,
       },
     })),
 });

@@ -441,3 +441,262 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Narrative step ───────────────────────────────────────────────────── */
+
+.dashboard-root .onboarding__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text, #4f46e5);
+  background: var(--accent-soft, rgba(99, 102, 241, 0.1));
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+
+.dashboard-root .onboarding-narrative-q {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dashboard-root .onboarding-narrative-q__head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dashboard-root .onboarding-narrative-q__counter {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 13px;
+  color: var(--text-3, #94a3b8);
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.dashboard-root .onboarding-narrative-q__counter > span {
+  color: var(--text-3, #94a3b8);
+  font-weight: 500;
+}
+
+.dashboard-root .onboarding-narrative-q__title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin: 0;
+  color: var(--text-1, #0f172a);
+}
+
+.dashboard-root .onboarding-narrative-q__subtitle {
+  font-size: 14px;
+  color: var(--text-2, #64748b);
+  line-height: 1.5;
+  margin: 0;
+  max-width: 56ch;
+}
+
+.dashboard-root .onboarding-narrative-q__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dashboard-root .onboarding-narrative-q__textarea {
+  width: 100%;
+  min-height: 160px;
+  padding: 14px 16px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-1, #0f172a);
+  background: var(--bg-soft, #f8f9fc);
+  border: 1px solid var(--border, #ececf2);
+  border-radius: 12px;
+  resize: vertical;
+  outline: none;
+  transition: border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dashboard-root .onboarding-narrative-q__textarea:focus {
+  border-color: var(--accent, #6366f1);
+  box-shadow: 0 0 0 4px var(--accent-soft, rgba(99, 102, 241, 0.14));
+}
+
+.dashboard-root .onboarding-narrative-q__textarea::placeholder {
+  color: var(--text-3, #94a3b8);
+}
+
+.dashboard-root .onboarding-narrative-q__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-root .onboarding-narrative-q__mic,
+.dashboard-root .onboarding-narrative-q__mic-disabled {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border: 1px solid var(--border, #ececf2);
+  background: var(--bg, #ffffff);
+  color: var(--text-2, #64748b);
+  cursor: pointer;
+  transition: color 160ms, border-color 160ms, background 160ms;
+}
+
+.dashboard-root .onboarding-narrative-q__mic:hover {
+  color: var(--text-1, #0f172a);
+  border-color: var(--text-3, #94a3b8);
+}
+
+.dashboard-root .onboarding-narrative-q__mic--on {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+  position: relative;
+}
+
+.dashboard-root .onboarding-narrative-q__mic--on:hover {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.dashboard-root .onboarding-narrative-q__mic-pulse {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6);
+  animation: onboarding-mic-pulse 1.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+@keyframes onboarding-mic-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+.dashboard-root .onboarding-narrative-q__mic-disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.dashboard-root .onboarding-narrative-q__count {
+  font-family: ui-monospace, "SF Mono", "Menlo", monospace;
+  font-size: 12px;
+  color: var(--text-3, #94a3b8);
+  letter-spacing: 0.04em;
+}
+
+.dashboard-root .onboarding-narrative-q__count--warn {
+  color: var(--orange, #f59e0b);
+}
+
+.dashboard-root .onboarding-narrative-q__count--hot {
+  color: var(--red, #ef4444);
+  font-weight: 600;
+}
+
+.dashboard-root .onboarding-narrative-q__error {
+  font-size: 13px;
+  color: var(--red, #ef4444);
+  margin: 0;
+}
+
+.dashboard-root .onboarding-narrative-q__hint {
+  font-size: 12px;
+  color: var(--text-3, #94a3b8);
+  margin: 0;
+}
+
+/* Recap card */
+
+.dashboard-root .onboarding-narrative-recap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dashboard-root .onboarding-narrative-recap__item {
+  padding: 14px 16px;
+  border: 1px solid var(--border, #ececf2);
+  border-radius: 12px;
+  background: var(--bg-soft, #f8f9fc);
+  transition: border-color 160ms, background 160ms;
+}
+
+.dashboard-root .onboarding-narrative-recap__item:hover {
+  border-color: var(--text-3, #94a3b8);
+}
+
+.dashboard-root .onboarding-narrative-recap__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.dashboard-root .onboarding-narrative-recap__section {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent-text, #4f46e5);
+}
+
+.dashboard-root .onboarding-narrative-recap__edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2, #64748b);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: color 160ms, border-color 160ms, background 160ms;
+}
+
+.dashboard-root .onboarding-narrative-recap__edit:hover {
+  color: var(--text-1, #0f172a);
+  background: var(--bg, #ffffff);
+  border-color: var(--border, #ececf2);
+}
+
+.dashboard-root .onboarding-narrative-recap__body {
+  font-size: 13px;
+  color: var(--text-2, #64748b);
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.dashboard-root .onboarding-narrative-recap__body--empty {
+  color: var(--text-3, #94a3b8);
+  font-style: italic;
+}
