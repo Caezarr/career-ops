@@ -65,10 +65,10 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://api.careeros.app/v1/updates/{{target}}/{{arch}}/{{current_version}}"
+        "https://api.careeros.fr/v1/updates/{{target}}/{{arch}}/{{current_version}}"
       ],
       "dialog": false,
-      "pubkey": "REPLACE_WITH_TAURI_SIGNER_GENERATE_PUBKEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY0MzBBNzVCNDBGQTUwNjUKUldSbFVQcEFXNmN3WkpudWJ3dlJvMXBWWnB3MzRHY0xJZlNXeVRkZGhqZ3JaVlA1NU5vTWg5T2kK"
     }
   },
   "bundle": {
