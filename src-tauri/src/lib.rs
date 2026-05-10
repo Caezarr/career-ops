@@ -203,6 +203,28 @@ async fn parse_cv_pdf(window: WebviewWindow,
         .map_err(|e| e.to_string())
 }
 
+/// Extract a structured contact profile (name / email / phone /
+/// LinkedIn / GitHub / portfolio) from a base64-encoded CV PDF.
+/// Used by the onboarding wizard's Step 3 to pre-fill the user's
+/// contact block — the frontend overlays returned fields on top of
+/// any value the user has already typed (non-destructive).
+///
+/// All fields are best-effort regex/heuristic — we expect ~80% hit
+/// rate on standard text-PDF templates and 0% on image-only PDFs.
+/// Image PDFs surface the same "no extractable text" error as
+/// `parse_cv_pdf`.
+#[tauri::command]
+async fn parse_cv_profile(
+    window: WebviewWindow,
+    b64: String,
+) -> Result<pdf::CvExtractedProfile, String> {
+    assert_main_or_copilot(&window)?;
+    tokio::task::spawn_blocking(move || pdf::extract_profile_from_base64(&b64))
+        .await
+        .map_err(|e| format!("task join error: {e}"))?
+        .map_err(|e| e.to_string())
+}
+
 /// List the names of all available audio input devices.
 #[tauri::command]
 async fn list_audio_devices() -> Result<Vec<String>, String> {
@@ -1094,6 +1116,7 @@ pub fn run() {
             start_capture,
             stop_capture,
             parse_cv_pdf,
+            parse_cv_profile,
             list_audio_devices,
             list_anthropic_models,
             start_session,

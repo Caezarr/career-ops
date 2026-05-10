@@ -13,8 +13,16 @@
   z-index: 1000;
   background: var(--bg);
   display: grid;
-  place-items: center;
+  /* Sprint 6: previously `place-items: center`; now anchor at top
+     so taller steps (StepBackground with 4 sections) don't have
+     their header clipped off the top of the viewport when the
+     panel exceeds 100vh. Horizontal centering preserved. */
+  place-items: start center;
   padding: 32px;
+  /* Allow the page itself to scroll when the panel content
+     exceeds viewport height — belt-and-braces with the stage
+     overflow rule below. */
+  overflow-y: auto;
   animation: onboarding-fade-in 220ms ease-out both;
 }
 
@@ -45,6 +53,11 @@
   flex-direction: column;
   gap: 24px;
   min-height: 480px;
+  /* Anchor for the polish overlay (Sprint 6). */
+  position: relative;
+  /* Sprint 6: cap panel height so the inner stage scrolls
+     instead of the whole overlay. Footer stays anchored. */
+  max-height: calc(100vh - 64px);
 }
 
 /* ── Progress dots ─────────────────────────────────────────────────────── */
@@ -78,6 +91,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  /* Sprint 6: scroll the step content rather than the whole panel
+     so the footer (Skip / Suivant buttons) stays glued to the
+     bottom of the panel even on tall steps (StepBackground). */
+  overflow-y: auto;
+  /* Hide the scrollbar gutter on macOS/WebKit — content stops
+     before the right edge naturally because of the panel padding. */
+  scrollbar-gutter: stable;
 }
 
 .dashboard-root .onboarding__stage--in-next {
@@ -100,6 +120,25 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+}
+
+/* Compact step variant — used by StepBackground (4 sections) so
+   everything fits without forcing the inner stage into scroll
+   territory at standard heights. */
+.dashboard-root .onboarding__step--compact {
+  gap: 12px;
+}
+
+.dashboard-root .onboarding__step--compact .onboarding__title {
+  font-size: 20px;
+}
+
+.dashboard-root .onboarding__step--compact .onboarding__subtitle {
+  margin-bottom: 4px;
+}
+
+.dashboard-root .onboarding__step--compact .onboarding__field {
+  gap: 4px;
 }
 
 .dashboard-root .onboarding__title {
@@ -167,6 +206,26 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+/* Compact variant — used by StepBackground where we have 4 pill
+   groups in one step. 3 columns instead of 2, tighter padding. */
+.dashboard-root .onboarding__pills--compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dashboard-root .onboarding__pills--compact .onboarding__pill {
+  padding: 10px 12px;
+  gap: 2px;
+}
+
+.dashboard-root .onboarding__pills--compact .onboarding__pill-label {
+  font-size: 13px;
+}
+
+.dashboard-root .onboarding__pills--compact .onboarding__pill-sub {
+  font-size: 11px;
 }
 
 .dashboard-root .onboarding__pill {
@@ -440,4 +499,100 @@
   .dashboard-root .onboarding__cards {
     grid-template-columns: 1fr;
   }
+  .dashboard-root .onboarding__field-row {
+    flex-direction: column;
+  }
+  .dashboard-root .onboarding__field-row .onboarding__field {
+    width: 100% !important;
+  }
+}
+
+/* Sprint 6 — extended onboarding ──────────────────────────────────────── */
+
+/* Tiny "(facultatif)" hint shown after a label on optional inputs. */
+.dashboard-root .onboarding__optional {
+  font-weight: 400;
+  color: var(--text-2);
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+/* Two-column inline field row (used by Diplôme + Promo on StepIdentity). */
+.dashboard-root .onboarding__field-row {
+  display: flex;
+  gap: 12px;
+}
+
+/* Auto-fill recap card shown on StepFirstCV after extraction. */
+.dashboard-root .onboarding__autofill {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--indigo) 40%, var(--border));
+  background: color-mix(in oklab, var(--indigo) 8%, var(--bg-soft));
+  font-size: 13px;
+  color: var(--text-1);
+}
+
+.dashboard-root .onboarding__autofill-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-root .onboarding__autofill-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ── Polish overlay (Sprint 6 — Claude profile.md generation) ──── */
+
+.dashboard-root .onboarding__polish-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--r-xl);
+  background: color-mix(in oklab, var(--bg-1) 92%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+  animation: onboarding-fade-in 200ms ease-out both;
+}
+
+.dashboard-root .onboarding__polish-spinner {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--indigo);
+  animation: onboarding-spin 700ms linear infinite;
+}
+
+.dashboard-root .onboarding__polish-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+
+.dashboard-root .onboarding__polish-sub {
+  font-size: 13px;
+  color: var(--text-2);
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+@keyframes onboarding-spin {
+  to { transform: rotate(360deg); }
 }

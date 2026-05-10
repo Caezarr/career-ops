@@ -42,9 +42,13 @@ export const createUserSlice: StateCreator<UserSlice> = (set) => ({
   user: initialUser,
   updateUser: (patch) =>
     set((state) => ({ user: { ...state.user, ...patch } })),
+  // Sprint 6: 6-step wizard (Identity / Targets / Background /
+  // FirstCV / Narrative / FirstSource). Existing persisted users
+  // with `onboardingStep` < 5 survive unchanged; `markOnboarded`
+  // pushes them to the final dot regardless.
   setOnboardingStep: (n) =>
     set((state) => ({
-      user: { ...state.user, onboardingStep: Math.max(0, Math.min(3, n)) },
+      user: { ...state.user, onboardingStep: Math.max(0, Math.min(5, n)) },
     })),
   markOnboarded: (patch) =>
     set((state) => ({
@@ -53,7 +57,7 @@ export const createUserSlice: StateCreator<UserSlice> = (set) => ({
         ...(patch ?? {}),
         onboarded: true,
         onboardingComplete: true,
-        onboardingStep: 3,
+        onboardingStep: 5,
       },
     })),
 });

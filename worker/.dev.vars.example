@@ -5,6 +5,13 @@
 #   openssl rand -base64 48
 JWT_SECRET=
 
+# DEV NOTE — no Loops account / domain yet?
+# Set LOOPS_API_KEY="dev-noop" (or leave empty) and the worker
+# will skip the email send + log the magic link to the console.
+# Copy/paste the URL from the worker terminal into your browser
+# to complete the flow. ONLY safe in dev — production secrets are
+# always real Loops keys, never "dev-*".
+#
 # From Loops → Settings → API. Use the "transactional" key, not the
 # audience-specific one.
 LOOPS_API_KEY=
@@ -14,3 +21,9 @@ LOOPS_API_KEY=
 #   - magicLink (the full URL to /auth/verify?token=…)
 #   - email     (the recipient address, used in the body)
 LOOPS_TRANSACTIONAL_ID=
+
+# Anthropic key — used by the server-managed AI endpoints
+# (/v1/ai/polish-profile and friends). Required for the
+# onboarding profile.md polishing step. Get from
+# https://console.anthropic.com/settings/keys.
+ANTHROPIC_API_KEY=

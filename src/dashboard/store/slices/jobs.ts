@@ -6,6 +6,7 @@ import {
 } from "../../data/jobs";
 import { companyBrand } from "../../data/mock";
 import {
+  companyLogoUrl,
   companyMeta,
   seniorityFromTitle,
   stageFromYcBatch,
@@ -49,6 +50,11 @@ function convertJob(raw: typeof legacyJobs[number], detail?: typeof legacySelect
     reviews: detail?.reviews,
     avatarColor: brand.bg,
     avatarLabel: brand.label,
+    // Sprint 6: real Clearbit logo when we have a curated domain
+    // — JobListItem renders the image when present, falling back
+    // to the colored letter-tile (avatarColor + avatarLabel) for
+    // companies we don't know yet.
+    companyLogoUrl: companyLogoUrl(raw.company),
   };
 }
 
@@ -265,6 +271,10 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
         bookmarked: persistedBookmarks.has(j.id),
         avatarColor: brand.bg,
         avatarLabel: brand.label,
+        // Sprint 6: prefer the scraper-extracted logo URL (set by
+        // the JT bridge), fall back to our curated Clearbit
+        // mapping for known companies.
+        companyLogoUrl: j.companyLogoUrl ?? companyLogoUrl(j.company),
         stats: stats.length > 0 ? stats : j.stats,
         about: about && about.length > 0 ? about : j.about,
         seniority,
@@ -335,6 +345,7 @@ export const createJobsSlice: StateCreator<JobsSlice> = (set, get) => ({
       jdText: input.jdText,
       avatarColor: brand.bg,
       avatarLabel: brand.label,
+      companyLogoUrl: companyLogoUrl(input.company),
     };
     set((state) => ({ jobs: [job, ...state.jobs] }));
     return job;

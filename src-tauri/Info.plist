@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- TCC usage descriptions. macOS shows these strings in the
+         system permission dialog the first time the app touches the
+         corresponding capability. Without them, the OS silently
+         refuses access (which is what was breaking the StepNarrative
+         dictation button — webkitSpeechRecognition.start() returned
+         no error but never delivered results). -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Career OS utilise ton micro pour la dictée vocale (étape "Raconte-toi" et autres saisies vocales optionnelles).</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Career OS convertit ta voix en texte pour pré-remplir ton profil — la reconnaissance vocale s'effectue via Apple Speech.</string>
+</dict>
+</plist>

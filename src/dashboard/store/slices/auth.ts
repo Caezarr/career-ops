@@ -115,9 +115,14 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set, get) => ({
       await requestMagicLink(trimmed);
       set({ authStatus: "awaiting-link" });
     } catch (e) {
+      // `requestMagicLink` already converts network failures into
+      // an AuthError with status:0 + a user-friendly message — we
+      // only need to wrap HTTP-status errors with extra context.
       const msg =
         e instanceof AuthError
-          ? `Le serveur a répondu ${e.status}. Réessaye dans une minute.`
+          ? e.status === 0
+            ? e.message
+            : `Le serveur a répondu ${e.status}. Réessaye dans une minute.`
           : e instanceof Error
             ? e.message
             : "Erreur inconnue";

@@ -44,10 +44,33 @@ export interface User {
   /** École (HEC, ESCP, Polytechnique, …) captured during onboarding.
    *  Free-form when the user picks "Autre". */
   school?: string;
+  /** Diplôme principal (e.g. "MSc Management", "Bachelor CS",
+   *  "MBA"). Optional — onboarding asks but doesn't gate. */
+  degree?: string;
+  /** Year of (expected) graduation. Optional. Number rather than
+   *  string so date math (years-of-experience inference) doesn't
+   *  need parsing. */
+  gradYear?: number;
   /** Target firm/track tags chosen during onboarding (e.g. "Conseil",
    *  "IB / PE / VC"). Surfaced to the AI prompts so generations match
    *  the user's actual goals. */
   targetTracks?: string[];
+  // ── Sprint 6 — extended onboarding (CV OCR + background) ──────
+  /** Self-declared seniority bracket. Used by the AI prompts to
+   *  modulate tone (e.g. avoid "Lead an engineering team" prep
+   *  questions for a fresh graduate). All values are optional —
+   *  user can skip the question. */
+  experienceLevel?: "student" | "graduate" | "1-3" | "3-7" | "7+";
+  /** Geographies the user is targeting (Paris, London, NYC, SF,
+   *  Remote, Other). Multi-select; empty = "didn't say". */
+  targetGeo?: string[];
+  /** Contract type the user is hunting for. */
+  contractType?: "cdi" | "stage" | "alternance" | "freelance" | "any";
+  /** Target compensation range — annual gross, in the user's
+   *  primary currency (defaulted to EUR for FR users). Optional;
+   *  surfaced to filter / score job postings. */
+  salaryMin?: number;
+  salaryMax?: number;
 }
 
 // ─── Notifications ──────────────────────────────────────────────────────────

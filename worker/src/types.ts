@@ -14,6 +14,12 @@ export interface Env {
   JWT_SECRET: string;
   LOOPS_API_KEY: string;
   LOOPS_TRANSACTIONAL_ID: string;
+  /** Anthropic API key — used by the server-managed AI endpoints
+   *  (e.g. `/v1/ai/polish-profile`). The whole point of the
+   *  Career OS subscription is that users don't bring their own
+   *  keys; we host the upstream credit. Set with
+   *  `wrangler secret put ANTHROPIC_API_KEY`. */
+  ANTHROPIC_API_KEY: string;
 
   // Public vars (set in wrangler.toml [vars] block).
   APP_DEEP_LINK: string;          // e.g. "careeros://auth/callback"

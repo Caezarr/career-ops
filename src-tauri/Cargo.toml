@@ -36,6 +36,11 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 pdf-extract = "0.7"
 base64 = "0.22"
+# Used by `pdf::profile` for regex-based contact extraction
+# (email / phone / LinkedIn / GitHub / portfolio) when the user
+# uploads a CV during onboarding. Compiled-once statics live in
+# `pdf::profile`; runtime allocation is zero per call.
+regex = "1"
 tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
 http = "1"
 # Audit 2026-05-05 backend #6.1 recommended dropping the `macros`

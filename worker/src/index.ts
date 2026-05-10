@@ -11,6 +11,7 @@ import { cors } from "hono/cors";
 import { authRoutes } from "./routes/auth";
 import { meRoutes } from "./routes/me";
 import { healthRoutes } from "./routes/health";
+import { aiRoutes } from "./routes/ai";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -36,6 +37,10 @@ app.use(
 app.route("/auth", authRoutes);
 app.route("/me", meRoutes);
 app.route("/health", healthRoutes);
+// Server-managed AI (subscription includes the Anthropic credit —
+// users never bring their own keys). All routes JWT-gated +
+// per-user daily rate-limited.
+app.route("/v1/ai", aiRoutes);
 
 app.get("/", (c) =>
   c.text(
