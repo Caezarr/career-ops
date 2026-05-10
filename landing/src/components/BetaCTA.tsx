@@ -227,12 +227,46 @@ export default function BetaCTA() {
 
             <div className="beta-cta__totals">
               <div className="beta-cta__totals-row">
-                <span>Valeur totale estimée</span>
-                <span className="beta-cta__totals-strike">730&nbsp;€/mois</span>
+                <div className="beta-cta__totals-label">
+                  <span>Prix prévu après la bêta</span>
+                  <span className="beta-cta__totals-note">paiement unique · pas d'abonnement</span>
+                </div>
+                <span className="beta-cta__totals-strike">200&nbsp;€</span>
               </div>
               <div className="beta-cta__totals-row beta-cta__totals-row--final">
-                <span>Ton prix en bêta</span>
+                <span>Pendant la bêta privée</span>
                 <span className="beta-cta__totals-final">0&nbsp;€</span>
+              </div>
+            </div>
+
+            {/* Guarantee block — risk reversal. The single biggest objection
+                to a 200€ payment is "et si ça marche pas pour moi". The
+                money-back-if-no-interview guarantee removes that objection
+                cleanly. We keep the wording short here; the detailed terms
+                (timeframe, minimum activity threshold) live in the CGU. */}
+            <div className="beta-cta__guarantee" role="note">
+              <span className="beta-cta__guarantee-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 2 L20 5 V11 C20 16 16.5 20 12 22 C7.5 20 4 16 4 11 V5 Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9 12 L11 14 L15 10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <div className="beta-cta__guarantee-text">
+                <span className="beta-cta__guarantee-title">Garantie résultat</span>
+                <span className="beta-cta__guarantee-body">
+                  Aucun entretien décroché ? On te rembourse, intégralement.
+                </span>
               </div>
             </div>
           </div>
