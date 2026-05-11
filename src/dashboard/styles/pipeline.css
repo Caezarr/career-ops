@@ -146,6 +146,29 @@
   justify-content: space-between;
 }
 
+/* Relance auto pill — only rendered when the application's `nextStep`
+   starts with "Relance auto". Visually subtle (indigo-soft on dark, soft
+   indigo border on light) so it reads as a status hint, not an alert. */
+.dashboard-root .pipeline-card__relance {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: var(--indigo-soft, rgba(99, 102, 241, 0.12));
+  color: var(--indigo-text, #818cf8);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+}
+.dashboard-root .pipeline-card__relance svg {
+  width: 11px;
+  height: 11px;
+}
+
 .dashboard-root .pipeline-card__date {
   font-size: 12px;
   color: var(--text-3);

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronDown, MoreHorizontal, Plus } from 'lucide-react';
+import { Bell, ChevronDown, MoreHorizontal, Plus } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -427,6 +427,12 @@ function SortablePipelineCard({ card }: { card: CardModel }) {
           <div className="pipeline-card__company">{card.job?.company ?? '—'}</div>
         </div>
       </div>
+      {card.app.nextStep?.startsWith('Relance auto') && (
+        <div className="pipeline-card__relance" title={card.app.nextStep}>
+          <Bell size={11} strokeWidth={2.2} />
+          <span>{card.app.nextStep}</span>
+        </div>
+      )}
       <div className="pipeline-card__bottom">
         <span className="pipeline-card__date">{card.app.appliedDate}</span>
         <span className={`pipeline-card__match ${matchClass(card.app.match)}`}>
