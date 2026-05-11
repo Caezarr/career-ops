@@ -83,45 +83,267 @@ export default function BetaCTA() {
   }
 
   return (
-    <section className="beta-cta" id="beta">
-      <div className="container">
-        <div className="beta-cta__inner">
-          <span className="section__eyebrow">Beta privée · 47 places restantes</span>
-          <h2 className="beta-cta__title">
-            Postule à la beta. Réponse sous 7 jours.
-          </h2>
-          <p className="beta-cta__sub">
-            On lit chaque candidature à la main. Chaque vague de 25 personnes est
-            sélectionnée selon le sérieux du projet — pas l'ordre d'arrivée.
-          </p>
+    <section className="beta-cta beta-cta--dark beta-cta--split" id="beta">
+      {/* Constellation + orbits background. Inline SVG so the asset
+          travels with the component (no extra file to host) and the
+          colours can hook into our theme variables later if needed.
 
-          <form className="beta-application" onSubmit={handleSubmit} noValidate>
+          Layout intent (matching the mockup):
+            - solid deep-navy bg (#0E1430, from CSS)
+            - 3 thin ellipse orbits arcing across the section
+            - ~28 dots scattered between/around the orbits
+            - a handful of dots tinted violet/green/yellow for depth
+
+          aria-hidden — it's purely decorative. */}
+      <svg
+        className="beta-cta__bg"
+        viewBox="0 0 1200 600"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <defs>
+          <radialGradient id="bcta-dot-soft" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </radialGradient>
+        </defs>
+
+        {/* Orbits — three open ellipses, slight rotation each, very
+            faint stroke so the dots stay the headline. */}
+        <g stroke="rgba(255,255,255,0.08)" strokeWidth="1" fill="none">
+          <ellipse cx="600" cy="300" rx="540" ry="180" />
+          <ellipse
+            cx="600"
+            cy="300"
+            rx="420"
+            ry="140"
+            transform="rotate(-12 600 300)"
+          />
+          <ellipse
+            cx="600"
+            cy="300"
+            rx="300"
+            ry="100"
+            transform="rotate(14 600 300)"
+          />
+        </g>
+
+        {/* Star halos — a few bigger soft-glow dots so the eye has
+            anchor points. */}
+        <g>
+          <circle cx="140" cy="120" r="14" fill="url(#bcta-dot-soft)" opacity="0.7" />
+          <circle cx="1060" cy="200" r="12" fill="url(#bcta-dot-soft)" opacity="0.55" />
+          <circle cx="860" cy="470" r="16" fill="url(#bcta-dot-soft)" opacity="0.5" />
+          <circle cx="220" cy="480" r="10" fill="url(#bcta-dot-soft)" opacity="0.55" />
+        </g>
+
+        {/* Constellation dots. White majority + a few accents. */}
+        <g fill="#ffffff">
+          <circle cx="80" cy="220" r="1.8" opacity="0.85" />
+          <circle cx="180" cy="340" r="1.4" opacity="0.6" />
+          <circle cx="260" cy="180" r="1.6" opacity="0.75" />
+          <circle cx="320" cy="420" r="1.5" opacity="0.7" />
+          <circle cx="400" cy="120" r="1.4" opacity="0.6" />
+          <circle cx="460" cy="500" r="1.8" opacity="0.8" />
+          <circle cx="520" cy="60"  r="1.3" opacity="0.55" />
+          <circle cx="600" cy="540" r="1.6" opacity="0.7" />
+          <circle cx="690" cy="80"  r="1.5" opacity="0.65" />
+          <circle cx="760" cy="380" r="1.4" opacity="0.6" />
+          <circle cx="820" cy="160" r="1.8" opacity="0.8" />
+          <circle cx="900" cy="320" r="1.5" opacity="0.7" />
+          <circle cx="980" cy="100" r="1.4" opacity="0.6" />
+          <circle cx="1020" cy="380" r="1.6" opacity="0.7" />
+          <circle cx="1140" cy="280" r="1.5" opacity="0.7" />
+          <circle cx="1080" cy="500" r="1.4" opacity="0.6" />
+          <circle cx="60"   cy="500" r="1.5" opacity="0.65" />
+          <circle cx="380"  cy="280" r="1.3" opacity="0.55" />
+          <circle cx="540"  cy="240" r="1.4" opacity="0.6" />
+          <circle cx="720"  cy="540" r="1.5" opacity="0.7" />
+        </g>
+
+        {/* Coloured accent dots (violet / mint / amber). */}
+        <g>
+          <circle cx="160"  cy="80"  r="2.4" fill="#a78bfa" opacity="0.9" />
+          <circle cx="990"  cy="500" r="2.6" fill="#34d399" opacity="0.85" />
+          <circle cx="560"  cy="420" r="2.2" fill="#fcd34d" opacity="0.85" />
+          <circle cx="1110" cy="60"  r="2.0" fill="#a78bfa" opacity="0.8" />
+          <circle cx="420"  cy="540" r="2.2" fill="#60a5fa" opacity="0.85" />
+        </g>
+      </svg>
+
+      <div className="container">
+        <div className="beta-cta__split">
+          {/* ── Left: copy + value stack ───────────────────────── */}
+          <div className="beta-cta__copy">
+            <span className="beta-cta__eyebrow">Bêta privée — 20 places / semaine</span>
+            <h2 className="beta-cta__title">
+              Tout ce qu'il te faut pour signer,
+              <br />
+              <span className="beta-cta__title-accent">gratuit pendant la bêta.</span>
+            </h2>
+
+            <p className="beta-cta__intro">
+              Ce que tu reçois en candidatant aujourd'hui&nbsp;:
+            </p>
+
+            <ul className="beta-cta__stack">
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                <div className="beta-cta__stack-item">
+                  <span className="beta-cta__stack-name">Pipeline + suivi de 40 candidatures</span>
+                  <span className="beta-cta__stack-val">valeur : 30h/mois sauvées</span>
+                </div>
+              </li>
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                <div className="beta-cta__stack-item">
+                  <span className="beta-cta__stack-name">CV Optimizer ATS (illimité)</span>
+                  <span className="beta-cta__stack-val">valeur : 89&nbsp;€/mois ailleurs</span>
+                </div>
+              </li>
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                <div className="beta-cta__stack-item">
+                  <span className="beta-cta__stack-name">Brief d'entretien IA par offre</span>
+                  <span className="beta-cta__stack-val">valeur : 1 séance de coach à 400&nbsp;€</span>
+                </div>
+              </li>
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                <div className="beta-cta__stack-item">
+                  <span className="beta-cta__stack-name">Live Copilot pendant l'entretien</span>
+                  <span className="beta-cta__stack-val">unique sur le marché</span>
+                </div>
+              </li>
+              <li>
+                <span className="beta-cta__perk-icon" aria-hidden>✓</span>
+                <div className="beta-cta__stack-item">
+                  <span className="beta-cta__stack-name">Plan d'actions quotidien + relances auto</span>
+                  <span className="beta-cta__stack-val">+65 % d'entretiens en moyenne</span>
+                </div>
+              </li>
+            </ul>
+
+            <div className="beta-cta__totals">
+              <div className="beta-cta__totals-row">
+                <div className="beta-cta__totals-label">
+                  <span>Prix prévu après la bêta</span>
+                  <span className="beta-cta__totals-note">paiement unique · pas d'abonnement</span>
+                </div>
+                <span className="beta-cta__totals-strike">200&nbsp;€</span>
+              </div>
+              <div className="beta-cta__totals-row beta-cta__totals-row--final">
+                <span>Pendant la bêta privée</span>
+                <span className="beta-cta__totals-final">0&nbsp;€</span>
+              </div>
+            </div>
+
+            {/* Guarantee block — risk reversal. The single biggest objection
+                to a 200€ payment is "et si ça marche pas pour moi". The
+                money-back-if-no-interview guarantee removes that objection
+                cleanly. We keep the wording short here; the detailed terms
+                (timeframe, minimum activity threshold) live in the CGU. */}
+            <div className="beta-cta__guarantee" role="note">
+              <span className="beta-cta__guarantee-icon" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path
+                    d="M12 2 L20 5 V11 C20 16 16.5 20 12 22 C7.5 20 4 16 4 11 V5 Z"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M9 12 L11 14 L15 10"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <div className="beta-cta__guarantee-text">
+                <span className="beta-cta__guarantee-title">Garantie résultat</span>
+                <span className="beta-cta__guarantee-body">
+                  Aucun entretien décroché ? On te rembourse, intégralement.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right: form ────────────────────────────────────── */}
+          <form className="beta-application beta-application--card" onSubmit={handleSubmit} noValidate>
             <label className="beta-field">
-              <span className="beta-field__label">Email</span>
-              <input
-                type="email"
-                className="beta-field__input"
-                placeholder="prenom@ecole.fr"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={status === "loading"}
-              />
+              <span className="beta-field__label">Ton email professionnel</span>
+              <div className="beta-field__input-wrap">
+                <svg
+                  className="beta-field__lead-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden
+                >
+                  <rect
+                    x="3"
+                    y="5"
+                    width="18"
+                    height="14"
+                    rx="2"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  />
+                  <path
+                    d="M3.5 6.5 L12 13 L20.5 6.5"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                <input
+                  type="email"
+                  className="beta-field__input beta-field__input--with-icon"
+                  placeholder="ex: prenom@ecole.fr"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={status === "loading"}
+                />
+              </div>
             </label>
 
             <label className="beta-field">
-              <span className="beta-field__label">Tu vises quoi ?</span>
-              <div className="beta-field__select-wrap">
+              <span className="beta-field__label">Ton job cible</span>
+              <div className="beta-field__select-wrap beta-field__select-wrap--with-icon">
+                <svg
+                  className="beta-field__lead-icon"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden
+                >
+                  {/* Target / crosshair */}
+                  <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.6" />
+                  <circle cx="12" cy="12" r="3.5" stroke="currentColor" strokeWidth="1.6" />
+                  <path
+                    d="M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
                 <select
-                  className="beta-field__select"
+                  className="beta-field__select beta-field__select--with-icon"
                   required
                   value={target}
                   onChange={(e) => setTarget(e.target.value as ApplicationTarget)}
                   disabled={status === "loading"}
                 >
                   <option value="" disabled>
-                    Choisir une cible…
+                    Ex : Consultant, Analyste, PM…
                   </option>
                   {TARGETS.map((t) => (
                     <option key={t.value} value={t.value}>
@@ -153,7 +375,7 @@ export default function BetaCTA() {
               className="btn-primary beta-application__submit"
               disabled={status === "loading" || email.trim().length === 0 || !target}
             >
-              {status === "loading" ? "Envoi en cours…" : "Envoyer ma candidature"}
+              {status === "loading" ? "Envoi en cours…" : "Réserver ma place gratuite"}
               {status !== "loading" && (
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
                   <path
@@ -172,15 +394,15 @@ export default function BetaCTA() {
                 {message}
               </p>
             )}
-          </form>
 
-          <div className="beta-meta">
-            <span>Mac · macOS 13+</span>
-            <span className="beta-meta__dot" aria-hidden />
-            <span>Gratuit pendant la beta</span>
-            <span className="beta-meta__dot" aria-hidden />
-            <span>Aucun spam, jamais</span>
-          </div>
+            <p className="beta-application__fineprint">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden style={{ verticalAlign: "middle", marginRight: 4 }}>
+                <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M8 4.5 V8.5 L10.5 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+              Sans engagement. Réponse sous 7 jours. 1 candidature sur 4 acceptée.
+            </p>
+          </form>
         </div>
       </div>
     </section>
@@ -217,10 +439,10 @@ function SuccessPanel({ email }: { email: string }) {
           />
         </svg>
       </div>
-      <h2 className="beta-success__title">Ta candidature est dans la pile.</h2>
+      <h2 className="beta-success__title">Tu es dans la pile.</h2>
       <p className="beta-success__sub">
-        On revient vers toi par mail sous 7 jours. En attendant, tu peux avancer
-        dans la file dès maintenant.
+        Réponse par mail sous 7 jours ouvrés. Tu veux entrer plus vite&nbsp;?
+        3 amis inscrits = accès anticipé garanti, dès la prochaine vague.
       </p>
 
       <div className="referral-card">

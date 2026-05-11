@@ -2,7 +2,12 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Favicon: the brand "C" mark as a PNG (1254×1254 source,
+         browser scales down). Drop a real SVG into public/ once
+         we have a vector export — until then, PNG is sharp enough
+         at favicon sizes thanks to the high-res source. -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0A0B0F" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#fafafb" media="(prefers-color-scheme: light)" />
@@ -30,30 +35,92 @@
     </script>
 
     <!-- Primary meta -->
-    <title>Career OS — L'OS de carrière pour viser les top firms</title>
+    <title>Career OS — Triple ton taux d'entretiens en 30 jours</title>
     <meta
       name="description"
-      content="Track every application. Tailor every CV. Drill every question. Et quand l'entretien commence, un coach silencieux ancré dans ton CV. Application Mac native, local-first."
+      content="L'OS de carrière pour viser McKinsey, Goldman, Anthropic. Pipeline + CV optimisé ATS + brief d'entretien IA + Live Copilot. App Mac native, local-first. Bêta gratuite — 20 places/semaine."
     />
+    <meta name="keywords" content="recherche emploi, McKinsey, Goldman Sachs, Anthropic, FAANG, MBB, ATS, CV optimisé, entretien IA, candidature, top firms, conseil, finance, big tech" />
+    <meta name="author" content="Gabriel Rance" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://careeros.fr/" />
+    <link rel="alternate" hreflang="fr" href="https://careeros.fr/" />
+    <link rel="alternate" hreflang="x-default" href="https://careeros.fr/" />
 
     <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="fr_FR" />
-    <meta property="og:title" content="Career OS — L'OS de carrière pour viser les top firms" />
+    <meta property="og:site_name" content="Career OS" />
+    <meta property="og:title" content="Career OS — Triple ton taux d'entretiens en 30 jours" />
     <meta
       property="og:description"
-      content="Une seule fenêtre pour 40 candidatures, ATS analyzer en local, Live Copilot pendant l'entretien. Beta privée, Mac only."
+      content="L'OS de carrière pour viser les top firms (MBB, IB, FAANG, AI). Pipeline + CV ATS + brief d'entretien IA + Live Copilot. Bêta gratuite, Mac only."
     />
-    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:url" content="https://careeros.fr/" />
+    <meta property="og:image" content="https://careeros.fr/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Career OS — Dashboard et pipeline de candidatures" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Career OS — L'OS de carrière pour viser les top firms" />
+    <meta name="twitter:title" content="Career OS — Triple ton taux d'entretiens en 30 jours" />
     <meta
       name="twitter:description"
-      content="Une seule fenêtre pour 40 candidatures, ATS analyzer en local, Live Copilot pendant l'entretien. Beta privée, Mac only."
+      content="L'OS de carrière pour viser les top firms. CV optimisé ATS, brief d'entretien IA, Live Copilot. Bêta gratuite."
     />
-    <meta name="twitter:image" content="/og-image.png" />
+    <meta name="twitter:image" content="https://careeros.fr/og-image.png" />
+    <meta name="twitter:image:alt" content="Career OS — Dashboard et pipeline de candidatures" />
+
+    <!-- Structured data: identify the publisher + the product so Google
+         can surface a rich card in SERP. SoftwareApplication is the
+         right schema for a downloadable Mac app; we include the
+         offers block (gratuit pendant la bêta) and the aggregateRating
+         shell. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://careeros.fr/#org",
+            "name": "Career OS",
+            "url": "https://careeros.fr/",
+            "logo": "https://careeros.fr/favicon.png",
+            "founder": { "@type": "Person", "name": "Gabriel Rance" },
+            "sameAs": [
+              "https://github.com/Caezarr/career-ops",
+              "https://www.linkedin.com/in/gabriel-rance"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://careeros.fr/#site",
+            "url": "https://careeros.fr/",
+            "name": "Career OS",
+            "inLanguage": "fr-FR",
+            "publisher": { "@id": "https://careeros.fr/#org" }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "Career OS",
+            "operatingSystem": "macOS",
+            "applicationCategory": "BusinessApplication",
+            "description": "L'OS de carrière pour viser les top firms (MBB, IB, FAANG, AI). Pipeline de candidatures, CV optimisé ATS, brief d'entretien IA, Live Copilot.",
+            "url": "https://careeros.fr/",
+            "image": "https://careeros.fr/og-image.png",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "EUR",
+              "availability": "https://schema.org/LimitedAvailability",
+              "description": "Bêta privée gratuite — 20 places par semaine"
+            },
+            "publisher": { "@id": "https://careeros.fr/#org" }
+          }
+        ]
+      }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

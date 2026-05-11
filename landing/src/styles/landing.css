@@ -1161,3 +1161,1280 @@ main {
 .referral-card__share-btn:hover .referral-card__share-icon {
   color: var(--accent-2);
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   v2 LANDING — sections added in the refonte
+   Order matches `App.tsx`:
+   Header (CTA-ghost) · Hero split · TrustBar · Features (4 cards) ·
+   BeforeAfter · HowItWorks · Results · BetaCTA split · Footer v2
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Header — additional "Se connecter" ghost link ─────────────── */
+.header__nav-link--cta-ghost {
+  padding: 6px 12px;
+  border-radius: var(--r-md);
+  color: var(--text-2);
+}
+.header__nav-link--cta-ghost:hover {
+  color: var(--text-1);
+  background: var(--bg-soft);
+}
+
+/* ── Asset placeholder (visible while images aren't dropped) ──── */
+.asset-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  background: var(--bg-soft);
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+  min-height: 100px;
+}
+.asset-placeholder--inline {
+  padding: 6px 12px;
+  min-height: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Hero (split layout — copy left, mockup right)
+   ───────────────────────────────────────────────────────────────── */
+.hero--split {
+  padding: 80px 0 60px;
+}
+.hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 64px;
+  align-items: center;
+}
+.hero__copy {
+  min-width: 0;
+}
+.hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+.hero__eyebrow-star { font-size: 14px; }
+.hero__title {
+  font-size: clamp(40px, 5.6vw, 72px);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  color: var(--text-1);
+  margin: 0 0 24px;
+}
+.hero__title-accent {
+  background: linear-gradient(135deg, #3D5BFF 0%, #6F4FFF 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.hero__subtitle {
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 520px;
+  margin: 0 0 36px;
+}
+.hero__meta-list {
+  list-style: none;
+  padding: 0;
+  margin: 28px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  color: var(--text-2);
+  font-size: 14px;
+}
+.hero__meta-list li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hero__meta-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.hero__mockup {
+  position: relative;
+  min-width: 0;
+}
+.hero__mockup-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-lg);
+}
+@media (max-width: 960px) {
+  .hero__grid { grid-template-columns: 1fr; gap: 40px; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   TrustBar
+   ───────────────────────────────────────────────────────────────── */
+.trust-bar {
+  padding: 48px 0 40px;
+  border-top: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+.trust-bar__eyebrow {
+  text-align: center;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 32px;
+}
+/* Marquee viewport — full-bleed, edges faded so logos don't pop in. */
+.trust-bar__marquee {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 8%,
+    #000 92%,
+    transparent 100%
+  );
+}
+/* The track holds 2× the logo set (first pass + .trust-bar__dup).
+   It's animated to slide left by exactly 50%, looping seamlessly
+   because the duplicate fills the gap. */
+.trust-bar__track {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+  width: max-content;
+  animation: trust-marquee 40s linear infinite;
+}
+.trust-bar__track:hover {
+  animation-play-state: paused;
+}
+.trust-bar__dup {
+  display: flex;
+  align-items: center;
+  gap: 56px;
+}
+@keyframes trust-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.trust-bar__logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-width: 130px;
+}
+.trust-bar__logo {
+  max-width: 100%;
+  max-height: 32px;
+  filter: grayscale(100%);
+  opacity: 0.7;
+  transition: opacity 220ms ease, filter 220ms ease, transform 220ms ease;
+}
+.trust-bar__logo:hover {
+  filter: grayscale(0%);
+  opacity: 1;
+  transform: scale(1.06);
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-bar__track {
+    animation: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Features (4 cards with mockup)
+   ───────────────────────────────────────────────────────────────── */
+.features--cards { padding: 64px 0; }
+.features__grid--4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+.feature-card--with-mockup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg-card);
+}
+.feature-card__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+.feature-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.feature-card__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.feature-card__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+.feature-card__mockup-wrap {
+  margin-top: auto;
+  padding-top: 8px;
+}
+.feature-card__mockup-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--r-md);
+}
+@media (max-width: 1100px) {
+  .features__grid--4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .features__grid--4 { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BeforeAfter
+   ───────────────────────────────────────────────────────────────── */
+.before-after { padding: 64px 0; }
+.before-after__grid {
+  display: grid;
+  grid-template-columns: 1fr 40px 1fr;
+  gap: 20px;
+  align-items: center;
+}
+.before-after__card {
+  padding: 32px 28px;
+  border-radius: var(--r-xl);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+.before-after__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.before-after__eyebrow--red { color: var(--red); }
+.before-after__eyebrow--brand { color: var(--accent); }
+.before-after__title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  margin: 0 0 24px;
+  line-height: 1.15;
+}
+.before-after__tools {
+  margin-bottom: 24px;
+}
+.before-after__tools-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.before-after__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.before-after__list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-1);
+  font-size: 15px;
+}
+.before-after__icon--red { color: var(--red); }
+.before-after__icon--green { color: var(--green); }
+.before-after__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  background: var(--accent-soft);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  margin: 0 auto;
+}
+@media (max-width: 880px) {
+  .before-after__grid { grid-template-columns: 1fr; }
+  .before-after__arrow { transform: rotate(90deg); }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   HowItWorks (4-step horizontal timeline)
+   ───────────────────────────────────────────────────────────────── */
+.how-it-works { padding: 64px 0; }
+.how-it-works__eyebrow {
+  text-align: center;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0 0 48px;
+}
+.how-it-works__timeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  position: relative;
+}
+.how-it-works__timeline::before {
+  content: "";
+  position: absolute;
+  top: 32px;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: var(--border);
+  z-index: 0;
+}
+.how-it-works__step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  z-index: 1;
+}
+.how-it-works__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+.how-it-works__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 8px;
+  letter-spacing: -0.01em;
+}
+.how-it-works__num { color: var(--text-3); margin-right: 4px; }
+.how-it-works__body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 220px;
+}
+@media (max-width: 880px) {
+  .how-it-works__timeline { grid-template-columns: 1fr 1fr; }
+  .how-it-works__timeline::before { display: none; }
+}
+@media (max-width: 480px) {
+  .how-it-works__timeline { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Results (stats + testimonials)
+   ───────────────────────────────────────────────────────────────── */
+.results { padding: 72px 0 48px; }
+.results--xl { padding-top: 88px; }
+
+.results__header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.results__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.results__title {
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  margin: 0;
+}
+
+/* 3 large stat cards, icon isolated at the top inside a tinted
+   square tile, value below, label below that. */
+.results__stat-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.results__stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 28px 26px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+.results__stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 40px -22px rgba(99, 102, 241, 0.35);
+  border-color: var(--border-strong);
+}
+.results__stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--accent-soft), rgba(139, 92, 246, 0.12));
+  color: var(--accent);
+}
+.results__stat-value {
+  display: block;
+  font-size: clamp(34px, 4vw, 44px);
+  font-weight: 800;
+  color: var(--text-1);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--text-1), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.results__stat-label {
+  display: block;
+  font-size: 14px;
+  color: var(--text-3);
+  line-height: 1.45;
+}
+@media (max-width: 880px) {
+  .results__stat-grid { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Testimonials (separate section, 2 horizontal cards)
+   ───────────────────────────────────────────────────────────────── */
+.testimonials { padding: 48px 0 80px; }
+.testimonials__header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+.testimonials__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.testimonials__title {
+  font-size: clamp(24px, 2.6vw, 32px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  margin: 0;
+}
+.testimonials__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+}
+.testimonial-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px 26px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+.testimonial-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 44px -22px rgba(139, 92, 246, 0.30);
+  border-color: var(--border-strong);
+}
+.testimonial-card__author {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.testimonial-card__avatar {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+}
+.testimonial-card__avatar-img {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.testimonial-card__avatar-initials {
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 16px;
+  font-weight: 700;
+}
+.testimonial-card__id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.testimonial-card__name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.testimonial-card__role {
+  font-size: 13px;
+  color: var(--text-3);
+}
+.testimonial-card__pill {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  align-self: flex-start;
+  width: max-content;
+}
+.testimonial-card__quote {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-2, var(--text-1));
+  margin: 0;
+  font-style: italic;
+}
+@media (max-width: 880px) {
+  .testimonials__grid { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BetaCTA — dark split (copy left, form right)
+   ───────────────────────────────────────────────────────────────── */
+.beta-cta--dark {
+  background: #0E1430;
+  color: #fff;
+  padding: 80px 0;
+  border-radius: var(--r-xl);
+  margin: 0 var(--s-6) 64px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Inline SVG constellation sits absolutely behind everything. */
+.beta-cta__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Keep the soft radial glows on top of the SVG to give the
+   constellation depth without overpowering the dots. */
+.beta-cta--dark::before,
+.beta-cta--dark::after {
+  content: "";
+  position: absolute;
+  width: 360px;
+  height: 360px;
+  border-radius: 999px;
+  filter: blur(90px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+.beta-cta--dark::before {
+  background: radial-gradient(circle, rgba(99,102,241,0.55), transparent 70%);
+  top: -120px; right: -120px;
+}
+.beta-cta--dark::after {
+  background: radial-gradient(circle, rgba(139,92,246,0.45), transparent 70%);
+  bottom: -140px; left: -100px;
+}
+.beta-cta__split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.beta-cta__copy {
+  color: #fff;
+}
+.beta-cta__title {
+  font-size: clamp(28px, 3.6vw, 42px);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 28px;
+  color: #fff;
+}
+.beta-cta__title-accent {
+  background: linear-gradient(135deg, #818cf8, #c084fc);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.beta-cta__perks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  color: rgba(255,255,255,0.85);
+  font-size: 15px;
+}
+.beta-cta__perks li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.beta-cta__perk-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  color: var(--accent-2);
+  font-size: 12px;
+  font-weight: 700;
+}
+.beta-application--card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--r-lg);
+  padding: 28px;
+  backdrop-filter: blur(8px);
+}
+.beta-application--card .beta-field__label {
+  color: rgba(255,255,255,0.85);
+}
+.beta-application--card .beta-field__input,
+.beta-application--card .beta-field__select {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.18);
+  color: #fff;
+}
+.beta-application--card .beta-field__input::placeholder {
+  color: rgba(255,255,255,0.45);
+}
+.beta-application__fineprint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+@media (max-width: 880px) {
+  .beta-cta--dark { margin: 0 var(--s-4) 48px; padding: 56px var(--s-4); }
+  .beta-cta__split { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Footer v2 (4 columns)
+   ───────────────────────────────────────────────────────────────── */
+.footer--v2 {
+  padding: 64px 0 32px;
+  border-top: 1px solid var(--border-soft);
+}
+.footer__grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(4, 1fr);
+  gap: 32px;
+  margin-bottom: 32px;
+}
+.footer__brand-block { max-width: 280px; }
+.footer__brand-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.footer__brand-mark { border-radius: 6px; }
+.footer__brand-name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.footer__brand-tagline {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-3);
+  margin: 0 0 18px;
+}
+.footer__socials {
+  display: flex;
+  gap: 8px;
+}
+.footer__social {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  transition: color 160ms ease, border-color 160ms ease;
+}
+.footer__social:hover {
+  color: var(--accent);
+  border-color: var(--border-strong);
+}
+.footer__col-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0 0 14px;
+}
+.footer__col-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.footer__col-list a {
+  font-size: 13px;
+  color: var(--text-3);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.footer__col-list a:hover { color: var(--text-1); }
+.footer__bottom {
+  padding-top: 24px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12px;
+  color: var(--text-3);
+  text-align: center;
+}
+@media (max-width: 880px) {
+  .footer__grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .footer__grid { grid-template-columns: 1fr; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Reveal-on-scroll — paired with `useReveal` hook.
+   Elements start invisible + nudged down, fade-up when they cross
+   the viewport. `transition-delay` is set inline on staggered
+   children (cards) so each one comes in slightly behind the last.
+   Respects `prefers-reduced-motion`.
+   ───────────────────────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 700ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 700ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: opacity, transform;
+}
+.reveal--shown {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Global hover polish — zoom + soft shadow on the main card types.
+   These are additive; if a card already has hover styles they win.
+   ───────────────────────────────────────────────────────────────── */
+.feature-card--with-mockup,
+.process-step,
+.before-card {
+  transition:
+    transform 240ms ease,
+    box-shadow 240ms ease,
+    border-color 240ms ease;
+}
+.feature-card--with-mockup:hover,
+.process-step:hover,
+.before-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 38px -22px rgba(99, 102, 241, 0.30);
+  border-color: var(--border-strong);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Beta form — input with leading icon, +update select to match.
+   The `__input-wrap` / `__select-wrap--with-icon` is a positioning
+   parent for the lead icon. We pad the input left so text doesn't
+   collide with the icon glyph.
+   ───────────────────────────────────────────────────────────────── */
+.beta-field__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.beta-field__lead-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  z-index: 1;
+}
+.beta-application--card .beta-field__lead-icon {
+  color: rgba(255, 255, 255, 0.55);
+}
+.beta-field__input--with-icon,
+.beta-field__select--with-icon {
+  padding-left: 40px !important;
+}
+.beta-field__select-wrap--with-icon {
+  position: relative;
+}
+/* Make sure the chevron stays right-aligned even when we add a
+   leading icon on the select. */
+.beta-field__select-wrap--with-icon .beta-field__select-chevron {
+  right: 14px;
+}
+/* Subtle focus halo on the dark form so users feel the input
+   activate. */
+.beta-application--card .beta-field__input:focus,
+.beta-application--card .beta-field__select:focus {
+  outline: none;
+  border-color: rgba(167, 139, 250, 0.65);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   BetaCTA — Hormozi value-stack
+   The "ce que tu reçois" list with valeur sublines + a totals
+   box with strike-through and final 0€. This is the conversion
+   block — keep contrast high (we're inside the dark poster).
+   ───────────────────────────────────────────────────────────────── */
+.beta-cta__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 5px 10px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+.beta-cta__intro {
+  margin: 8px 0 14px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.beta-cta__stack {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.beta-cta__stack li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.beta-cta__stack-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.beta-cta__stack-name {
+  color: #fff;
+  font-weight: 600;
+}
+.beta-cta__stack-val {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12.5px;
+  font-style: italic;
+}
+.beta-cta__totals {
+  margin-top: 18px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.beta-cta__totals-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.beta-cta__totals-row--final {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.18);
+  margin-top: 4px;
+}
+.beta-cta__totals-strike {
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.55);
+}
+.beta-cta__totals-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.beta-cta__totals-note {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+/* Guarantee badge — money-back-if-no-interview risk reversal.
+   Sits just under the totals box. Subtle green tint (not loud) so
+   it reads as "trust signal" not "promo banner". */
+.beta-cta__guarantee {
+  margin-top: 14px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(52, 211, 153, 0.10);
+  border: 1px solid rgba(52, 211, 153, 0.30);
+  border-radius: var(--r-md);
+}
+.beta-cta__guarantee-icon {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(52, 211, 153, 0.18);
+  border-radius: 999px;
+  color: #6ee7b7;
+}
+.beta-cta__guarantee-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.beta-cta__guarantee-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #6ee7b7;
+  text-transform: uppercase;
+}
+.beta-cta__guarantee-body {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+}
+.beta-cta__totals-final {
+  background: linear-gradient(135deg, #34d399, #a7f3d0);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Demo modal — overlay that plays /demo.mp4 inline.
+   Triggered by Hero "Voir la démo" + Footer "Démo (1 min)".
+   ───────────────────────────────────────────────────────────────── */
+.demo-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 10, 18, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: demo-modal-fade 180ms ease-out;
+}
+@keyframes demo-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.demo-modal__panel {
+  width: 100%;
+  max-width: 960px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: 0 40px 80px -20px rgba(0,0,0,0.6);
+  overflow: hidden;
+  animation: demo-modal-pop 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes demo-modal-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.demo-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px 12px 20px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.demo-modal__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.01em;
+}
+.demo-modal__close {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+.demo-modal__close:hover {
+  color: var(--text-1);
+  border-color: var(--border-strong);
+  background: var(--bg-soft);
+}
+.demo-modal__close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.demo-modal__video-wrap {
+  /* 16:9 letterbox so the video keeps its aspect regardless of the
+     source dimensions. */
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+.demo-modal__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.demo-modal__hint {
+  margin: 0;
+  padding: 12px 20px 16px;
+  font-size: 13px;
+  color: var(--text-3);
+  text-align: center;
+}
+@media (max-width: 560px) {
+  .demo-modal { padding: 12px; }
+  .demo-modal__title { font-size: 14px; }
+}
+
+/* Results sub-paragraph under the title. */
+.results__sub {
+  max-width: 640px;
+  margin: 14px auto 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-3);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Generic section header — used by Features, BeforeAfter, HowItWorks.
+   Pulls together eyebrow + h2 + sub. All theme-aware (no hardcoded
+   colours). Centered for symmetry with Results + Testimonials.
+   ───────────────────────────────────────────────────────────────── */
+.section__header {
+  text-align: center;
+  margin: 0 auto 40px;
+  max-width: 720px;
+}
+.section__eyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.section__title {
+  font-size: clamp(24px, 2.8vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  line-height: 1.2;
+  margin: 0;
+}
+.section__sub {
+  margin: 14px auto 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text-3);
+  max-width: 560px;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Dark-mode polish overrides — light mode is the default in tokens,
+   so these only target [data-theme="light"] for cases where the
+   default token resolution doesn't look great on bright surfaces.
+   The dark theme (default) already gets the right look from tokens.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Trust-bar logos are forced grayscale + 0.7 opacity. On light mode
+   that reads "almost gone"; bump back up so the brand marks register. */
+[data-theme="light"] .trust-bar__logo {
+  opacity: 0.55;
+}
+[data-theme="light"] .trust-bar__logo:hover {
+  opacity: 0.9;
+}
+
+/* Hero accent gradient + Results stat-value gradient resolve through
+   var(--text-1) → var(--accent). On light, that goes (near-black →
+   indigo), which can read flat. Re-bias to (indigo-dark → indigo).
+   Stat-value only, because the hero accent already works. */
+[data-theme="light"] .results__stat-value {
+  background: linear-gradient(135deg, #2d3187, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Feature cards / before-after cards / process steps / testimonial cards
+   get a subtle elevation in light mode. In dark, the border alone reads;
+   in light, a hint of shadow makes them sit. */
+[data-theme="light"] .feature-card--with-mockup,
+[data-theme="light"] .before-after__card,
+[data-theme="light"] .process-step,
+[data-theme="light"] .results__stat-card,
+[data-theme="light"] .testimonial-card {
+  box-shadow: var(--shadow-sm);
+}
+[data-theme="light"] .feature-card--with-mockup:hover,
+[data-theme="light"] .before-after__card:hover,
+[data-theme="light"] .process-step:hover,
+[data-theme="light"] .results__stat-card:hover,
+[data-theme="light"] .testimonial-card:hover {
+  box-shadow: var(--shadow-md);
+}

@@ -1,64 +1,128 @@
+import { openDemoModal } from "./DemoModal.tsx";
+
 /**
- * Hero — sales-led copy.
+ * Hero — two-column layout matching the v2 mockup.
  *
- * Structure obeys the AIDA pyramid for high-WTP B2C-ish products:
- *   Attention — beta badge with scarcity number, animated dot
- *   Interest  — headline names the firms (specificity = identification)
- *               and the pain ("12 onglets", "300 heures")
- *   Desire    — subtitle promises a concrete OUTCOME, not features
- *   Action    — two CTAs: primary "Postuler" (frame as exclusive),
- *               secondary preview link
+ *   Left column  — eyebrow + headline + subtitle + CTAs + meta
+ *   Right column — product mockup screenshot (provided in
+ *                  public/assets/hero-mockup.png)
  *
- * No "AI-powered". No "revolutionary". Specific firm names + concrete
- * numbers do the lifting. The `<em>` wrappers get the gradient
- * treatment from CSS — used sparingly to anchor the eye.
+ * The "300 heures" inside the headline gets the brand
+ * blue→violet gradient via the `.hero__title-accent` class
+ * (defined in landing.css) — used sparingly so it really
+ * draws the eye. Same applies to the body word in the CTA.
+ *
+ * The "Voir la démo" CTA opens the global `DemoModal` overlay via
+ * `openDemoModal()` — same trigger used by the Footer link. We use
+ * a button (not an anchor) because there's no URL we're navigating
+ * to; clicking opens an overlay, not a section.
+ *
+ * Mobile collapses to a single column with the mockup stacked
+ * under the CTA row — handled by `.hero__grid` media queries.
  */
 export default function Hero() {
   return (
-    <section className="hero" id="top">
+    <section className="hero hero--split" id="top">
       <div className="container">
-        <span className="hero__badge">
-          <span className="hero__badge-dot" aria-hidden />
-          Beta privée · 47 places restantes · gratuit
-        </span>
+        <div className="hero__grid">
+          {/* ── Left: copy + CTAs ──────────────────────────────── */}
+          <div className="hero__copy">
+            <span className="hero__eyebrow">
+              <span className="hero__eyebrow-star" aria-hidden>✶</span>
+              {" "}
+              L'OS de carrière pour viser McKinsey, Goldman, Anthropic
+            </span>
 
-        <h1 className="hero__title">
-          Postule à <em>McKinsey, Goldman, Anthropic</em>.
-          <br />
-          Sans perdre 300 heures dans 12 onglets.
-        </h1>
+            <h1 className="hero__title">
+              Triple ton taux d'entretiens
+              <br />
+              en{" "}
+              <span className="hero__title-accent">30 jours.</span>
+            </h1>
 
-        <p className="hero__subtitle">
-          Career OS rassemble tout ton job hunt dans une seule app Mac.
-          Tracker tes 40 candidatures, score ATS de ton CV en 2&nbsp;secondes, drill
-          tes questions d'entretien — et un coach silencieux qui prépare la
-          réponse pendant que tu réponds.
-        </p>
+            <p className="hero__subtitle">
+              Tu vises les top firms. Tu envoies 12 candidatures par semaine.
+              Tu obtiens 0 retours. Career OS remplace tes 12 onglets, tes 4
+              Notion, ton Excel et ton coach à 400€/h par un système unique —
+              et te fait gagner 250 heures sur ta recherche.
+            </p>
 
-        <div className="hero__cta-row">
-          <a href="#beta" className="btn-primary">
-            Postuler à la beta
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path
-                d="M6 3 L11 8 L6 13"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </a>
-          <a href="#how" className="btn-ghost">
-            Voir comment ça marche
-          </a>
-        </div>
+            <div className="hero__cta-row">
+              <a href="#beta" className="btn-primary">
+                Réserver ma place
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path
+                    d="M3 8 H13 M9 4 L13 8 L9 12"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </a>
+              <button
+                type="button"
+                className="btn-ghost"
+                onClick={openDemoModal}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden style={{ marginRight: 4 }}>
+                  <path d="M5 3 L13 8 L5 13 Z" />
+                </svg>
+                Voir la démo (1 min)
+              </button>
+            </div>
 
-        <div className="hero__meta">
-          <span>Mac · macOS 13+</span>
-          <span>Tout en local</span>
-          <span>Réponse en 7 jours</span>
+            <ul className="hero__meta-list">
+              <li><CheckDot /> Bêta gratuite</li>
+              <li><CheckDot /> Réponse sous 7 jours</li>
+              <li><CheckDot /> 20 places / semaine</li>
+            </ul>
+          </div>
+
+          {/* ── Right: product mockup ──────────────────────────── */}
+          <div className="hero__mockup">
+            {/* Asset: landing/public/assets/hero-mockup.png
+                ~1200×900, screenshot of Dashboard with Pipeline +
+                Score ATS card + Momentum card overlaid. */}
+            <img
+              src="/assets/hero-mockup.png"
+              alt="Career OS Dashboard avec Pipeline de candidatures, score ATS et Momentum"
+              className="hero__mockup-img"
+              loading="eager"
+              onError={(e) => {
+                // Show placeholder until the asset is dropped in.
+                const el = e.currentTarget;
+                el.style.display = "none";
+                const sib = el.nextElementSibling as HTMLElement | null;
+                if (sib) sib.style.display = "flex";
+              }}
+            />
+            <div className="asset-placeholder" style={{ display: "none" }}>
+              <span>📷 hero-mockup.png</span>
+              <span style={{ fontSize: 11, opacity: 0.7 }}>
+                Drop ton screenshot Dashboard ici
+                <br />(landing/public/assets/)
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function CheckDot() {
+  return (
+    <span className="hero__meta-dot" aria-hidden>
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M3 8.5 L6.5 12 L13 4.5"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
   );
 }

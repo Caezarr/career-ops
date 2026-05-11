@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Trash2, RotateCcw, Sparkles, Eraser } from 'lucide-react';
 import {
   Modal,
   ModalBody,
@@ -8,6 +8,8 @@ import {
   useToast,
 } from '../../primitives';
 import { deleteAccount } from '../../lib/account';
+import { useAppStore } from '../../store';
+import { loadDemoSeed, clearDemoSeed } from '../../data/demoSeed';
 
 /**
  * Account-deletion flow. The Settings → Billing tab is the natural
@@ -19,9 +21,54 @@ import { deleteAccount } from '../../lib/account';
  */
 export default function DangerZoneCard() {
   const toast = useToast();
+  const updateUser = useAppStore((s) => s.updateUser);
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [confirmText, setConfirmText] = useState('');
   const [working, setWorking] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  function loadDemo() {
+    if (
+      !window.confirm(
+        'Charger les données de démo (40 candidatures, 1 session Copilot, 1 CV avec analyse ATS) ? Ça remplace tout le contenu utilisateur actuel. Utilisable pour screenshots / démos / partner pitches.',
+      )
+    ) {
+      return;
+    }
+    loadDemoSeed();
+    toast.success('Données démo chargées', 'Pipeline, Copilot, CV — prêts pour screen capture.');
+  }
+
+  function clearDemo() {
+    if (
+      !window.confirm(
+        'Effacer toutes les données démo (et tout autre contenu) pour repartir d\'un état post-onboarding propre ?',
+      )
+    ) {
+      return;
+    }
+    clearDemoSeed();
+    toast.success('Données effacées', 'Tu retrouves l\'app comme à la première install.');
+  }
+
+  function resetOnboarding() {
+    if (resetting) return;
+    if (
+      !window.confirm(
+        'Re-run the onboarding wizard? Your profile data stays put — only the "completed" flag is cleared, so the wizard re-appears on next launch. Your saved CVs, applications, and prep history are untouched.',
+      )
+    ) {
+      return;
+    }
+    setResetting(true);
+    updateUser({
+      onboarded: false,
+      onboardingComplete: false,
+      onboardingStep: 0,
+    });
+    toast.success('Onboarding will re-run', 'Reloading the app…');
+    window.setTimeout(() => window.location.reload(), 600);
+  }
 
   useEffect(() => {
     if (step === 0) {
@@ -75,10 +122,40 @@ export default function DangerZoneCard() {
           </p>
         </div>
       </div>
-      <button type="button" className="settings-danger__btn" onClick={start}>
-        <Trash2 size={14} />
-        <span>Delete account</span>
-      </button>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="settings-btn settings-btn--outline"
+          onClick={loadDemo}
+          title="Charge 40 candidatures + 1 session Copilot active + 1 CV avec analyse ATS. Idéal pour screenshots et démos vidéo."
+        >
+          <Sparkles size={14} />
+          <span>Charger données démo</span>
+        </button>
+        <button
+          type="button"
+          className="settings-btn settings-btn--outline"
+          onClick={clearDemo}
+          title="Réinitialise l'app à un état post-onboarding propre. Efface aussi tout contenu utilisateur réel — à utiliser avec précaution."
+        >
+          <Eraser size={14} />
+          <span>Effacer données démo</span>
+        </button>
+        <button
+          type="button"
+          className="settings-btn settings-btn--outline"
+          onClick={resetOnboarding}
+          disabled={resetting}
+          title="Re-run the first-launch onboarding wizard — useful when re-testing the flow. Doesn't delete any data."
+        >
+          <RotateCcw size={14} />
+          <span>{resetting ? 'Reloading…' : 'Re-run onboarding'}</span>
+        </button>
+        <button type="button" className="settings-danger__btn" onClick={start}>
+          <Trash2 size={14} />
+          <span>Delete account</span>
+        </button>
+      </div>
 
       <Modal open={step !== 0} onClose={close} size="sm" ariaLabel="Delete account">
         {step === 1 && (

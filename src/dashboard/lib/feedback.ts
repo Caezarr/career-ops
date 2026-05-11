@@ -1,10 +1,11 @@
 import { getVersion, getTauriVersion } from '@tauri-apps/api/app';
 import { open as openPath } from '@tauri-apps/plugin-shell';
 
-/** Email the bug reports land in. Replaced with a Linear webhook / form
- *  endpoint once we have one — keeping a real address means betas don't
- *  silently disappear. */
-const FEEDBACK_EMAIL = 'feedback@career-os.app';
+/** Email the bug reports land in. Beta phase: direct to the
+ *  founder's inbox so nothing falls through the cracks. Move to
+ *  a Linear webhook / dedicated forwarder once the volume crosses
+ *  ~5 reports/day. */
+const FEEDBACK_EMAIL = 'gabranpro@gmail.com';
 
 export type FeedbackSeverity = 'crash' | 'bug' | 'idea' | 'praise';
 
@@ -99,9 +100,9 @@ export async function copyToClipboard(text: string): Promise<boolean> {
 
 /** Submit a feedback report. Today this is dual-channel: copy the full
  *  formatted body to the clipboard AND open the user's email client to
- *  feedback@career-os.app with the subject pre-filled and the body
- *  duplicated as best-effort (some mail clients drop long mailto
- *  bodies, hence the clipboard belt-and-braces). */
+ *  the founder's inbox (cf. FEEDBACK_EMAIL) with the subject pre-filled
+ *  and the body duplicated as best-effort (some mail clients drop long
+ *  mailto bodies, hence the clipboard belt-and-braces). */
 export async function submitFeedback(p: FeedbackPayload): Promise<{
   copied: boolean;
   mailOpened: boolean;
