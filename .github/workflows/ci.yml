@@ -49,10 +49,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `dtolnay/rust-toolchain@stable` is flaky on macos-14 — the
+      # runner ships with `rustup-init` (the installer) on PATH but
+      # not a complete toolchain, and the action sometimes invokes
+      # `rustup-init component add clippy` (no such subcommand) →
+      # "unexpected argument 'clippy'" failure. The maintained
+      # `actions-rust-lang/setup-rust-toolchain@v1` calls `rustup`
+      # explicitly + ensures `~/.cargo/bin` is on PATH.
       - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
+          toolchain: stable
           components: rustfmt, clippy
+          cache: false  # we use Swatinem/rust-cache below for the cargo cache
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
