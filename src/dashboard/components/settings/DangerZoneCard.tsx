@@ -27,39 +27,22 @@ export default function DangerZoneCard() {
   const [working, setWorking] = useState(false);
   const [resetting, setResetting] = useState(false);
 
+  // No `window.confirm()` here — WKWebView (Tauri) silently no-ops
+  // the native JS dialog so the user thinks the button is broken.
+  // Actions are reversible (load ↔ clear), so we trust the explicit
+  // click and run immediately, then toast for feedback.
   function loadDemo() {
-    if (
-      !window.confirm(
-        'Charger les données de démo (40 candidatures, 1 session Copilot, 1 CV avec analyse ATS) ? Ça remplace tout le contenu utilisateur actuel. Utilisable pour screenshots / démos / partner pitches.',
-      )
-    ) {
-      return;
-    }
     loadDemoSeed();
-    toast.success('Données démo chargées', 'Pipeline, Copilot, CV — prêts pour screen capture.');
+    toast.success('Données démo chargées', '40 candidatures, profil, Copilot, CV — prêts.');
   }
 
   function clearDemo() {
-    if (
-      !window.confirm(
-        'Effacer toutes les données démo (et tout autre contenu) pour repartir d\'un état post-onboarding propre ?',
-      )
-    ) {
-      return;
-    }
     clearDemoSeed();
     toast.success('Données effacées', 'Tu retrouves l\'app comme à la première install.');
   }
 
   function resetOnboarding() {
     if (resetting) return;
-    if (
-      !window.confirm(
-        'Re-run the onboarding wizard? Your profile data stays put — only the "completed" flag is cleared, so the wizard re-appears on next launch. Your saved CVs, applications, and prep history are untouched.',
-      )
-    ) {
-      return;
-    }
     setResetting(true);
     updateUser({
       onboarded: false,

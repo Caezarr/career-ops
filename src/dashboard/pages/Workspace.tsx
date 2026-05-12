@@ -278,7 +278,7 @@ export default function Workspace() {
                           className="war-room__job-card"
                           onClick={() => setWorkspaceJobId(j.id)}
                         >
-                          <CompanyAvatar company={j.company} size={36} />
+                          <CompanyAvatar company={j.company} logoUrl={j.companyLogoUrl} size={36} />
                           <div className="war-room__job-card-text">
                             <div className="war-room__job-card-role">
                               {j.role}

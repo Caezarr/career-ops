@@ -21,7 +21,7 @@ interface NavItem {
 
 const items: NavItem[] = [
   { id: 'account', label: 'Account', icon: User },
-  { id: 'apiKeys', label: 'API Keys', icon: Key },
+  { id: 'apiKeys', label: 'Developers', icon: Key },
   { id: 'jobSources', label: 'Job sources', icon: Briefcase },
   { id: 'audio', label: 'Audio', icon: AudioWaveform },
   { id: 'appearance', label: 'Appearance', icon: Palette },

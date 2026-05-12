@@ -1,75 +1,58 @@
 import { useEffect, useRef } from 'react';
 import { useAppStore } from '../store';
-import { getSubscription } from '../lib/billing';
-import type { SubscriptionStatus } from '../store/slices/billing';
+import { fetchBillingStatus, BillingError } from '../lib/billing';
 
 /**
- * Boot-time hydration for the post-beta Stripe subscription.
+ * Hydrate the user's billing state from the Worker (`/v1/billing/status`).
  *
- *   1. Call `billing_get_subscription` once on mount.
- *   2. If the backend returns a row, copy its status / period_end /
- *      cancel flag into the store. The Settings → Billing tab paints
- *      from the slice immediately.
- *   3. If there's no row (or the call fails — common during the beta
- *      because no Stripe key is configured), leave the slice on its
- *      default `free` state. This is NOT an error worth surfacing —
- *      the free tier is a valid state.
+ * Runs whenever `authStatus` transitions to `signed-in`. The earlier
+ * "fire once at boot" version was buggy: boot fires BEFORE the JWT
+ * hydrates from the Keychain, so the first call gets 401, silently
+ * skips, and the local store stays on the default `free` even when
+ * the D1 truth says `lifetime`. Result: the user paid, the webhook
+ * landed, but the UI still claimed Free and the next checkout call
+ * rejected with `already_paid`.
  *
- * Mounted once at the DashboardApp root, alongside the other boot
- * hooks (`useSeedIngestSources` etc.).
+ * Fix: re-run on every `signed-in` transition. Cheap (1 fetch),
+ * idempotent (overwrites the slice), and naturally handles the
+ * "boot before auth" race.
  */
 export function useBillingHydrate(): void {
-  const hydrate = useAppStore((s) => s.hydrate);
-  const ranRef = useRef(false);
+  const hydrate = useAppStore((s) => s.hydrateBilling);
+  const authStatus = useAppStore((s) => s.authStatus);
+  const lastFetchedForRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (ranRef.current) return;
-    ranRef.current = true;
+    if (authStatus !== 'signed-in') return;
+    // Cheap dedup — don't refetch on every render if auth status
+    // bounces between unknown→signed-in (HMR + dev double-mount).
+    if (lastFetchedForRef.current === 'signed-in') return;
+    lastFetchedForRef.current = 'signed-in';
 
     let cancelled = false;
     (async () => {
       try {
-        const sub = await getSubscription();
+        const s = await fetchBillingStatus();
         if (cancelled) return;
-        if (!sub) {
-          // No local Stripe record — stay on free, no error.
-          return;
-        }
-        // Stripe's status vocabulary maps 1:1 except `canceled` (US
-        // spelling) → `cancelled` (our internal). Anything else falls
-        // back to `unknown` so the UI doesn't crash on a future
-        // status string.
-        const status: SubscriptionStatus =
-          sub.status === 'canceled'
-            ? 'cancelled'
-            : isKnownStatus(sub.status)
-              ? (sub.status as SubscriptionStatus)
-              : 'unknown';
-        hydrate(status, sub.currentPeriodEnd, sub.cancelAtPeriodEnd);
+        hydrate({
+          plan: s.plan,
+          purchasedAt: s.purchasedAt,
+          refundDeadlineAt: s.refundDeadlineAt,
+          hasGuarantee: s.hasGuarantee,
+          refundRequestedAt: s.refundRequestedAt,
+          refundedAt: s.refundedAt,
+        });
       } catch (err) {
-        // Beta cohort: Stripe key isn't set, so the call returns
-        // "Stripe non configuré". That's expected — silently swallow.
-        // Real errors surface from the Billing tab on demand.
         if (cancelled) return;
-        // eslint-disable-next-line no-console
-        console.debug('[billing] hydrate skipped:', err);
+        if (err instanceof BillingError && err.kind !== 'no_auth') {
+          // eslint-disable-next-line no-console
+          console.debug('[billing] hydrate skipped:', err.message);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [hydrate]);
-}
-
-const KNOWN_STATUSES: ReadonlySet<string> = new Set([
-  'active',
-  'trialing',
-  'past_due',
-  'cancelled',
-  'free',
-]);
-
-function isKnownStatus(s: string): boolean {
-  return KNOWN_STATUSES.has(s);
+  }, [authStatus, hydrate]);
 }

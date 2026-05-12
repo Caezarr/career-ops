@@ -25,9 +25,12 @@ database_id = "077cbe9c-4ff3-4086-9248-fdaa117ec490"
 migrations_dir = "migrations"
 
 # Secrets (set via `wrangler secret put <NAME>`):
-#   - JWT_SECRET            — 32+ random bytes for HMAC signing
-#   - LOOPS_API_KEY         — from app.loops.so → Settings → API
-#   - LOOPS_TRANSACTIONAL_ID — Loops template id for the magic link email
+#   - JWT_SECRET             — 32+ random bytes for HMAC signing
+#   - LOOPS_API_KEY          — from app.loops.so → Settings → API
+#   - LOOPS_TRANSACTIONAL_ID — Loops template id for the magic-link email
+#   - ANTHROPIC_API_KEY      — server-managed AI credit
+#   - STRIPE_SECRET_KEY      — sk_test_… (dev) or sk_live_… (prod)
+#   - STRIPE_WEBHOOK_SECRET  — whsec_… from Stripe → Developers → Webhooks
 #
 # The vars below are non-secret — overridden per environment via
 # `wrangler.toml [env.production].vars`.
@@ -40,6 +43,18 @@ JWT_TTL_SECONDS = "2592000"
 # to your fork or leave commented to disable update checks (the
 # /v1/updates endpoint will respond 204 No Content).
 GITHUB_REPO = "Caezarr/career-ops"
+# Stripe Price IDs — created in dashboard.stripe.com → Products.
+# Both must be one-time prices (NOT recurring). Replace the
+# `price_PLACEHOLDER_*` strings after running the Stripe setup
+# (see .planning/STRIPE-SETUP.md). Leaving placeholders here makes
+# the worker deploy succeed; the /v1/billing/checkout endpoint then
+# returns 500 "price_not_configured" until real IDs land.
+STRIPE_PRICE_LIFETIME = "price_1TWJR7HYIe92xGhtGw6JsJjn"
+STRIPE_PRICE_LIFETIME_PRO = "price_1TWJR7HYIe92xGhtz28TRFgx"
+# Where Stripe sends users after Checkout. Deep-links straight back
+# into the Mac app so users land on the right screen instantly.
+STRIPE_SUCCESS_URL = "careeros://billing/success"
+STRIPE_CANCEL_URL = "careeros://billing/cancel"
 
 # Bundle the LaTeX template as a text-import. Wrangler resolves
 # `import x from "./templates/cv-template.tex"` to a string at

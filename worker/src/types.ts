@@ -20,6 +20,16 @@ export interface Env {
    *  keys; we host the upstream credit. Set with
    *  `wrangler secret put ANTHROPIC_API_KEY`. */
   ANTHROPIC_API_KEY: string;
+  /** Stripe secret key (sk_test_… in dev, sk_live_… in prod). Used
+   *  by /v1/billing/checkout to create Checkout Sessions server-side.
+   *  Set with `wrangler secret put STRIPE_SECRET_KEY`. */
+  STRIPE_SECRET_KEY: string;
+  /** Webhook signing secret (whsec_…) — registered against the
+   *  /v1/billing/webhook endpoint on the Stripe dashboard. We verify
+   *  every incoming webhook against this before mutating state, so
+   *  anyone POSTing fake events at us gets a 400. Set with
+   *  `wrangler secret put STRIPE_WEBHOOK_SECRET`. */
+  STRIPE_WEBHOOK_SECRET: string;
 
   // Public vars (set in wrangler.toml [vars] block).
   APP_DEEP_LINK: string;          // e.g. "careeros://auth/callback"
@@ -29,7 +39,28 @@ export interface Env {
   /** GitHub `<owner>/<repo>` the auto-updater proxies. When unset
    *  the /v1/updates endpoint responds 204 (no update check). */
   GITHUB_REPO?: string;
+  /** Stripe Price IDs for the two paid tiers. Created in the Stripe
+   *  dashboard ("Products → New product → Price"). Format `price_…`.
+   *  We require both at runtime — the checkout endpoint rejects a
+   *  plan whose price ID isn't configured. */
+  STRIPE_PRICE_LIFETIME: string;     // 99€ one-time, no guarantee
+  STRIPE_PRICE_LIFETIME_PRO: string; // 149€ one-time, with guarantee
+  /** Where Stripe redirects after Checkout completes. Deep-links
+   *  back into the desktop app (or a web page for the future web
+   *  version). Use a stable URL — Stripe caches the value on the
+   *  Checkout Session. */
+  STRIPE_SUCCESS_URL: string;        // e.g. "careeros://billing/success"
+  STRIPE_CANCEL_URL: string;         // e.g. "careeros://billing/cancel"
 }
+
+/** Refund window for lifetime_pro. 180 days from purchase. Hardcoded
+ *  intentionally — we don't want this to drift via env config since
+ *  it's a contractual promise in CGU §7. */
+export const REFUND_WINDOW_DAYS = 180;
+export const REFUND_WINDOW_MS = REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+
+/** Plan tiers — must match `users.plan` enum values. */
+export type Plan = "free" | "lifetime" | "lifetime_pro";
 
 /** What the JWT carries. Kept tight on purpose — every claim that
  *  ends up in here is hard to evolve without forcing all clients
@@ -41,14 +72,30 @@ export interface JwtPayload {
   exp: number;     // expires at, unix seconds
 }
 
-/** Row shape for the `users` table — must mirror migrations/0001_init.sql. */
+/** Row shape for the `users` table.
+ *  Mirrors migrations 0001_init.sql + 0003_billing.sql. */
 export interface UserRow {
   id: string;
   email: string;
   email_lower: string;
   created_at: number;
   last_login_at: number | null;
+  // Stripe / billing (0003_billing.sql)
   stripe_customer_id: string | null;
+  /** Legacy column — keep for backwards-compat, do not write to.
+   *  The canonical source of truth is `plan` below. */
   license_status: "free" | "active" | "past_due" | "cancelled";
   current_period_end: number | null;
+  /** Canonical plan tier — single source of truth post-pivot. */
+  plan: Plan;
+  /** Unix ms of `checkout.session.completed`. NULL for free users. */
+  purchased_at: number | null;
+  /** Unix ms of `purchased_at + 180 days` for lifetime_pro, else NULL. */
+  refund_deadline_at: number | null;
+  /** SQLite stores booleans as 0/1 integers. */
+  has_guarantee: 0 | 1;
+  stripe_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  refund_requested_at: number | null;
+  refunded_at: number | null;
 }

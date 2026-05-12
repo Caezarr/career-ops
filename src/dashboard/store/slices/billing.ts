@@ -1,170 +1,159 @@
 import type { StateCreator } from 'zustand';
 
-/** Career OS pricing model — one-shot Sprint payments, no recurring
- *  subscription. The Sprint is a time-boxed period of full access; the
- *  Guarantee add-on layers an offer-or-refund commitment on top.
+/** Career OS pricing model — one-time lifetime payments, no
+ *  subscription.
  *
- *    free        — €0, BYO API key, local-only.
- *    sprint      — €99 one-shot, full hosted features for the Sprint
- *                  duration.
- *    sprint_pro  — €148 = €99 Sprint + €49 Guarantee add-on. Same
- *                  features as Sprint, plus the offer guarantee.
+ *    free          — €0, beta access, capped local usage.
+ *    lifetime      — €99 one-time, lifetime access, NO guarantee.
+ *    lifetime_pro  — €149 one-time, lifetime access, 180-day
+ *                    result guarantee (refund if 0 interview after
+ *                    ≥30 candidatures tracked).
  *
- *  We model Sprint Pro as its own plan id rather than a `hasGuarantee`
- *  boolean on top of `sprint` because the customer-facing pricing page,
- *  receipts, and analytics all treat them as distinct SKUs. The slice
- *  shape is intentionally Stripe-friendly so a future hydration step
- *  ("which Checkout SKU did the user pay for?") becomes a direct map. */
-export type BillingPlan = 'free' | 'sprint' | 'sprint_pro';
+ *  Server-side (Cloudflare Worker + D1) is the source of truth. This
+ *  slice mirrors what `/v1/billing/status` returns so the UI paints
+ *  instantly on cold start while the boot hook re-hydrates from the
+ *  Worker. */
+export type Plan = 'free' | 'lifetime' | 'lifetime_pro';
 
-/** Per-plan caps surfaced as progress bars in the Settings → Billing card.
- *  `Infinity` is rendered as "Unlimited" by the UI. Keep the keys stable
- *  — they're consumed by `useBillingUsage` to map counters to limits. */
+/** Per-plan caps surfaced as progress bars in the Settings → Billing
+ *  card. `Infinity` renders as "Unlimited". The Worker enforces the
+ *  same caps server-side; this is just for the UI hint. */
 export interface PlanLimits {
   cvVariants: number;
   atsAnalysesLifetime: number;
   optimizationsLifetime: number;
   applicationsTracked: number;
-  /** Copilot minutes available across the Sprint duration. For free
-   *  this is the per-month allowance. */
-  copilotMinutesPerSprint: number;
+  /** Live Copilot minutes per calendar month. Both paid tiers are
+   *  unlimited; free is capped at 30. */
+  copilotMinutesPerMonth: number;
 }
 
-export const PLAN_LIMITS: Record<BillingPlan, PlanLimits> = {
+export const PLAN_LIMITS: Record<Plan, PlanLimits> = {
   free: {
     cvVariants: 3,
     atsAnalysesLifetime: 10,
     optimizationsLifetime: 5,
     applicationsTracked: 25,
-    copilotMinutesPerSprint: 30,
+    copilotMinutesPerMonth: 30,
   },
-  // Sprint is the headline tier — generous limits so a real job hunt
-  // doesn't bump into caps. Caps still exist (one user can't burn
-  // €1000 of API credits) but they're sized to "feels unlimited".
-  sprint: {
+  lifetime: {
     cvVariants: Infinity,
     atsAnalysesLifetime: Infinity,
     optimizationsLifetime: Infinity,
     applicationsTracked: Infinity,
-    copilotMinutesPerSprint: 1200, // 20 hours over the Sprint
+    copilotMinutesPerMonth: Infinity,
   },
-  // Sprint Pro inherits Sprint's limits — the differentiator is the
-  // Guarantee, not bigger caps.
-  sprint_pro: {
+  // Same caps as lifetime — the differentiator is the guarantee, not
+  // bigger limits.
+  lifetime_pro: {
     cvVariants: Infinity,
     atsAnalysesLifetime: Infinity,
     optimizationsLifetime: Infinity,
     applicationsTracked: Infinity,
-    copilotMinutesPerSprint: 1200,
+    copilotMinutesPerMonth: Infinity,
   },
 };
 
-/** Pricing in EUR cents. Source of truth for the comparison strip and
- *  for what we'd send to Stripe at Checkout. Free has no Stripe SKU. */
+/** Display pricing — source of truth for the 3-card comparison strip. */
 export interface PlanPricing {
-  /** Internal short label used in copy: "Free" / "Sprint" / "Sprint Pro". */
   label: string;
-  /** Total price in EUR (display-friendly, not Stripe-cents). 0 = free. */
+  /** Display price in EUR (0 = free). One-time, never recurring. */
   priceEur: number;
-  /** When applicable, the breakdown shown under the price ("99 + 49"). */
+  /** Optional breakdown string under the price ("99€ + 50€ Garantie"). */
   priceBreakdown?: string;
-  /** One-line tagline shown under the plan name. */
+  /** One-line tagline below the plan name. */
   tagline: string;
   /** Whether this plan includes the offer-or-refund guarantee. */
   hasGuarantee: boolean;
 }
 
-export const PLAN_PRICING: Record<BillingPlan, PlanPricing> = {
+export const PLAN_PRICING: Record<Plan, PlanPricing> = {
   free: {
     label: 'Free',
     priceEur: 0,
-    tagline: 'Bring your own AI keys. Local-only, no time limit.',
+    tagline: 'Bêta gratuite. Usage local plafonné.',
     hasGuarantee: false,
   },
-  sprint: {
-    label: 'Sprint',
+  lifetime: {
+    label: 'Lifetime',
     priceEur: 99,
-    tagline: 'One-shot, full features for the duration of your job hunt.',
+    tagline: 'Accès complet à Career OS pour toujours. Paiement unique.',
     hasGuarantee: false,
   },
-  sprint_pro: {
-    label: 'Sprint Pro',
-    priceEur: 148,
-    priceBreakdown: 'Sprint €99 + Guarantee €49',
-    tagline: 'Sprint with the offer-or-refund guarantee.',
+  lifetime_pro: {
+    label: 'Lifetime + Garantie',
+    priceEur: 149,
+    priceBreakdown: 'Lifetime 99€ + Garantie 50€',
+    tagline: 'Lifetime, plus la garantie : 0 entretien en 180 jours = remboursé.',
     hasGuarantee: true,
   },
 };
 
-/** Stripe-style subscription status. Mirrored 1:1 from the API so a
- *  future webhook payload drops straight in. `unknown` is a frontend
- *  fallback for statuses Stripe might add that we haven't UI-mapped. */
-export type SubscriptionStatus =
-  | 'free'
-  | 'active'
-  | 'trialing'
-  | 'past_due'
-  | 'cancelled'
-  | 'unknown';
-
-/** Persisted billing state. Today everyone is on `free` — the back-end
- *  will hydrate this from Stripe webhooks once Checkout is wired up.
- *
- *  The shape is intentionally close to Stripe's: `paymentIntentId` and
- *  `sprintEndsAt` (unix seconds) so the future hydration step is a
- *  direct copy from the webhook payload.
- *
- *  Sprint era fields (`plan` / `paymentIntentId` / `sprintEndsAt` /
- *  `setPlan`) are kept for the existing BillingCard / useBillingUsage
- *  consumers. The new Stripe Checkout integration adds a parallel
- *  `subscriptionStatus` track because the post-beta model is
- *  recurring, not one-shot. The two coexist — `useBillingHydrate`
- *  bridges them by mapping `active` → `sprint` so legacy gating
- *  stays consistent. */
+/** Mirrors the Worker's `BillingStatus` DTO. Server is source of
+ *  truth — boot hydration replaces these every time the app starts. */
 export interface BillingSlice {
-  plan: BillingPlan;
-  /** Stripe payment_intent id (or future subscription id) once we have
-   *  one. Null on the free tier. */
-  paymentIntentId: string | null;
-  /** Unix seconds — when the current Sprint ends. After this date the
-   *  user falls back to free until they buy another Sprint. */
-  sprintEndsAt: number | null;
-  /** Set the active plan locally. The real hydration path replaces this
-   *  with a hydrate-from-server action once the back-end exists. */
-  setPlan: (plan: BillingPlan) => void;
+  plan: Plan;
+  /** Unix ms of the Stripe Checkout completion event. Null on free. */
+  purchasedAt: number | null;
+  /** Unix ms of `purchasedAt + 180 days`. Set only for lifetime_pro. */
+  refundDeadlineAt: number | null;
+  hasGuarantee: boolean;
+  /** Unix ms of when the user clicked "Demander un remboursement". */
+  refundRequestedAt: number | null;
+  /** Unix ms of when the refund was processed in Stripe. */
+  refundedAt: number | null;
 
-  // ── Stripe Checkout (post-beta recurring model) ──────────────────
-  /** Mirrors `subscription.status` from Stripe (or `'free'` when no
-   *  subscription record exists locally). */
-  subscriptionStatus: SubscriptionStatus;
-  /** Epoch seconds — next renewal (or end-of-grace if cancelling). */
-  currentPeriodEnd: number | null;
-  /** When true, the subscription will end at `currentPeriodEnd` and
-   *  not renew. */
-  cancelAtPeriodEnd: boolean;
-  /** Replace the subscription state in one shot. Called by the boot
-   *  hydration after `billing_get_subscription` resolves, and after a
-   *  successful cancel. */
-  hydrate: (
-    status: SubscriptionStatus,
-    periodEnd: number | null,
-    cancelAtPeriodEnd: boolean,
-  ) => void;
+  /** Replace the slice in one shot after `fetchBillingStatus()`
+   *  resolves. Called by `useBillingHydrate` on boot. */
+  hydrateBilling: (next: {
+    plan: Plan;
+    purchasedAt: number | null;
+    refundDeadlineAt: number | null;
+    hasGuarantee: boolean;
+    refundRequestedAt: number | null;
+    refundedAt: number | null;
+  }) => void;
+
+  /** Local-only setter — used by the demo seed to toggle the user
+   *  between free / lifetime / lifetime_pro for screenshots. Never
+   *  call this from real product code — the real plan flips happen
+   *  through the Stripe Checkout webhook + `hydrateBilling`. */
+  setPlanLocal: (plan: Plan) => void;
 }
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const REFUND_WINDOW_MS = 180 * ONE_DAY_MS;
 
 export const createBillingSlice: StateCreator<BillingSlice> = (set) => ({
   plan: 'free',
-  paymentIntentId: null,
-  sprintEndsAt: null,
-  setPlan: (plan) => set({ plan }),
+  purchasedAt: null,
+  refundDeadlineAt: null,
+  hasGuarantee: false,
+  refundRequestedAt: null,
+  refundedAt: null,
 
-  subscriptionStatus: 'free',
-  currentPeriodEnd: null,
-  cancelAtPeriodEnd: false,
-  hydrate: (status, periodEnd, cancelAtPeriodEnd) =>
-    set({
-      subscriptionStatus: status,
-      currentPeriodEnd: periodEnd,
-      cancelAtPeriodEnd,
-    }),
+  hydrateBilling: (next) => set(next),
+
+  setPlanLocal: (plan) => {
+    if (plan === 'free') {
+      set({
+        plan: 'free',
+        purchasedAt: null,
+        refundDeadlineAt: null,
+        hasGuarantee: false,
+        refundRequestedAt: null,
+        refundedAt: null,
+      });
+    } else {
+      const now = Date.now();
+      set({
+        plan,
+        purchasedAt: now,
+        refundDeadlineAt: plan === 'lifetime_pro' ? now + REFUND_WINDOW_MS : null,
+        hasGuarantee: plan === 'lifetime_pro',
+        refundRequestedAt: null,
+        refundedAt: null,
+      });
+    }
+  },
 });

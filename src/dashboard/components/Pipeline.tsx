@@ -38,6 +38,8 @@ import {
 import CompanyAvatar from './CompanyAvatar';
 import { downloadCSV } from '../utils/csv';
 import { NewApplicationModal } from './shared';
+import UpgradeModal from './shared/UpgradeModal';
+import { usePlanGate } from '../hooks/usePlanGate';
 
 const COLUMNS: { id: ApplicationStage; title: string }[] = [
   { id: 'sourced', title: 'Sourced' },
@@ -82,6 +84,8 @@ export default function Pipeline() {
   const [overColumn, setOverColumn] = useState<ApplicationStage | null>(null);
   const [defaultStage, setDefaultStage] = useState<ApplicationStage | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const gate = usePlanGate();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -202,6 +206,10 @@ export default function Pipeline() {
   }
 
   function handleAddCardClick(stage: ApplicationStage) {
+    if (!gate.canTrackApplication) {
+      setUpgradeOpen(true);
+      return;
+    }
     setDefaultStage(stage);
     setAddOpen(true);
   }
@@ -312,6 +320,7 @@ export default function Pipeline() {
               <div className="pipeline-card__top">
                 <CompanyAvatar
                   company={activeCard.job?.company ?? ''}
+                  logoUrl={activeCard.job?.companyLogoUrl}
                   size={28}
                 />
                 <div className="pipeline-card__text">
@@ -345,6 +354,13 @@ export default function Pipeline() {
         onClose={() => setAddOpen(false)}
         defaultStage={defaultStage ?? undefined}
       />
+      {upgradeOpen && (
+        <UpgradeModal
+          feature="application"
+          reason={gate.reason.application}
+          onClose={() => setUpgradeOpen(false)}
+        />
+      )}
     </section>
   );
 }
@@ -421,7 +437,11 @@ function SortablePipelineCard({ card }: { card: CardModel }) {
       {...listeners}
     >
       <div className="pipeline-card__top">
-        <CompanyAvatar company={card.job?.company ?? ''} size={28} />
+        <CompanyAvatar
+          company={card.job?.company ?? ''}
+          logoUrl={card.job?.companyLogoUrl}
+          size={28}
+        />
         <div className="pipeline-card__text">
           <div className="pipeline-card__role">{card.job?.role ?? '—'}</div>
           <div className="pipeline-card__company">{card.job?.company ?? '—'}</div>

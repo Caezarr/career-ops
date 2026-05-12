@@ -11,6 +11,8 @@ import { AiClientError } from '../../lib/aiClient';
 import { useAppStore } from '../../store';
 import { getCvParsedText } from '../../store/slices/cvs';
 import CircularProgress from '../cv/CircularProgress';
+import UpgradeModal from './UpgradeModal';
+import { usePlanGate } from '../../hooks/usePlanGate';
 
 interface AnalyzeMatchModalProps {
   open: boolean;
@@ -34,6 +36,12 @@ export default function AnalyzeMatchModal({
   const updateCv = useAppStore((s) => s.updateCv);
   const setAtsAnalysis = useAppStore((s) => s.setAtsAnalysis);
   const atsByCv = useAppStore((s) => s.atsByCv);
+  // Gate: Free plan caps ATS analyses. When the user is at the
+  // limit, surface the upgrade modal instead of burning a slot. The
+  // cached result (re-rendered for an already-analyzed CV) is fine —
+  // we only count when the user clicks "Run / Re-run".
+  const gate = usePlanGate();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const targetCvId = cvId ?? selectedCvId ?? cvs[0]?.id;
   const targetCv = cvs.find((c) => c.id === targetCvId);
@@ -59,6 +67,15 @@ export default function AnalyzeMatchModal({
 
       if (!targetCv) {
         setError('No CV selected.');
+        return;
+      }
+
+      // Gate: if this would consume a NEW analysis slot (cache miss
+      // OR force re-run) and the user is at the Free cap, open the
+      // upgrade modal instead of running. Cache hits are free.
+      const wouldConsumeSlot = force || !cacheValid;
+      if (wouldConsumeSlot && !gate.canRunAtsAnalysis) {
+        setUpgradeOpen(true);
         return;
       }
 
@@ -216,6 +233,13 @@ export default function AnalyzeMatchModal({
           Apply suggestions
         </button>
       </ModalFooter>
+      {upgradeOpen && (
+        <UpgradeModal
+          feature="ats"
+          reason={gate.reason.ats}
+          onClose={() => setUpgradeOpen(false)}
+        />
+      )}
     </Modal>
   );
 }

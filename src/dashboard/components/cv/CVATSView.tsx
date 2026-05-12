@@ -7,11 +7,9 @@ import {
   RotateCw,
   ChevronDown,
   ChevronUp,
-  KeyRound,
 } from 'lucide-react';
 import { useToast } from '../../primitives';
 import { useAppStore } from '../../store';
-import { readAnthropicKey } from '../../hooks/useAnthropicKey';
 import { runAnalyzer } from '../../lib/runAnalyzer';
 
 const JD_SNIPPET_LEN = 200;
@@ -92,7 +90,9 @@ export default function CVATSView() {
     }
   }
 
-  const keyMissing = !readAnthropicKey();
+  // BYOK Anthropic key check removed — Career OS hosts the key on
+  // the Worker server-side. Auth errors are surfaced via the regular
+  // `error` channel when the user's session JWT is missing/expired.
   const hasResults = rows.some((r) => r.analysis);
 
   return (
@@ -154,15 +154,6 @@ export default function CVATSView() {
               <span>
                 You can navigate to other pages — the analysis keeps running
                 and the results will be here when you come back.
-              </span>
-            </div>
-          )}
-          {keyMissing && (
-            <div className="cv-ats-analyzer__hint">
-              <KeyRound size={13} />
-              <span>
-                Add your Anthropic API key in the Copilot overlay Settings to
-                run analyses.
               </span>
             </div>
           )}

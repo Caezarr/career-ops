@@ -13,6 +13,7 @@ import { meRoutes } from "./routes/me";
 import { healthRoutes } from "./routes/health";
 import { aiRoutes } from "./routes/ai";
 import { updateRoutes } from "./routes/updates";
+import { billingRoutes } from "./routes/billing";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -45,6 +46,10 @@ app.route("/v1/ai", aiRoutes);
 // Auto-updater manifest. Public (no JWT) — installed apps need to
 // reach this on every startup. Cached at the edge by Cloudflare.
 app.route("/v1/updates", updateRoutes);
+// Stripe Checkout one-time (lifetime 99€ / lifetime_pro 149€) +
+// webhook + status + refund-request. JWT-gated except for the
+// webhook (which Stripe signs).
+app.route("/v1/billing", billingRoutes);
 
 app.get("/", (c) =>
   c.text(

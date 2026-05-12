@@ -178,8 +178,10 @@ aiRoutes.post("/polish-profile", async (c) => {
   try {
     const md = await askCompletion({
       apiKey: c.env.ANTHROPIC_API_KEY,
-      // Tuned for prose-style polish — claude-3-5-haiku is plenty.
-      model: "claude-3-5-haiku-latest",
+      // Tuned for prose-style polish — Haiku 4.5 is plenty for this
+      // task and 5-6× cheaper than Sonnet. The legacy 3-5 alias was
+      // retired by Anthropic so we bumped to the 4.5 generation.
+      model: "claude-haiku-4-5",
       system: PROFILE_SYSTEM,
       user: buildUserMessage(body),
       maxTokens: 1500,
@@ -313,7 +315,7 @@ aiRoutes.post("/next-steps", async (c) => {
     const result = await askStructured<NextStepsResponse>({
       apiKey: c.env.ANTHROPIC_API_KEY,
       // Haiku is enough — short structured output, simple reasoning.
-      model: "claude-3-5-haiku-latest",
+      model: "claude-haiku-4-5",
       system: NEXT_STEPS_SYSTEM,
       user: buildNextStepsUserMessage(
         company,

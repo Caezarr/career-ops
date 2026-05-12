@@ -3,14 +3,12 @@ import TopBar from '../components/TopBar';
 import SettingsNav from '../components/settings/SettingsNav';
 import AuthCard from '../components/settings/AuthCard';
 import ProfileCard from '../components/settings/ProfileCard';
-import IntegrationsCard from '../components/settings/IntegrationsCard';
 import JobSourcesCard from '../components/settings/JobSourcesCard';
 import PreferencesCard from '../components/settings/PreferencesCard';
 import AudioSettingsCard from '../components/settings/AudioSettingsCard';
 import AppearanceSettingsCard from '../components/settings/AppearanceSettingsCard';
 import NotificationsSettingsCard from '../components/settings/NotificationsSettingsCard';
 import BillingCard from '../components/settings/BillingCard';
-import BillingTab from '../components/settings/BillingTab';
 import DangerZoneCard from '../components/settings/DangerZoneCard';
 import FeedbackCard from '../components/settings/FeedbackCard';
 import { useAppStore } from '../store';
@@ -23,8 +21,8 @@ const TAB_META = {
     hint: 'Your identity, contact details, and the career narrative every CV draws from.',
   },
   apiKeys: {
-    title: 'API Keys & Integrations',
-    hint: 'Connect Career OS to the AI providers it calls under the hood.',
+    title: 'Developers',
+    hint: 'Espace réservé aux extensions et intégrations à venir.',
   },
   jobSources: {
     title: 'Job sources',
@@ -85,7 +83,38 @@ export default function Settings() {
                       <ProfileCard />
                     </>
                   )}
-                  {tab === 'apiKeys' && <IntegrationsCard />}
+                  {tab === 'apiKeys' && (
+                    <section className="settings-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+                      <div
+                        style={{
+                          width: 60,
+                          height: 60,
+                          borderRadius: 999,
+                          background: 'var(--indigo-soft, rgba(99,102,241,0.12))',
+                          color: 'var(--indigo, #6366f1)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginBottom: 16,
+                          fontSize: 22,
+                        }}
+                        aria-hidden
+                      >
+                        ⚡
+                      </div>
+                      <h2 className="settings-card__title" style={{ marginBottom: 6 }}>
+                        Espace Développeurs
+                      </h2>
+                      <p
+                        className="settings-card__hint"
+                        style={{ maxWidth: 420, margin: '0 auto' }}
+                      >
+                        Incoming — clés API personnelles, webhooks, accès programmatique
+                        à tes données. Career OS gère pour toi Claude et la
+                        transcription pour l'instant — tu n'as rien à configurer.
+                      </p>
+                    </section>
+                  )}
                   {tab === 'jobSources' && <JobSourcesCard />}
                   {tab === 'audio' && <AudioSettingsCard />}
                   {tab === 'appearance' && <AppearanceSettingsCard />}
@@ -98,11 +127,9 @@ export default function Settings() {
                   {tab === 'billing' && (
                     <>
                       {/* Post-beta Stripe Checkout entry point. Renders
-                          above the legacy Sprint billing card so the
-                          subscription state is the first thing the user
-                          sees. The Sprint card stays for now while the
-                          two pricing models coexist. */}
-                      <BillingTab />
+                          single source of truth for the 3-tier lifetime
+                          pricing. The legacy BillingTab (€15/mo recurring)
+                          was retired with the pricing pivot. */}
                       <BillingCard />
                       <DangerZoneCard />
                     </>

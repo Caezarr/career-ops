@@ -1,0 +1,253 @@
+/* Paywall overlay — used by `<PaywallOverlay>` for hard page gates
+   (Prep) and `<UpgradeModal>` for inline / per-action soft gates. */
+
+.dashboard-root .paywall {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dashboard-root .paywall__preview {
+  width: 100%;
+  height: 100%;
+  filter: blur(8px) saturate(0.7);
+  pointer-events: none;
+  user-select: none;
+  /* Slight fade to push the gaze to the CTA card. */
+  opacity: 0.7;
+}
+
+.dashboard-root .paywall__cta {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 32px;
+  background: linear-gradient(
+    180deg,
+    rgba(8, 10, 18, 0.05) 0%,
+    rgba(8, 10, 18, 0.18) 100%
+  );
+  z-index: 5;
+}
+
+[data-theme="light"] .dashboard-root .paywall__cta {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.65) 100%
+  );
+}
+
+.dashboard-root .paywall__cta-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 999px;
+  background: var(--indigo-soft, rgba(99, 102, 241, 0.12));
+  color: var(--indigo, #6366f1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.dashboard-root .paywall__cta-title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  margin: 0 0 10px;
+}
+
+.dashboard-root .paywall__cta-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-width: 420px;
+  margin: 0 0 22px;
+}
+
+.dashboard-root .paywall__cta-btn {
+  min-width: 200px;
+}
+
+.dashboard-root .paywall__cta-fineprint {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   UpgradeModal — inline modal used by soft-gate flows.
+   ───────────────────────────────────────────────────────────────── */
+
+.dashboard-root .upgrade-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: upgrade-modal-fade 180ms ease-out;
+}
+@keyframes upgrade-modal-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.dashboard-root .upgrade-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 10, 18, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  appearance: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  z-index: 0;
+}
+
+.dashboard-root .upgrade-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 560px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 24px 18px;
+  box-shadow: 0 40px 80px -20px rgba(0, 0, 0, 0.6);
+  animation: upgrade-modal-pop 220ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes upgrade-modal-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+.dashboard-root .upgrade-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.dashboard-root .upgrade-modal__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--indigo-soft, rgba(99, 102, 241, 0.12));
+  color: var(--indigo, #6366f1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dashboard-root .upgrade-modal__title {
+  flex: 1;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+}
+.dashboard-root .upgrade-modal__close {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+}
+.dashboard-root .upgrade-modal__close:hover {
+  color: var(--text-1);
+  background: var(--bg-soft);
+}
+
+.dashboard-root .upgrade-modal__body {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.dashboard-root .upgrade-modal__tiers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.dashboard-root .upgrade-modal__tier {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+.dashboard-root .upgrade-modal__tier--featured {
+  border-color: var(--indigo, #6366f1);
+  background: linear-gradient(
+    180deg,
+    rgba(99, 102, 241, 0.06) 0%,
+    transparent 100%
+  );
+}
+.dashboard-root .upgrade-modal__tier-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.dashboard-root .upgrade-modal__tier-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.dashboard-root .upgrade-modal__tier-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--indigo, #6366f1);
+  background: var(--indigo-soft, rgba(99, 102, 241, 0.12));
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+.dashboard-root .upgrade-modal__tier-price {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+}
+.dashboard-root .upgrade-modal__tier-perks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dashboard-root .upgrade-modal__tier-perks li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.dashboard-root .upgrade-modal__cta-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 520px) {
+  .dashboard-root .upgrade-modal__tiers { grid-template-columns: 1fr; }
+}
