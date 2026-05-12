@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
-import { Upload, Plus } from 'lucide-react';
+import { Upload, Plus, Lock } from 'lucide-react';
 import { useAppStore } from '../../store';
 import { useToast } from '../../primitives';
 import RenameModal from '../shared/RenameModal';
+import UpgradeModal from '../shared/UpgradeModal';
+import { usePlanGate } from '../../hooks/usePlanGate';
 import { ingestPdfFile } from '../../lib/pdf';
 
 export default function CVHeader() {
@@ -11,9 +13,11 @@ export default function CVHeader() {
   const setSelectedCv = useAppStore((s) => s.setSelectedCv);
   const setCvTab = useAppStore((s) => s.setCvTab);
   const toast = useToast();
+  const gate = usePlanGate();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   async function handleFileChosen(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -68,18 +72,40 @@ export default function CVHeader() {
         <button
           type="button"
           className="cv__btn cv__btn--ghost"
-          onClick={() => fileRef.current?.click()}
+          onClick={() => {
+            if (!gate.canCreateCv) {
+              setUpgradeOpen(true);
+              return;
+            }
+            fileRef.current?.click();
+          }}
           disabled={importing}
+          title={!gate.canCreateCv ? gate.reason.cv : undefined}
         >
-          <Upload size={16} strokeWidth={2} />
+          {gate.canCreateCv ? (
+            <Upload size={16} strokeWidth={2} />
+          ) : (
+            <Lock size={14} strokeWidth={2} />
+          )}
           <span>{importing ? 'Parsing PDF…' : 'Import CV'}</span>
         </button>
         <button
           type="button"
           className="cv__btn cv__btn--primary"
-          onClick={() => setCreateOpen(true)}
+          onClick={() => {
+            if (!gate.canCreateCv) {
+              setUpgradeOpen(true);
+              return;
+            }
+            setCreateOpen(true);
+          }}
+          title={!gate.canCreateCv ? gate.reason.cv : undefined}
         >
-          <Plus size={16} strokeWidth={2.2} />
+          {gate.canCreateCv ? (
+            <Plus size={16} strokeWidth={2.2} />
+          ) : (
+            <Lock size={14} strokeWidth={2} />
+          )}
           <span>Create variant</span>
         </button>
         <input
@@ -99,6 +125,13 @@ export default function CVHeader() {
         onSave={createVariant}
         onClose={() => setCreateOpen(false)}
       />
+      {upgradeOpen && (
+        <UpgradeModal
+          feature="cv"
+          reason={gate.reason.cv}
+          onClose={() => setUpgradeOpen(false)}
+        />
+      )}
     </header>
   );
 }

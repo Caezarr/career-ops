@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Sparkles, RefreshCw, Loader2, AlertTriangle, KeyRound } from 'lucide-react';
+import { Sparkles, RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../primitives';
 import { useAppStore, type Application } from '../../store';
 import { generateApplicationNextSteps } from '../../lib/applicationNextSteps';
-import { readAnthropicKey } from '../../hooks/useAnthropicKey';
 
 interface AINextStepsCardProps {
   application: Application;
@@ -37,13 +36,8 @@ export default function AINextStepsCard({
   const [error, setError] = useState<string | null>(null);
 
   const steps = application.aiNextSteps;
-  const hasKey = !!readAnthropicKey();
 
   async function generate() {
-    if (!hasKey) {
-      setError('Set your Anthropic key in Settings → API Keys.');
-      return;
-    }
     if (!job) {
       setError('Link a job to this application first — Claude needs the company / role context.');
       return;
@@ -85,20 +79,10 @@ export default function AINextStepsCard({
           <span className="ai-next-steps__title">AI next steps</span>
         </header>
         <div className="ai-next-steps__empty">
-          {!hasKey ? (
-            <div className="ai-next-steps__notice">
-              <KeyRound size={14} />
-              <span>
-                Add your Anthropic key in Settings → API Keys to generate
-                tailored next steps.
-              </span>
-            </div>
-          ) : (
-            <p className="ai-next-steps__empty-text">
-              Get 3-5 concrete actions Claude tailored to this application's
-              stage, the JD, and your CV.
-            </p>
-          )}
+          <p className="ai-next-steps__empty-text">
+            Get 3-5 concrete actions Claude tailored to this application's
+            stage, the JD, and your CV.
+          </p>
           {error && (
             <div className="ai-next-steps__error" role="alert">
               <AlertTriangle size={14} />
@@ -108,7 +92,7 @@ export default function AINextStepsCard({
           <button
             type="button"
             className="ai-next-steps__generate"
-            disabled={busy || !hasKey || !job}
+            disabled={busy || !job}
             onClick={() => void generate()}
           >
             {busy ? (
@@ -137,7 +121,7 @@ export default function AINextStepsCard({
         <button
           type="button"
           className="ai-next-steps__regen"
-          disabled={busy || !hasKey || !job}
+          disabled={busy || !job}
           onClick={() => void generate()}
           title="Regenerate based on the current stage + context"
         >

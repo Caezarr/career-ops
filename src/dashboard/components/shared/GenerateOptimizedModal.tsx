@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, AlertTriangle, KeyRound, Sparkles, FileDown, FilePlus, RotateCw } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Sparkles, FileDown, FilePlus, RotateCw } from 'lucide-react';
 import { Modal, ModalBody, ModalFooter, ModalHeader, useToast } from '../../primitives';
 import { useAppStore } from '../../store';
 import { getCvParsedText } from '../../store/slices/cvs';
-import { readAnthropicKey } from '../../hooks/useAnthropicKey';
 import {
   generateOptimizedCv,
   isProfileReadyForCv,
@@ -62,10 +61,9 @@ export default function GenerateOptimizedModal({
       setResult(null);
       setErrorMsg(null);
 
-      if (!readAnthropicKey()) {
-        setPhase('key-missing');
-        return;
-      }
+      // BYOK Anthropic key check removed — Career OS hosts the key
+      // server-side. Auth errors land in the regular `error` phase
+      // via the catch block below.
       if (!isProfileReadyForCv(user)) {
         setPhase('profile-incomplete');
         return;
@@ -159,20 +157,6 @@ export default function GenerateOptimizedModal({
             <span className="ds-shared-loader__dot" />
             <span className="ds-shared-loader__dot" />
             <span className="ds-shared-loader__dot" />
-          </div>
-        )}
-
-        {phase === 'key-missing' && (
-          <div className="ats-setup">
-            <KeyRound size={28} />
-            <div>
-              <h3>Add your Anthropic API key</h3>
-              <p>
-                Generation calls Claude. Open the Copilot overlay (sidebar →
-                <strong> Copilot</strong> → <em>Open Copilot →</em>), paste your key
-                in Settings, then come back here.
-              </p>
-            </div>
           </div>
         )}
 

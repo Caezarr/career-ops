@@ -59,6 +59,19 @@ function isPage(id: string): id is Page {
 export default function Sidebar() {
   const { page, navigate } = useNavigation();
   const user = useAppStore((s) => s.user);
+  // Plan badge reads from the billing slice (canonical source of
+  // truth — hydrated from `/v1/billing/status`). The legacy
+  // `user.plan` field is no longer touched by the payment flow.
+  const plan = useAppStore((s) => s.plan);
+  const hasGuarantee = useAppStore((s) => s.hasGuarantee);
+  const planBadge =
+    plan === 'lifetime_pro'
+      ? 'Pro · Garantie'
+      : plan === 'lifetime'
+        ? 'Lifetime'
+        : hasGuarantee
+          ? 'Pro · Garantie'
+          : 'Free';
 
   const handleNavClick = (id: string) => {
     if (isPage(id)) {
@@ -133,9 +146,7 @@ export default function Sidebar() {
             <UserAvatar size={36} className="sidebar__user-avatar" />
             <div className="sidebar__user-info">
               <span className="sidebar__user-name">{user.name}</span>
-              <span className="sidebar__user-badge">
-                {user.plan === 'pro' ? 'Pro' : 'Free'}
-              </span>
+              <span className="sidebar__user-badge">{planBadge}</span>
             </div>
             <ChevronUp size={16} className="sidebar__user-chevron" />
           </button>

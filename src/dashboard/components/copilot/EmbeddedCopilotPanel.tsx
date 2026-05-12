@@ -1,4 +1,5 @@
-import { Sparkles, Play, AlertTriangle, KeyRound } from 'lucide-react';
+import { useState } from 'react';
+import { Sparkles, Play, AlertTriangle, Lock } from 'lucide-react';
 import CopilotPanelHeader from './CopilotPanelHeader';
 import ModeTabsRow from './ModeTabsRow';
 import InterviewSessionBar from './InterviewSessionBar';
@@ -7,10 +8,10 @@ import CopilotAnswerCard from './CopilotAnswerCard';
 import ModelStatusBar from './ModelStatusBar';
 import ConfigurationPanel from './ConfigurationPanel';
 import CopilotContextPicker from './CopilotContextPicker';
+import UpgradeModal from '../shared/UpgradeModal';
 import { useAppStore } from '../../store';
 import { useCopilotControls } from '../../hooks/useCopilotSession';
-import { readCopilotConfig } from '../../hooks/useAnthropicKey';
-import { useNavigation } from '../../navigation';
+import { usePlanGate } from '../../hooks/usePlanGate';
 
 export default function EmbeddedCopilotPanel() {
   const visible = useAppStore((s) => s.copilotPanelVisible);
@@ -21,7 +22,8 @@ export default function EmbeddedCopilotPanel() {
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const error = useAppStore((s) => s.copilotError);
   const { start } = useCopilotControls();
-  const { navigate } = useNavigation();
+  const gate = usePlanGate();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   if (!visible) {
     return (
@@ -55,11 +57,11 @@ export default function EmbeddedCopilotPanel() {
     );
   }
 
-  // No active session → show the CTA + key check (replaces the old
-  // popup-window flow). Mode toggle stays so the user can pick before
-  // starting.
+  // No active session → show the linked-context picker + Start CTA.
+  // The Anthropic key lives on the Worker (server-managed) so the
+  // "key required" gate is gone — auth errors surface via the
+  // backend `error` channel if the user's JWT is missing/expired.
   const sessionActive = activeSessionId !== null;
-  const hasKey = !!readCopilotConfig().anthropicKey;
 
   return (
     <section className="cp-embedded-panel" aria-label="Career Copilot panel">
@@ -68,43 +70,34 @@ export default function EmbeddedCopilotPanel() {
 
       {!sessionActive && (
         <div className="cp-embedded-panel__cta">
-          {!hasKey ? (
-            <div className="cp-embedded-panel__keymissing">
-              <KeyRound size={18} strokeWidth={2} />
-              <div>
-                <strong>Anthropic key required</strong>
-                <p>
-                  Add your Anthropic key in Settings → API Keys to enable
-                  live coaching.
-                </p>
-                <button
-                  type="button"
-                  className="cp-btn cp-btn--outlined"
-                  onClick={() => navigate('settings')}
-                >
-                  Open Settings
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              {/* Linked-context picker — Career OS reads JD + CV from
-                  here when the user clicks Start. Picker state is
-                  persisted so smart defaults survive a reload. */}
-              <CopilotContextPicker />
+          <>
+            {/* Linked-context picker — Career OS reads JD + CV from
+                here when the user clicks Start. Picker state is
+                persisted so smart defaults survive a reload. */}
+            <CopilotContextPicker />
               <button
                 type="button"
                 className="cp-btn cp-btn--primary cp-embedded-panel__start"
-                onClick={() => void start({ mode })}
+                onClick={() => {
+                  if (!gate.canStartCopilotSession) {
+                    setUpgradeOpen(true);
+                    return;
+                  }
+                  void start({ mode });
+                }}
+                title={!gate.canStartCopilotSession ? gate.reason.copilot : undefined}
               >
-                <Play size={14} strokeWidth={2} fill="currentColor" />
+                {gate.canStartCopilotSession ? (
+                  <Play size={14} strokeWidth={2} fill="currentColor" />
+                ) : (
+                  <Lock size={14} strokeWidth={2} />
+                )}
                 <span>
                   Start {mode === 'pitch' ? 'pitch session' : 'live session'}
                 </span>
                 <span className="cp-embedded-panel__shortcut">⌘⇧Space</span>
               </button>
-            </>
-          )}
+          </>
         </div>
       )}
 
@@ -122,6 +115,13 @@ export default function EmbeddedCopilotPanel() {
 
       <ModelStatusBar />
       <ConfigurationPanel />
+      {upgradeOpen && (
+        <UpgradeModal
+          feature="copilot"
+          reason={gate.reason.copilot}
+          onClose={() => setUpgradeOpen(false)}
+        />
+      )}
     </section>
   );
 }

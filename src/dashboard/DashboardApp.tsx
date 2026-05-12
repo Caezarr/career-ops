@@ -23,6 +23,7 @@ import { useAutostart } from "./hooks/useAutostart";
 import { useSeedIngestSources } from "./hooks/useSeedIngestSources";
 import { useJobTeaserAuthListener } from "./hooks/useJobTeaserAuthListener";
 import { useAuthDeepLink } from "./hooks/useAuthDeepLink";
+import { useBillingDeepLink } from "./hooks/useBillingDeepLink";
 import { useAutoUpdate } from "./hooks/useAutoUpdate";
 import { useCopilotEventBridge } from "./hooks/useCopilotSession";
 import { useBillingHydrate } from "./hooks/useBillingHydrate";
@@ -220,6 +221,15 @@ function AuthDeepLinkBridge() {
   return null;
 }
 
+/** Listens for `careeros://billing/success` and `careeros://billing/cancel`
+ *  emitted by the Rust deep-link bridge after Stripe Checkout. Refetches
+ *  the billing status and toasts the user. Mounted at the root for
+ *  the same reason as the auth bridge — no page transitions miss it. */
+function BillingDeepLinkBridge() {
+  useBillingDeepLink();
+  return null;
+}
+
 /** One-shot updater check on app boot — silently no-ops in dev. */
 function AutoUpdateBridge() {
   useAutoUpdate();
@@ -260,6 +270,7 @@ export function DashboardApp() {
             <IngestSourcesSeeder />
             <JobTeaserAuthListener />
             <AuthDeepLinkBridge />
+            <BillingDeepLinkBridge />
             <AutoUpdateBridge />
             <BillingHydrate />
             <GlobalKeyboardShortcuts />

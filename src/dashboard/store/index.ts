@@ -200,15 +200,16 @@ export const useAppStore = create<AppStore>()(
       audioOutputId: state.audioOutputId,
       theme: state.theme,
       notificationPrefs: state.notificationPrefs,
+      // Billing — local mirror of the Worker's /v1/billing/status DTO.
+      // The boot hook (`useBillingHydrate`) overwrites this on every
+      // cold start; persistence here is only to paint the Billing card
+      // instantly before the network call resolves.
       plan: state.plan,
-      paymentIntentId: state.paymentIntentId,
-      sprintEndsAt: state.sprintEndsAt,
-      // Stripe Checkout (post-beta) — mirrored locally so the
-      // Billing tab paints instantly on cold start while the boot
-      // hook re-hydrates from the Tauri side.
-      subscriptionStatus: state.subscriptionStatus,
-      currentPeriodEnd: state.currentPeriodEnd,
-      cancelAtPeriodEnd: state.cancelAtPeriodEnd,
+      purchasedAt: state.purchasedAt,
+      refundDeadlineAt: state.refundDeadlineAt,
+      hasGuarantee: state.hasGuarantee,
+      refundRequestedAt: state.refundRequestedAt,
+      refundedAt: state.refundedAt,
       // Persist Copilot session history so the user can review past
       // interviews. We DO NOT persist pendingTranscript / pendingAnswer
       // / activeSessionId / copilotStatus — those are runtime-only and
