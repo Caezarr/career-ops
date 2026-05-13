@@ -60,13 +60,15 @@ pub(crate) fn assert_main_or_copilot(window: &WebviewWindow) -> Result<(), Strin
 /// `jobteaser_close_auth_window`, `jobteaser_jobs_received`) so a
 /// rogue main-window script can't impersonate the bridge.
 fn assert_jobteaser_auth(window: &WebviewWindow) -> Result<(), String> {
-    if window.label() == "jobteaser-auth" {
-        Ok(())
-    } else {
-        Err(format!(
-            "Command requires jobteaser-auth window, got '{}'",
-            window.label()
-        ))
+    // Both the visible auth window AND the headless sync window can
+    // call the JT capture / scrape commands. Same bridge script runs
+    // in each; only the URL + visibility differ.
+    match window.label() {
+        "jobteaser-auth" | "jobteaser-sync" => Ok(()),
+        other => Err(format!(
+            "Command requires jobteaser-auth or jobteaser-sync window, got '{}'",
+            other
+        )),
     }
 }
 
@@ -776,6 +778,52 @@ async fn jobteaser_auth_open(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Background sync — opens an invisible WebView straight at the job
+/// listings page. The JT session cookie (HttpOnly) persists across
+/// launches inside the WebKit data store, so the headless window
+/// loads pre-authenticated and the bridge can scrape without any UI.
+///
+/// If the cookie expired and JT bounces us to `/users/sign_in`, the
+/// bridge detects that and emits `jobteaser-auth-required`. The
+/// frontend then opens the regular visible auth window.
+///
+/// Window label: `jobteaser-sync` (distinct from the visible auth
+/// flow so `assert_jobteaser_auth` can accept both).
+#[tauri::command]
+async fn jobteaser_sync_open(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    // Concurrent syncs would double-fire `jobteaser_jobs_received`.
+    // If a sync window already exists, no-op — the previous run is
+    // still in flight.
+    if app.get_webview_window("jobteaser-sync").is_some() {
+        return Ok(());
+    }
+
+    let bridge_script = include_str!("./ingest/jobteaser/auth_bridge.js");
+
+    // We inject a global flag the bridge reads on boot to:
+    //   - skip rendering the visible status panel
+    //   - exit cleanly if JT redirects back to /users/sign_in
+    //     (= cookies expired, can't recover headlessly)
+    let prelude = "window.__JT_HEADLESS__ = true;\n";
+
+    let url: tauri::Url = "https://www.jobteaser.com/fr/job-offers"
+        .parse()
+        .map_err(|e: <tauri::Url as std::str::FromStr>::Err| e.to_string())?;
+
+    WebviewWindowBuilder::new(&app, "jobteaser-sync", WebviewUrl::External(url))
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false)
+        .inner_size(1024.0, 768.0)
+        .initialization_script(&format!("{}{}", prelude, bridge_script))
+        .build()
+        .map_err(|e| format!("open headless sync window: {}", e))?;
+
+    Ok(())
+}
+
 /// Called by the JS bridge once cookies + profile are captured.
 /// Persists to Keychain, returns the profile to the frontend so it
 /// can insert the IngestSource row + close the auth window.
@@ -816,18 +864,40 @@ fn jobteaser_has_session(career_center_slug: String) -> bool {
     ingest::jobteaser::auth::has_stored_session(&career_center_slug)
 }
 
-/// Close the JT auth window — invoked from the bridge's "Close window"
-/// button after capture. WebKit blocks `window.close()` on
-/// programmatically-opened windows in this context, so we route it
-/// through a Tauri command.
+/// Close the JT auth OR sync window — invoked from the bridge's
+/// "Close window" button after capture, OR by the headless sync
+/// bridge when it has done its work / detected an expired session.
+/// WebKit blocks `window.close()` on programmatically-opened windows
+/// in this context, so we route it through a Tauri command.
 #[tauri::command]
 fn jobteaser_close_auth_window(
     app: tauri::AppHandle,
     window: WebviewWindow,
 ) -> Result<(), String> {
     assert_jobteaser_auth(&window)?;
-    if let Some(win) = app.get_webview_window("jobteaser-auth") {
+    // Use the caller's own label so closing the visible auth window
+    // doesn't accidentally close a concurrent headless sync (and vice
+    // versa).
+    let label = window.label().to_string();
+    if let Some(win) = app.get_webview_window(&label) {
         win.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Bridge signal — the headless sync detected the WebView is on the
+/// login page (cookies expired). Emit `jobteaser-auth-required` so
+/// the dashboard can prompt the user to re-auth visibly. Then close
+/// the sync window so the next sync attempt doesn't reuse a stale one.
+#[tauri::command]
+fn jobteaser_sync_auth_required(
+    app: tauri::AppHandle,
+    window: WebviewWindow,
+) -> Result<(), String> {
+    assert_jobteaser_auth(&window)?;
+    let _ = app.emit("jobteaser-auth-required", ());
+    if let Some(win) = app.get_webview_window("jobteaser-sync") {
+        let _ = win.close();
     }
     Ok(())
 }
@@ -1237,6 +1307,8 @@ pub fn run() {
             ingest_get_builtin_sources,
             // Job Teaser SSO auth flow
             jobteaser_auth_open,
+            jobteaser_sync_open,
+            jobteaser_sync_auth_required,
             jobteaser_auth_complete,
             jobteaser_has_session,
             jobteaser_close_auth_window,

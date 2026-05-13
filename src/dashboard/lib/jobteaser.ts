@@ -27,9 +27,26 @@ interface JobTeaserAuthProfile {
 }
 
 /** Open the auth window. Returns when the window has been spawned —
- *  not when the user has finished authing (that's an event). */
+ *  not when the user has finished authing (that's an event).
+ *
+ *  Use this only for the **first** sign-in or when the headless sync
+ *  signaled `jobteaser-auth-required` (cookies expired). For routine
+ *  background syncs, call `syncJobTeaser()` instead — it runs in an
+ *  invisible WebView and the user sees nothing. */
 export async function openJobTeaserAuth(): Promise<void> {
   await invoke<void>("jobteaser_auth_open");
+}
+
+/** Headless sync — spawns an invisible WebView that loads the JT
+ *  job listings, scrapes via the bridge, then closes itself. The
+ *  user never sees a window. Cookies persist across launches in the
+ *  WebKit data store; if they've expired, the Rust side emits
+ *  `jobteaser-auth-required` (captured in `subscribeJobTeaserAuth`).
+ *
+ *  Returns immediately — the actual jobs land via the
+ *  `jobteaser-jobs-received` event a few seconds later. */
+export async function syncJobTeaser(): Promise<void> {
+  await invoke<void>("jobteaser_sync_open");
 }
 
 /** Subscribe once for the lifetime of the dashboard window so that
@@ -110,9 +127,30 @@ export async function subscribeJobTeaserAuth(): Promise<() => void> {
     },
   );
 
+  // Cookies expired in a headless sync — Rust closed the invisible
+  // window and asked the dashboard to surface a "please re-auth"
+  // prompt. We flag the relevant IngestSource(s) with lastError so
+  // the JobSources card renders the "Re-authenticate" button.
+  const unlistenAuthRequired = await listen<void>(
+    "jobteaser-auth-required",
+    () => {
+      const sources = useAppStore.getState().ingestSources;
+      const expired = sources.filter((s) => s.provider === "jobteaser");
+      for (const src of expired) {
+        useAppStore
+          .getState()
+          .setIngestSourceState(src.id, {
+            lastError:
+              "Session JobTeaser expirée — reconnecte-toi pour reprendre le sync.",
+          });
+      }
+    },
+  );
+
   return () => {
     unlistenAuth();
     unlistenJobs();
+    unlistenAuthRequired();
   };
 }
 
