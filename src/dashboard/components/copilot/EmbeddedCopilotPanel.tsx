@@ -5,6 +5,7 @@ import ModeTabsRow from './ModeTabsRow';
 import InterviewSessionBar from './InterviewSessionBar';
 import LiveTranscript from './LiveTranscript';
 import CopilotAnswerCard from './CopilotAnswerCard';
+import CopilotTeleprompter from './CopilotTeleprompter';
 import ModelStatusBar from './ModelStatusBar';
 import ConfigurationPanel from './ConfigurationPanel';
 import CopilotContextPicker from './CopilotContextPicker';
@@ -105,6 +106,11 @@ export default function EmbeddedCopilotPanel() {
 
       <LiveTranscript />
       <CopilotAnswerCard />
+      {/* Phase 3 — Moody-style teleprompter capsule. Position: fixed
+          so it renders as a bottom-of-viewport overlay regardless of
+          where this panel lives in the DOM. Hides itself when no
+          session is active OR no answer to show. */}
+      <CopilotTeleprompter />
 
       {error && (
         <div className="cp-embedded-panel__error" role="alert">

@@ -44,6 +44,18 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 pdf-extract = "0.7"
 base64 = "0.22"
+# Phase 2 — Core Audio Tap deps TEMPORARILY DISABLED until Xcode lands.
+# `cidre` requires the full Xcode toolchain (its build script runs
+# `xcodebuild` to compile its `pomace/` Objective-C bridges), and this
+# machine currently only has Command Line Tools. The user is downloading
+# Xcode from the App Store; once `xcode-select -p` points at
+# `/Applications/Xcode.app/Contents/Developer`, uncomment these two
+# lines AND restore `src-tauri/src/audio_tap.rs` from its `.full-impl.bak`
+# sibling (see the stub's module doc for the full restore checklist).
+# Until then `audio_tap.rs` is a stub that errors out on use, and
+# session.rs/audio.rs gracefully fall back to the legacy cpal loopback.
+# ringbuf = "0.4"
+# cidre = "0.11"
 # Used by `pdf::profile` for regex-based contact extraction
 # (email / phone / LinkedIn / GitHub / portfolio) when the user
 # uploads a CV during onboarding. Compiled-once statics live in

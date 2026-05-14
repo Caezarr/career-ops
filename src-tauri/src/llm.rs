@@ -25,6 +25,7 @@ Write a spoken answer. RULES — no exceptions:
 5. Every number and name comes from the CV. Zero fabrication.
 6. Last sentence = insight only the top 1 % of candidates would say. Make it memorable.
 7. Match language exactly: FR question → FR answer, EN question → EN answer.
+8. TELEPROMPTER FORMATTING: insert a literal newline (\\n) after each sentence so the candidate can read the answer line-by-line as the teleprompter scrolls. One sentence per line. No double newlines, no blank lines.
 
 Output ONLY the spoken answer text. No preamble, no commentary.";
 
@@ -47,6 +48,7 @@ RULES — no exceptions:
 4. Target ≈ 420 words (3 min at natural speaking pace).
 5. Show timing markers [X:XX-X:XX] inline so the candidate can track pace.
 6. Match language: FR instructions → FR answer, EN → EN.
+7. TELEPROMPTER FORMATTING: insert a literal newline (\\n) after each sentence so the candidate reads it line-by-line as a real teleprompter. One sentence per line. The timing markers each start their own line. No double newlines, no blank lines.
 
 Output ONLY the spoken text with inline timing markers. No preamble.";
 

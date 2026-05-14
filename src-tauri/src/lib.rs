@@ -1,5 +1,9 @@
 mod ai;
 mod audio;
+// Phase 2 — Core Audio Tap loopback (macOS 14.4+). Replaces the
+// BlackHole prerequisite for system-audio capture; `audio.rs`
+// routes to this module when `loopback_device == "system-audio-tap"`.
+mod audio_tap;
 mod billing;
 mod cloud;
 mod commands;

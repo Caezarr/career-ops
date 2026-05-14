@@ -39,6 +39,7 @@ import "./styles/applications.css";
 import "./styles/cv.css";
 import "./styles/prep.css";
 import "./styles/copilot.css";
+import "./styles/copilot-teleprompter.css";
 import "./styles/workspace.css";
 import "./styles/settings.css";
 import "./styles/primitives.css";

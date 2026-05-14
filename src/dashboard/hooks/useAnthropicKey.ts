@@ -59,13 +59,28 @@ export interface CopilotConfigSnapshot {
   jd: string;
 }
 
+/**
+ * Sentinel value the Rust backend recognises as "use the native
+ * macOS Core Audio Tap" (Phase 2). When `loopback_device` is set
+ * to this, the dual-capture and live-session pipelines route the
+ * loopback through `audio_tap.rs` instead of opening a cpal input
+ * device, so beta users no longer need BlackHole installed.
+ * MUST match `audio::SYSTEM_AUDIO_TAP_SENTINEL` in the backend.
+ */
+export const SYSTEM_AUDIO_TAP_SENTINEL = 'system-audio-tap';
+
 const DEFAULT_SNAPSHOT: CopilotConfigSnapshot = {
   anthropicKey: '',
   assemblyaiKey: '',
   openaiKey: '',
   model: '',
   audioDevice: '',
-  loopbackDevice: '',
+  // Phase 2: default to the Core Audio Tap. Pre-Phase-2 users who
+  // have an explicit cpal device name persisted in `ic-config`
+  // (e.g. "BlackHole 2ch") will see that value win below because
+  // `pickStr('loopback_device')` overrides this default when the
+  // localStorage key is set.
+  loopbackDevice: SYSTEM_AUDIO_TAP_SENTINEL,
   persona: 'finance',
   cv: '',
   jd: '',
@@ -91,13 +106,18 @@ export function readCopilotConfig(): CopilotConfigSnapshot {
   const persona =
     (prefs.persona as CopilotConfigSnapshot['persona']) ?? 'finance';
 
+  // Phase 2: an empty `loopback_device` in localStorage means the
+  // user has never explicitly chosen one — they get the Core Audio
+  // Tap default. A non-empty value (e.g. "BlackHole 2ch") wins so
+  // legacy installs keep working without a settings migration.
+  const storedLoopback = pickStr('loopback_device');
   return {
     anthropicKey: cacheReadAnthropic(),
     openaiKey: cacheReadOpenai(),
     assemblyaiKey: cacheReadAssembly(),
     model: normalizeModelId(pickStr('model')),
     audioDevice: pickStr('audio_device'),
-    loopbackDevice: pickStr('loopback_device'),
+    loopbackDevice: storedLoopback || SYSTEM_AUDIO_TAP_SENTINEL,
     persona,
     cv: pickStr('cv'),
     jd: pickStr('jd'),

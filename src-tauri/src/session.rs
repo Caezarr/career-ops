@@ -1,6 +1,8 @@
 //! Continuous session mode: streams mic/loopback to AssemblyAI real-time STT,
 //! fires the Claude pipeline the moment AssemblyAI signals end of utterance.
 
+use crate::audio::SYSTEM_AUDIO_TAP_SENTINEL;
+use crate::audio_tap::LiveSystemAudio;
 use crate::{llm, CaptureConfig};
 use anyhow::{anyhow, Context, Result};
 use bytes::Bytes;
@@ -105,6 +107,37 @@ pub async fn run_session(
     let stop_for_audio = stop_flag.clone();
     let config_audio   = config.clone();
 
+    // Phase 2: when the loopback is the Core Audio Tap sentinel,
+    // boot it OUTSIDE the cpal spawn_blocking — the tap lives on its
+    // own dedicated drain thread (`audio_tap::LiveSystemAudio`).
+    // Bringing it up before the mic gives us the source rate early
+    // so the WS PCM reader downstream has a sensible primary feed.
+    //
+    // The async tap branch returns a `LiveSystemAudio` whose
+    // `buffer` is the same `Arc<Mutex<Vec<f32>>>` shape as the cpal
+    // `LiveDevice`, so the WS reader doesn't care which path
+    // produced it.
+    let use_core_audio_tap = config_audio.loopback_device == SYSTEM_AUDIO_TAP_SENTINEL;
+    let tap_live: Option<LiveSystemAudio> = if use_core_audio_tap {
+        match LiveSystemAudio::start(stop_for_audio.clone()) {
+            Ok(live) => {
+                info!(
+                    "audio-tap (live): online — {} Hz system audio",
+                    live.rate
+                );
+                Some(live)
+            }
+            Err(e) => {
+                warn!(
+                    "audio-tap (live): start failed ({e:#}) — falling back to mic-only"
+                );
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     tokio::task::spawn_blocking(move || {
         let host = cpal::default_host();
 
@@ -112,7 +145,13 @@ pub async fn run_session(
             Ok(d)  => d,
             Err(e) => { warn!("mic open error: {e}"); return; }
         };
-        let loopback = if config_audio.loopback_device.is_empty() {
+        // The legacy cpal loopback path is only used when the user
+        // has explicitly configured a BlackHole-style device
+        // (anything other than the Core Audio Tap sentinel AND not
+        // empty).
+        let loopback = if config_audio.loopback_device.is_empty()
+            || config_audio.loopback_device == SYSTEM_AUDIO_TAP_SENTINEL
+        {
             None
         } else {
             match open_input(&host, &config_audio.loopback_device) {
@@ -121,16 +160,29 @@ pub async fn run_session(
             }
         };
 
-        let primary_buf = loopback
-            .as_ref()
-            .map(|d| d.buffer.clone())
-            .unwrap_or_else(|| mic.buffer.clone());
-        let primary_rate = loopback.as_ref().map(|d| d.rate).unwrap_or(mic.rate);
+        // Choose the primary feed for AAI streaming. Priority:
+        //   1. Core Audio Tap (if it booted) — recruiter audio,
+        //      Phase 2 default.
+        //   2. cpal loopback (BlackHole) — Phase 1 fallback.
+        //   3. Mic — single-input fallback.
+        let (primary_buf, primary_rate) = if let Some(ref tap) = tap_live {
+            (tap.buffer.clone(), tap.rate)
+        } else if let Some(ref lb) = loopback {
+            (lb.buffer.clone(), lb.rate)
+        } else {
+            (mic.buffer.clone(), mic.rate)
+        };
 
         info!(
             "audio ready: {}Hz, loopback={}",
             primary_rate,
-            loopback.is_some()
+            if tap_live.is_some() {
+                "core-audio-tap"
+            } else if loopback.is_some() {
+                "cpal"
+            } else {
+                "off"
+            }
         );
         let _ = dev_tx.send((primary_buf, primary_rate));
 
@@ -140,6 +192,7 @@ pub async fn run_session(
         }
         drop(mic);
         drop(loopback);
+        drop(tap_live);
     });
 
     let (primary_buf, primary_rate) =

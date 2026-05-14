@@ -1,0 +1,191 @@
+/*
+ * Career OS — Copilot teleprompter (Moody-style notch prompter)
+ * ──────────────────────────────────────────────────────────────
+ * Pinned to the TOP of the viewport, near the MacBook notch area.
+ * No capsule background — the text renders directly over whatever
+ * is behind it (the notch area is naturally dark on macOS, the
+ * menu bar is dark in dark mode, and a heavy text-shadow keeps
+ * the text legible against any background).
+ *
+ * Why top, not bottom?
+ *   - The notch is at the top. Reading text up there keeps the
+ *     candidate's eyes near the laptop's camera lens — they look
+ *     like they're making eye contact, not staring at the bottom
+ *     of the screen reading a script.
+ *   - macOS menu bar is at the top: the eye is already trained
+ *     to flick up there without thinking.
+ *   - The notch + menu bar area is already a "blacked-out" UI
+ *     zone, so the text feels native to the OS, not a foreign
+ *     widget pasted on top.
+ *
+ * The Copilot overlay window (`tauri.conf.json` label="copilot")
+ * already has `contentProtected: true` (Phase 1) so the
+ * teleprompter is invisible to Zoom/Meet/Teams screen-share even
+ * when it sits in the menu bar area. Best of both worlds: the
+ * candidate sees it, the interviewer doesn't.
+ *
+ * Typography: IBM Plex Mono, ~32-38 px, weight 500, off-white.
+ * macOS ships SF Mono + Menlo as graceful fallbacks at this size.
+ */
+
+.cp-teleprompter {
+  /* Pinned to the top-center of the viewport. The notch area on a
+     14"/16" MacBook is ~32 px tall — we shift the text down a
+     touch so it doesn't fight the menu bar. On Macs without a
+     notch (Intel, M1 Air pre-2022) the same offset reads as a
+     deliberate gap below the menu bar, which still looks good. */
+  position: fixed;
+  inset: 8px 0 auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 24px;
+  /* Pointer-events off on the wrapper so clicks pass through to
+     whatever video-call UI is behind. We don't even re-enable
+     them on the text — the candidate isn't supposed to interact
+     with the teleprompter, just read it. */
+  pointer-events: none;
+  /* Above everything else in the webview's stacking context.
+     The OS-level alwaysOnTop on the Copilot overlay window
+     handles inter-window ordering. */
+  z-index: 2147483000;
+}
+
+.cp-teleprompter__capsule {
+  /* No capsule background — direct text on whatever is behind.
+     Kept the class name for layout structure but the visual
+     "capsule" of Phase 3 v1 is now intentionally invisible. */
+  max-width: min(1100px, 92vw);
+  width: 100%;
+  padding: 4px 0 0;
+  text-align: center;
+  /* Smooth in/out so the text doesn't pop when Claude starts
+     streaming or the answer rotates. */
+  animation: cp-teleprompter-fade 220ms ease-out;
+}
+
+@keyframes cp-teleprompter-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cp-teleprompter__body {
+  /* Limit how far the text grows down the screen — a 3-min
+     pitch should NOT push past the upper third of the viewport,
+     or the candidate has to scan too far down and breaks eye
+     contact with the camera. Excess content scrolls inside the
+     body; the React component auto-scrolls to the latest token. */
+  max-height: 28vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Mask the top + bottom of the scroll area so the text fades
+     into the background rather than ending in a hard cut. Mood
+     piece — barely visible but matters when the answer overflows. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+.cp-teleprompter__body::-webkit-scrollbar {
+  display: none;
+}
+
+.cp-teleprompter__text {
+  margin: 0;
+  /* Monospace stack — IBM Plex Mono first if the user has it,
+     SF Mono next (ships with macOS), Menlo as the ultimate
+     fallback. */
+  font-family:
+    'IBM Plex Mono',
+    'SFMono-Regular',
+    Menlo,
+    Consolas,
+    'Liberation Mono',
+    monospace;
+  font-size: 34px;
+  line-height: 1.32;
+  font-weight: 500;
+  color: #EFEFEF;
+  letter-spacing: 0.01em;
+  white-space: pre-wrap;
+  font-variant-numeric: tabular-nums;
+  /* The big visual trick: heavy text-shadow + outline so the
+     monospace stays legible against ANY background (slides,
+     code editor, a brightly-lit Zoom face cam, the menu bar).
+     Without this, white text on a white slide is illegible. */
+  text-shadow:
+    0 0 12px rgba(0, 0, 0, 0.85),
+    0 0 4px rgba(0, 0, 0, 0.95),
+    0 2px 6px rgba(0, 0, 0, 0.6);
+  /* WebKit-only stroke for extra contrast (Safari & WKWebView in
+     Tauri both honour this). Falls back gracefully on Linux. */
+  -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.4);
+}
+
+.cp-teleprompter__cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  margin-left: 3px;
+  background: rgba(239, 239, 239, 0.9);
+  vertical-align: -3px;
+  animation: cp-teleprompter-blink 1s steps(2, end) infinite;
+  border-radius: 1px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes cp-teleprompter-blink {
+  to {
+    background: transparent;
+  }
+}
+
+/* Narrower webview widths (the floating Copilot overlay window
+   is 460 px wide). Shrink the font but keep the top placement —
+   the notch-area paradigm still works at any width. */
+@media (max-width: 760px) {
+  .cp-teleprompter {
+    inset: 6px 0 auto 0;
+    padding: 0 12px;
+  }
+  .cp-teleprompter__text {
+    font-size: 26px;
+    line-height: 1.3;
+  }
+  .cp-teleprompter__body {
+    max-height: 40vh;
+  }
+}
+
+/* Light-mode safety net. The menu bar is light in light mode, so
+   the white-text + black-shadow combo gets a touch of dark fill
+   so the letters don't bleed into a bright background. */
+@media (prefers-color-scheme: light) {
+  .cp-teleprompter__text {
+    /* Same off-white text, but the shadow stack is heavier so
+       white-on-white slides stay readable. The teleprompter is
+       primarily a dark-mode experience but we don't want to
+       fully fail in light mode. */
+    text-shadow:
+      0 0 14px rgba(0, 0, 0, 0.92),
+      0 0 5px rgba(0, 0, 0, 1),
+      0 2px 8px rgba(0, 0, 0, 0.75);
+    -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.55);
+  }
+}
