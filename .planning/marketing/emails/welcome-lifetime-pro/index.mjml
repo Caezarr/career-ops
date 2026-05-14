@@ -1,0 +1,114 @@
+<!--
+  Career OS — Welcome (Lifetime + Garantie)
+  ─────────────────────────────────────────
+  Fires from worker/src/routes/billing.ts on `checkout.session.completed`
+  when plan === "lifetime_pro".
+  Loops template id env var: LOOPS_TEMPLATE_WELCOME_PRO
+
+  Data variables (Loops transactional syntax: a single-brace DATA_VARIABLE tag):
+    - userEmail        string — buyer's email
+    - refundDeadline   string — formatted FR date (e.g. "13 novembre 2026")
+
+  Package + upload:
+    npm run emails:build
+    → produces .planning/marketing/emails/build/welcome-lifetime-pro.zip
+    → upload via Loops → Templates → Code (upload .zip)
+-->
+<mjml>
+  <mj-head>
+    <mj-title>Bienvenue sur Career OS Pro</mj-title>
+    <mj-preview>Ton accès est actif et ta garantie 180 jours court jusqu'au {DATA_VARIABLE:refundDeadline}.</mj-preview>
+    <mj-attributes>
+      <mj-all font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" />
+      <mj-text color="#1f2937" font-size="15px" line-height="24px" />
+      <mj-button background-color="#6366f1" color="#ffffff" font-weight="600" border-radius="8px" inner-padding="14px 28px" />
+      <mj-section background-color="#ffffff" />
+    </mj-attributes>
+    <mj-style inline="inline">
+      a { color: #6366f1; text-decoration: none; }
+      .muted { color: #6b7280; font-size: 13px; line-height: 20px; }
+      .card { background-color: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb; }
+    </mj-style>
+  </mj-head>
+
+  <mj-body background-color="#f3f4f6" width="600px">
+    <mj-section padding="32px 24px 16px">
+      <mj-column>
+        <mj-image src="img/logo.png" alt="Career OS" width="48px" align="left" padding="0" />
+        <mj-text padding="12px 0 0" font-size="13px" color="#6b7280" font-weight="500" letter-spacing="0.5px">
+          CAREER OS · PRO
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding="0 24px">
+      <mj-column>
+        <mj-text font-size="26px" line-height="34px" font-weight="700" color="#111827" padding="8px 0 12px">
+          Bienvenue — tu as débloqué Lifetime&nbsp;+ Garantie.
+        </mj-text>
+        <mj-text padding="0 0 16px">
+          Ton compte est actif. Career OS est la copilote pour candidats qui visent
+          MBB, banque d'affaires, FAANG ou labs d'IA — et tu as maintenant un accès
+          à vie à toutes les fonctionnalités, avec une garantie résultat de 180 jours.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding="0 24px">
+      <mj-column css-class="card" padding="20px">
+        <mj-text font-weight="600" color="#111827" padding="0 0 8px">
+          Démarrer en 3 étapes
+        </mj-text>
+        <mj-text padding="6px 0">
+          <strong>1. Importe ton CV</strong> — Career OS optimise ton CV pour chaque offre, en LaTeX, ATS-compatible.
+        </mj-text>
+        <mj-text padding="6px 0">
+          <strong>2. Lance le Live Copilot</strong> — coaching audio en temps réel pendant tes entretiens. Zéro lag, 100&nbsp;% local.
+        </mj-text>
+        <mj-text padding="6px 0">
+          <strong>3. Track tes candidatures</strong> — pipeline visuel, relances auto, analytics ATS.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding="24px">
+      <mj-column>
+        <mj-button href="careeros://dashboard">
+          Ouvrir Career OS
+        </mj-button>
+        <mj-text align="center" padding="12px 0 0">
+          <span class="muted">Le lien ouvre l'app sur ton Mac. Si rien ne se passe, relance l'application manuellement.</span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <!-- Guarantee block (Pro only — no conditional needed, this template
+         is fired only for plan === "lifetime_pro") -->
+    <mj-section padding="0 24px 24px">
+      <mj-column css-class="card" padding="20px" background-color="#eef2ff" border="1px solid #c7d2fe" border-radius="12px">
+        <mj-text font-weight="600" color="#3730a3" padding="0 0 6px">
+          Ta garantie 180 jours est active
+        </mj-text>
+        <mj-text color="#3730a3" padding="0">
+          Si tu n'as décroché aucun entretien après <strong>30 candidatures trackées
+          dans Career OS</strong>, tu peux demander un remboursement intégral avant le
+          <strong>{DATA_VARIABLE:refundDeadline}</strong>. La demande se fait depuis
+          ton compte → <em>Facturation</em> → <em>Demander un remboursement</em>.
+        </mj-text>
+      </mj-column>
+    </mj-section>
+
+    <mj-section padding="0 24px 32px">
+      <mj-column>
+        <mj-divider border-color="#e5e7eb" border-width="1px" padding="16px 0" />
+        <mj-text align="center" padding="0">
+          <span class="muted">
+            Un souci&nbsp;? Réponds simplement à cet email — c'est Gabriel qui te répond.<br/>
+            Career OS · Paris · <a href="https://careeros.fr">careeros.fr</a><br/>
+            Envoyé à {DATA_VARIABLE:userEmail}
+          </span>
+        </mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
