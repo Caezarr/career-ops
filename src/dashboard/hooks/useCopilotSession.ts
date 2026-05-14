@@ -34,7 +34,7 @@ import type {
 export function useCopilotEventBridge() {
   const setStatus = useAppStore((s) => s.setCopilotStatus);
   const setError = useAppStore((s) => s.setCopilotError);
-  const setPendingTranscript = useAppStore((s) => s.setPendingTranscript);
+  const applyTranscriptDelta = useAppStore((s) => s.applyTranscriptDelta);
   const appendPendingAnswerToken = useAppStore((s) => s.appendPendingAnswerToken);
   const clearPendingAnswer = useAppStore((s) => s.clearPendingAnswer);
   const commitPendingTranscript = useAppStore((s) => s.commitPendingTranscript);
@@ -59,9 +59,13 @@ export function useCopilotEventBridge() {
         const next = e.payload;
         const prev = prevStatusRef.current;
 
-        // recording → thinking : recruiter finished speaking, commit
-        // the in-flight transcript so the bubble lands.
-        if (prev === 'recording' && next === 'thinking') {
+        // listening → thinking : recruiter finished speaking (debouncer
+        // fired after 2s silence on a finalised turn), commit the
+        // in-flight transcript so the bubble lands. Rust never emits
+        // a "recording" status — that was a stale pre-pivot name; the
+        // actual sequence from session.rs is listening → thinking →
+        // listening on a Claude turn.
+        if (prev === 'listening' && next === 'thinking') {
           const sessions = useAppStore.getState().copilotSessions;
           const active = useAppStore.getState().activeSessionId;
           const sess = sessions.find((s) => s.id === active);
@@ -102,10 +106,14 @@ export function useCopilotEventBridge() {
     );
 
     track(
-      listen<string>('transcript', (e) => {
-        // Backend emits the full replacement text for the current
-        // utterance — treat it as the live pending value.
-        setPendingTranscript(e.payload);
+      listen<{ text: string; final: boolean }>('transcript', (e) => {
+        // Backend (session.rs) now emits a structured payload with
+        // `final: bool` so the store can distinguish partials (replace
+        // the trailing draft) from finalised turns (append to the
+        // accumulated transcript). Without this split a long question
+        // with multiple speaker pauses would visually wipe itself
+        // every time AAI committed a turn.
+        applyTranscriptDelta(e.payload);
         // A new question wipes the previous in-flight answer.
         clearPendingAnswer();
       }),
@@ -130,7 +138,7 @@ export function useCopilotEventBridge() {
   }, [
     setStatus,
     setError,
-    setPendingTranscript,
+    applyTranscriptDelta,
     appendPendingAnswerToken,
     clearPendingAnswer,
     commitPendingTranscript,

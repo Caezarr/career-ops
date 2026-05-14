@@ -79,8 +79,21 @@ export interface CopilotSessionsSlice {
    *  session yet. The backend emits replacement strings (not deltas)
    *  while the user is still speaking, so we hold the in-flight text
    *  here and flush it to `transcript` on a finalisation signal
-   *  (status transition or new question). */
+   *  (status transition or new question).
+   *
+   *  Internally split into two segments by `pendingTranscriptPartialStart`:
+   *    - chars [0, partialStart)             → finalised turns (AAI
+   *      committed them — `turn_is_formatted: true`). Frozen until
+   *      commit/reset.
+   *    - chars [partialStart, length)        → current in-flight
+   *      partial (replaced on every new partial event).
+   *
+   *  The display layer reads `pendingTranscript` as one string; only
+   *  the reducer cares about the split. */
   pendingTranscript: string;
+  /** Index in `pendingTranscript` where the current partial begins.
+   *  Everything before this index is finalised (frozen). */
+  pendingTranscriptPartialStart: number;
   /** Latest streaming answer text, accumulated from `answer-token`
    *  events. Cleared when a new question arrives. */
   pendingAnswer: string;
@@ -98,8 +111,19 @@ export interface CopilotSessionsSlice {
   }) => string;
   /** End the active session (sets endedAt and clears activeSessionId). */
   endCopilotSession: () => void;
-  /** Update the in-flight transcript chunk (replacement, not append). */
-  setPendingTranscript: (text: string) => void;
+  /** Apply a transcript event from the backend.
+   *
+   *  - `final: false` (partial): replaces only the trailing partial
+   *    portion of `pendingTranscript`. The accumulated finalised
+   *    prefix stays untouched.
+   *  - `final: true`  (formatted turn): appends to the finalised
+   *    prefix, clears the partial portion. Advances `partialStart`.
+   *
+   *  Pre-fix this was `setPendingTranscript(text)` which blew away
+   *  the whole buffer on every event — fine for single-turn questions,
+   *  catastrophic for multi-pause ones (the user would see the
+   *  transcript "delete" itself between turns of a long question). */
+  applyTranscriptDelta: (delta: { text: string; final: boolean }) => void;
   /** Append a streamed answer token to the in-flight answer. */
   appendPendingAnswerToken: (token: string) => void;
   /** Reset the in-flight answer (e.g. when a new question begins). */
@@ -133,6 +157,7 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
   activeSessionId: null,
   copilotStatus: 'idle',
   pendingTranscript: '',
+  pendingTranscriptPartialStart: 0,
   pendingAnswer: '',
   copilotError: null,
 
@@ -154,6 +179,7 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       copilotSessions: [session, ...s.copilotSessions],
       activeSessionId: id,
       pendingTranscript: '',
+      pendingTranscriptPartialStart: 0,
       pendingAnswer: '',
       copilotError: null,
     }));
@@ -169,11 +195,35 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       ),
       activeSessionId: null,
       pendingTranscript: '',
+      pendingTranscriptPartialStart: 0,
       pendingAnswer: '',
     }));
   },
 
-  setPendingTranscript: (text) => set({ pendingTranscript: text }),
+  applyTranscriptDelta: ({ text, final }) => {
+    // Trim trailing whitespace but keep internal spacing — the
+    // accumulated transcript is what the user will read, not a
+    // wire-format stream.
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    set((s) => {
+      const finalized = s.pendingTranscript.slice(0, s.pendingTranscriptPartialStart);
+      // Join finalised + new chunk with a space, but only if the
+      // finalised section is non-empty (avoid a leading space).
+      const joiner = finalized.length > 0 ? ' ' : '';
+      const newDisplay = finalized + joiner + trimmed;
+      if (final) {
+        // Promote the whole new display into the finalised prefix.
+        return {
+          pendingTranscript: newDisplay,
+          pendingTranscriptPartialStart: newDisplay.length,
+        };
+      }
+      // Partial: leave the finalised prefix where it was; the
+      // trailing portion is just a draft.
+      return { pendingTranscript: newDisplay };
+    });
+  },
   appendPendingAnswerToken: (token) =>
     set((s) => ({ pendingAnswer: s.pendingAnswer + token })),
   clearPendingAnswer: () => set({ pendingAnswer: '' }),
@@ -196,6 +246,7 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
           : sess,
       ),
       pendingTranscript: '',
+      pendingTranscriptPartialStart: 0,
     }));
   },
 

@@ -39,8 +39,42 @@ struct AaiEvent {
     event_type: String,
     #[serde(default)]
     transcript: String,
+    /// `true` once AAI has applied formatting (punctuation, capitalisation)
+    /// to the current transcript. **NOT** an end-of-turn signal — AAI
+    /// emits multiple `turn_is_formatted: true` events per turn as it
+    /// refines formatting. Mistaking this for end-of-turn caused the
+    /// duplicate-text bug where finalised chunks accumulated within a
+    /// single long question. Kept on the struct for diagnostics /
+    /// future use; the receive loop now relies on `end_of_turn`.
     #[serde(default)]
+    #[allow(dead_code)]
     turn_is_formatted: bool,
+    /// `true` once the speaker has paused long enough for AAI to consider
+    /// the turn complete. Per AAI docs: **the only reliable end-of-turn
+    /// indicator**. We trigger Claude on this AND mark the frontend
+    /// transcript as `is_final: true` so it can be promoted to the
+    /// accumulated buffer.
+    #[serde(default)]
+    end_of_turn: bool,
+}
+
+/// Outbound `transcript` event sent to the frontend.
+///
+/// Splits AAI's mixed stream into a clean two-state shape:
+///   - `is_final: false` (partial)  → frontend replaces the trailing
+///     "current partial" buffer
+///   - `is_final: true`  (committed) → frontend appends to the
+///     accumulated finalised text + clears the partial buffer
+///
+/// Without this split the frontend was wiping the live transcript
+/// every time a new partial arrived after a finalised turn — which is
+/// exactly what happens during a long multi-pause question. Now the
+/// visible transcript grows monotonically across the whole question.
+#[derive(serde::Serialize)]
+struct TranscriptEvent<'a> {
+    text: &'a str,
+    #[serde(rename = "final")]
+    is_final: bool,
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────
@@ -190,9 +224,23 @@ pub async fn run_session(
         let cfg_d  = config.clone();
         let hist_d = history.clone();
         tokio::spawn(async move {
-            // 2 s: gives the recruiter time to finish a multi-sentence question
-            // without firing mid-utterance.
-            const DEBOUNCE_MS: u64 = 2_000;
+            // 4 s: gives the recruiter (or candidate) time to pause
+            // mid-question without firing Claude prematurely.
+            //
+            // Real-world tuning: 2s was too aggressive — natural inter-
+            // sentence pauses run 1.5-3s during a relaxed interview
+            // ("Tell me about a time… [pause] when you led a team."),
+            // and at 2s the debouncer fired between sentences with only
+            // the first half of the question. 4s lets the speaker
+            // breathe AND still feels responsive (Claude streams in
+            // ~1-2s on top, so user sees the answer ~5-6s after they
+            // truly stop talking — same as a thoughtful human coach).
+            //
+            // If users on a future revision report Claude feeling
+            // laggy, this is the dial to turn — and the right next
+            // step is exposing it in Settings → Copilot rather than
+            // hunting for a one-size value.
+            const DEBOUNCE_MS: u64 = 4_000;
             let mut accumulated = String::new();
             loop {
                 match tokio::time::timeout(
@@ -261,14 +309,28 @@ pub async fn run_session(
         };
 
         match ev.event_type.as_str() {
-            // Partial — show live word-by-word as recruiter speaks
-            "Turn" if !ev.transcript.is_empty() && !ev.turn_is_formatted => {
-                app.emit("transcript", &ev.transcript).ok();
-            }
-            // Formatted turn — push to debouncer (fires Claude after 1 s silence)
-            "Turn" if !ev.transcript.is_empty() && ev.turn_is_formatted => {
-                app.emit("transcript", &ev.transcript).ok();
-                question_tx.send(ev.transcript.clone()).await.ok();
+            // Turn event. Two branches:
+            //  - end_of_turn=false  → partial. Frontend replaces the
+            //    trailing "current partial" buffer. AAI emits these
+            //    cumulatively within a turn (each contains the full
+            //    text so far) AND can include `turn_is_formatted: true`
+            //    snapshots before the turn is actually over. Treating
+            //    `turn_is_formatted` as end-of-turn was the bug that
+            //    caused duplicated text in the visible transcript
+            //    (each formatted snapshot got appended instead of
+            //    replacing the partial).
+            //  - end_of_turn=true   → speaker has finished. Frontend
+            //    promotes the partial into the accumulated buffer,
+            //    AND we push to the Claude debouncer.
+            "Turn" if !ev.transcript.is_empty() => {
+                let payload = TranscriptEvent {
+                    text: &ev.transcript,
+                    is_final: ev.end_of_turn,
+                };
+                app.emit("transcript", &payload).ok();
+                if ev.end_of_turn {
+                    question_tx.send(ev.transcript.clone()).await.ok();
+                }
             }
             "Termination" => break,
             _ => {}

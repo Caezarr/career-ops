@@ -81,6 +81,15 @@ struct SseDelta {
 
 // ── Shared streaming core ─────────────────────────────────────────────────────
 
+/// Career OS Worker base URL. The Copilot streams Claude responses
+/// through `/v1/copilot/answer-stream`, which proxies Anthropic with
+/// the server-side merchant key. The desktop only ever holds a JWT.
+///
+/// Hardcoded because the dev/prod flip happens at the Worker layer
+/// (we don't run a local Worker in `pnpm tauri dev` — the desktop
+/// always talks to the deployed Worker).
+const COPILOT_API_BASE: &str = "https://api.careeros.fr";
+
 async fn stream_claude(
     config:     &CaptureConfig,
     system:     &str,
@@ -88,9 +97,14 @@ async fn stream_claude(
     max_tokens: u32,
     app:        &AppHandle,
 ) -> Result<String> {
-    if config.anthropic_key.is_empty() {
-        return Err(anyhow!("Anthropic key empty"));
-    }
+    // Post-pivot: Career OS hosts the Anthropic credit on the Worker.
+    // The desktop authenticates with its JWT (in Keychain) and the
+    // Worker forwards the streaming request to Anthropic on its
+    // behalf. The `anthropic_key` field on CaptureConfig is kept for
+    // backwards-compat (legacy BYOK) but is no longer required.
+    let jwt = crate::secrets::get(crate::secrets::SecretSlot::AuthJwt)
+        .map_err(|e| anyhow!("read JWT from Keychain failed: {e}"))?
+        .ok_or_else(|| anyhow!("Not signed in — sign in to Career OS first."))?;
 
     // Default to Sonnet 4.5: best reasoning + judgment for live coaching.
     // Streaming-friendly. Override via Copilot Settings if you need cheaper.
@@ -110,9 +124,8 @@ async fn stream_claude(
 
     // PRIV-01: shared single-egress client (30s tier).
     let resp = crate::cloud::default()
-        .post("https://api.anthropic.com/v1/messages")
-        .header("x-api-key", &config.anthropic_key)
-        .header("anthropic-version", "2023-06-01")
+        .post(format!("{COPILOT_API_BASE}/v1/copilot/answer-stream"))
+        .header("authorization", format!("Bearer {jwt}"))
         .header("content-type", "application/json")
         .json(&body)
         .send()
@@ -121,7 +134,19 @@ async fn stream_claude(
     let http_status = resp.status();
     if !http_status.is_success() {
         let raw = resp.text().await?;
-        return Err(anyhow!("Anthropic API error {http_status}: {raw}"));
+        // Translate the most common failures into user-facing French —
+        // the Copilot session bar surfaces these directly.
+        if http_status == reqwest::StatusCode::UNAUTHORIZED
+            || http_status == reqwest::StatusCode::FORBIDDEN
+        {
+            return Err(anyhow!("Session expirée — reconnecte-toi à Career OS."));
+        }
+        if http_status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            return Err(anyhow!(
+                "Plafond quotidien d'appels Copilot atteint. Réessaye demain."
+            ));
+        }
+        return Err(anyhow!("Career OS API error {http_status}: {raw}"));
     }
 
     let mut byte_stream = resp.bytes_stream();

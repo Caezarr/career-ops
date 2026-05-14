@@ -95,11 +95,37 @@ export function readCopilotConfig(): CopilotConfigSnapshot {
     anthropicKey: cacheReadAnthropic(),
     openaiKey: cacheReadOpenai(),
     assemblyaiKey: cacheReadAssembly(),
-    model: pickStr('model'),
+    model: normalizeModelId(pickStr('model')),
     audioDevice: pickStr('audio_device'),
     loopbackDevice: pickStr('loopback_device'),
     persona,
     cv: pickStr('cv'),
     jd: pickStr('jd'),
   };
+}
+
+/**
+ * Map the human-readable model labels the `ModelStatusBar` dropdown
+ * persists (e.g. "Claude Sonnet 4.5") to the canonical Anthropic
+ * model IDs (e.g. "claude-sonnet-4-5") that the Rust backend +
+ * Worker proxy forward to Anthropic's API. Anything Anthropic does
+ * not recognise comes back as a 404 `not_found_error: model: <X>`.
+ *
+ * Backwards-compatible: if the stored value is already a wire ID
+ * (lowercase + dashes) or empty, it's passed through untouched.
+ * Unknown labels fall through unchanged so a future model added to
+ * the dropdown still gets to Anthropic for diagnosis.
+ */
+function normalizeModelId(label: string): string {
+  if (!label) return '';
+  // Cheap "already a wire ID" check — wire IDs are lowercase + dashes,
+  // labels contain spaces or capitals.
+  if (!/[A-Z\s]/.test(label)) return label;
+  const map: Record<string, string> = {
+    'Claude Sonnet 4.5': 'claude-sonnet-4-5',
+    'Claude Opus 4.1': 'claude-opus-4-1',
+    'Claude Haiku 4.5': 'claude-haiku-4-5',
+    'GPT-4o': 'gpt-4o',
+  };
+  return map[label] ?? label;
 }
