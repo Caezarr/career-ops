@@ -16,7 +16,14 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{info, warn};
 
 // ── AssemblyAI real-time endpoint (v3) ────────────────────────────────────────
-const AAI_WS_URL: &str =
+//
+// Token-based auth (v3): the merchant API key never leaves the Career OS
+// Cloudflare Worker. The dashboard exchanges its user JWT for a short-lived
+// AssemblyAI token via `POST /v1/copilot/transcription-token`, then passes
+// that temp token through `CaptureConfig::assemblyai_key`. We append it as
+// a `?token=<…>` query parameter on the WebSocket URL — no Authorization
+// header needed (and AssemblyAI v3 rejects the header anyway).
+const AAI_WS_URL_BASE: &str =
     "wss://streaming.assemblyai.com/v3/ws\
      ?sample_rate=16000\
      &speech_model=u3-rt-pro";
@@ -45,7 +52,7 @@ pub async fn run_session(
 ) -> Result<()> {
     if config.assemblyai_key.is_empty() {
         return Err(anyhow!(
-            "AssemblyAI key is empty — add it in Settings to use session mode"
+            "AssemblyAI temp token missing — fetch one via /v1/copilot/transcription-token before starting a session"
         ));
     }
 
@@ -105,23 +112,21 @@ pub async fn run_session(
         dev_rx.await.context("audio device init failed")?;
 
     // ── Connect to AssemblyAI WebSocket ───────────────────────────────────────
-    // Use IntoClientRequest so tungstenite generates sec-websocket-key etc.,
-    // then inject the Authorization header on top.
-    let mut request = {
+    // AssemblyAI v3 streaming uses query-param token auth, not headers.
+    // We build the URL with the temp token appended; tungstenite handles
+    // sec-websocket-key / Upgrade / Origin via IntoClientRequest.
+    let ws_url = format!("{AAI_WS_URL_BASE}&token={}", config.assemblyai_key);
+    let request = {
         use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-        AAI_WS_URL
+        ws_url
+            .as_str()
             .into_client_request()
             .context("build AAI request")?
     };
-    request.headers_mut().insert(
-        http::header::AUTHORIZATION,
-        http::header::HeaderValue::from_str(&config.assemblyai_key)
-            .context("AssemblyAI key contains invalid characters")?,
-    );
 
     let (ws_conn, _) = connect_async(request)
         .await
-        .context("AssemblyAI WebSocket connect failed")?;
+        .context("AssemblyAI WebSocket connect failed (token may be expired)")?;
 
     info!("AssemblyAI connected");
     app.emit("status", "listening").ok();

@@ -14,6 +14,7 @@ import { healthRoutes } from "./routes/health";
 import { aiRoutes } from "./routes/ai";
 import { updateRoutes } from "./routes/updates";
 import { billingRoutes } from "./routes/billing";
+import { copilotRoutes } from "./routes/copilot";
 import type { Env } from "./types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -50,6 +51,10 @@ app.route("/v1/updates", updateRoutes);
 // webhook + status + refund-request. JWT-gated except for the
 // webhook (which Stripe signs).
 app.route("/v1/billing", billingRoutes);
+// Copilot — server-side AssemblyAI streaming token broker. The
+// desktop app exchanges its JWT for a 60-second AssemblyAI token,
+// then connects directly to wss://streaming.assemblyai.com.
+app.route("/v1/copilot", copilotRoutes);
 
 app.get("/", (c) =>
   c.text(

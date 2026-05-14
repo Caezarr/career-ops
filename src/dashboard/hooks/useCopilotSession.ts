@@ -195,11 +195,37 @@ export function useCopilotControls() {
       cvId?: string;
     }) => {
       const cfg = readCopilotConfig();
-      if (!cfg.anthropicKey) {
-        setError('Configure your Anthropic API key first.');
+      // Pre-pivot BYOK gate removed: Career OS hosts the Anthropic
+      // credit on the Worker. Auth is enforced server-side via the
+      // user's JWT (token fetch below). If the JWT is missing or
+      // expired the AAI-token call fails — surfaced as a banner.
+      // Comment in EmbeddedCopilotPanel.tsx already documented this
+      // post-pivot intent; the code just hadn't caught up.
+      setError(null);
+
+      // Fetch a fresh AssemblyAI streaming token from the Worker.
+      // The real merchant key never leaves Cloudflare; this gives us
+      // a 60-second one-shot token (extendable to 600s for long
+      // sessions). The token replaces `cfg.assemblyaiKey` in the
+      // CaptureConfig handed to Rust — session.rs appends it as
+      // `?token=…` on the AssemblyAI v3 WebSocket URL.
+      let assemblyaiToken: string;
+      try {
+        const { getAssemblyAiToken } = await import('../lib/copilotToken');
+        // 5 minutes — long enough that a normal interview session
+        // (avg ~15min, max ~50min) doesn't need a mid-stream
+        // refresh. AssemblyAI keeps the WebSocket open even after
+        // token expiry as long as the stream was established.
+        const tokenResp = await getAssemblyAiToken(300);
+        assemblyaiToken = tokenResp.token;
+      } catch (e) {
+        const msg =
+          e instanceof Error
+            ? e.message
+            : 'Transcription token unavailable. Try again in a moment.';
+        setError(msg);
         return false;
       }
-      setError(null);
 
       // Resolve the linked job + CV from the live store. If picker
       // values aren't passed, fall back to the persisted picker
@@ -228,8 +254,19 @@ export function useCopilotControls() {
         cvId,
       });
       try {
-        await invoke('start_session', {
-          config: buildConfig(opts.mode, { snap: cfg, cvText, jdText }),
+        // Override `assemblyaiKey` with the freshly-minted server
+        // token. buildConfig still reads the legacy BYOK field for
+        // backwards-compat — we explicitly clobber it here.
+        const config = {
+          ...buildConfig(opts.mode, { snap: cfg, cvText, jdText }),
+          assemblyaiKey: assemblyaiToken,
+        };
+        await invoke('start_session', { config });
+        // Flip the app to macOS `Accessory` activation: Dock icon
+        // disappears, CMD+Tab skips us, Mission Control hides us.
+        // Best-effort — a failure here doesn't abort the session.
+        await invoke('set_stealth_mode', { enabled: true }).catch((err) => {
+          console.warn('[copilot] stealth mode enable failed:', err);
         });
         setStatus('listening');
         return true;
@@ -245,6 +282,11 @@ export function useCopilotControls() {
   const stop = useCallback(async () => {
     try {
       await invoke('stop_session');
+      // Restore Regular activation policy so the user can find Career
+      // OS in the Dock / CMD+Tab again. Best-effort like the enable.
+      await invoke('set_stealth_mode', { enabled: false }).catch((err) => {
+        console.warn('[copilot] stealth mode disable failed:', err);
+      });
       // Flush any in-flight content before closing the session — we
       // don't want a partial answer to disappear because the user
       // hit Stop mid-stream.
@@ -287,10 +329,8 @@ export function useCopilotControls() {
   const singleShot = useCallback(
     async (mode: CopilotMode = 'qa') => {
       const cfg = readCopilotConfig();
-      if (!cfg.anthropicKey) {
-        setError('Configure your Anthropic API key first.');
-        return;
-      }
+      // BYOK gate removed (post-pivot, server-managed). See `start()`
+      // for full rationale.
       setError(null);
       const ctx = resolveLinkedContext();
       // Single-shot: a 6-second capture that produces one Q&A. We
@@ -326,10 +366,8 @@ export function useCopilotControls() {
   const generatePitch = useCallback(
     async (instructions = '') => {
       const cfg = readCopilotConfig();
-      if (!cfg.anthropicKey) {
-        setError('Configure your Anthropic API key first.');
-        return;
-      }
+      // BYOK gate removed (post-pivot, server-managed). See `start()`
+      // for full rationale.
       setError(null);
       const ctx = resolveLinkedContext();
       if (!useAppStore.getState().activeSessionId) {

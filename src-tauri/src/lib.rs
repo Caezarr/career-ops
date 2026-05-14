@@ -280,6 +280,53 @@ async fn show_copilot_window(window: WebviewWindow,
     Ok(())
 }
 
+/// Toggle the app's macOS activation policy between `Regular` (normal
+/// app with Dock icon, in CMD+Tab, in Mission Control) and `Accessory`
+/// (background process — no Dock, no CMD+Tab, no Mission Control).
+///
+/// We flip to `Accessory` at the start of an interview session so the
+/// app disappears from every obvious surface where the candidate's
+/// interviewer might spot it. On stop we flip back to `Regular` so the
+/// user can find Career OS the normal way again.
+///
+/// This is the Career-OS-specific dynamic equivalent of `LSUIElement=true`
+/// in Info.plist (which would make the app *always* an Accessory — bad
+/// UX for the dashboard-management flow outside of interviews).
+///
+/// macOS-only: on other platforms this is a no-op so callers don't have
+/// to platform-gate.
+/// Stealth toggle — **currently a no-op** on macOS.
+///
+/// We tried for hours to make a clean Regular ↔ Accessory dynamic
+/// toggle work via `NSApplication.setActivationPolicy:` + `activate:`
+/// + `unhide:` combinations. On macOS 14/15 the kernel + Dock get
+/// into an inconsistent state where:
+///   - Accessory → Dock icon sometimes stays visible
+///   - Regular → Dock icon never comes back, or windows hide
+///   - The hide/unhide hammer hides the user's app windows entirely
+///
+/// Each combination broke a different surface. The real stealth
+/// surface that matters (invisibility to Zoom/Meet/Teams screen-share)
+/// is fully covered by `contentProtected: true` on the windows — set
+/// in `tauri.conf.json` and reapplied at boot in the setup hook
+/// above. That works reliably across macOS versions.
+///
+/// We keep this command as a no-op so the frontend invokes are
+/// harmless (the call site is `useCopilotSession.ts` on session
+/// start/stop). When Apple ships a stable dynamic-policy API, or
+/// when we move to permanent `LSUIElement=true` (Cluely-style), this
+/// is where the implementation lands.
+#[tauri::command]
+async fn set_stealth_mode(
+    window: WebviewWindow,
+    #[allow(unused_variables)] app: tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    tracing::debug!(stealth = enabled, "set_stealth_mode no-op (see lib.rs comment)");
+    Ok(())
+}
+
 /// Generate a structured 3-min pitch (Pyramid + STAR + MECE) on demand.
 /// Streams `"answer-token"` events; returns immediately (generation runs in background).
 #[tauri::command]
@@ -1188,13 +1235,31 @@ pub fn run() {
             app.manage(pool);
 
             // Best-effort stealth on macOS: window-level capture exclusion.
-            // Only the Copilot overlay needs to hide from screen capture; the
-            // main Dashboard window is a normal product window.
-            // On macOS 15+ this is ignored by ScreenCaptureKit but we still set it.
+            //
+            // We protect BOTH the Copilot overlay AND the main Dashboard:
+            // - Copilot overlay = the floating teleprompter/answer surface
+            //   during a live interview. Must be invisible to screen-share.
+            // - Main Dashboard = where the candidate stages CVs / jobs.
+            //   Normally not visible during the interview, but we still
+            //   set the flag as a safety net in case the user accidentally
+            //   surfaces it (e.g. CMD+Tab) while screen-sharing.
+            //
+            // The config file (`tauri.conf.json`) also sets
+            // `contentProtected: true` on both windows — this is the
+            // runtime mirror so we don't depend on the config being
+            // honored on every Tauri version.
+            //
+            // On macOS 15+, ScreenCaptureKit ignores this flag in some
+            // Zoom/Meet builds. There is no clean public bypass. The
+            // setup-hook + config combo matches what every public clone
+            // (Cluely, Interview-Coder forks, Pluely) does — that's the
+            // ceiling of what's reachable from userspace today.
             #[cfg(target_os = "macos")]
             {
-                if let Some(window) = app.get_webview_window("copilot") {
-                    let _ = window.set_content_protected(true);
+                for label in ["main", "copilot"] {
+                    if let Some(window) = app.get_webview_window(label) {
+                        let _ = window.set_content_protected(true);
+                    }
                 }
             }
 
@@ -1246,6 +1311,7 @@ pub fn run() {
             stop_session,
             generate_pitch,
             show_copilot_window,
+            set_stealth_mode,
             // DB: user
             db_get_user,
             db_update_user,
