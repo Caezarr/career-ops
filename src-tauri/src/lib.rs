@@ -126,6 +126,14 @@ pub struct CaptureConfig {
     /// AssemblyAI API key for real-time streaming STT.
     #[serde(default)]
     pub assemblyai_key: String,
+    /// AssemblyAI temp token for the CANDIDATE's voice (mic). Optional —
+    /// when absent the user-voice transcript is silently disabled and
+    /// the teleprompter falls back to the Phase 4a timer. Phase 4b
+    /// introduces a SECOND AAI streaming WebSocket dedicated to the
+    /// mic, used to drive the teleprompter cursor via banded
+    /// Levenshtein matching on the spoken transcript.
+    #[serde(default)]
+    pub user_voice_assemblyai_token: String,
     /// Session mode: "qa" (default) or "pitch" (structured self-presentation).
     #[serde(default = "default_app_mode")]
     pub app_mode: String,
@@ -373,6 +381,13 @@ pub struct TeleprompterState {
     /// `true` when a session is open. The teleprompter hides
     /// itself entirely when this flips false.
     pub session_active: bool,
+    /// Phase 4b: latest partial user-voice transcript chunk (the
+    /// candidate's mic, transcribed by the second AAI stream).
+    /// Drives the standalone teleprompter window's banded-Levenshtein
+    /// cursor matcher. Empty string when ASR is disabled or no
+    /// partial has arrived yet.
+    #[serde(default)]
+    pub user_partial: String,
 }
 
 /// Push the latest teleprompter state to the standalone window. The

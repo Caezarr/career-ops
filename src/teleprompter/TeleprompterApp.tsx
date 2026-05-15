@@ -5,6 +5,10 @@ import {
   register as registerGlobalShortcut,
   unregister as unregisterGlobalShortcut,
 } from '@tauri-apps/plugin-global-shortcut';
+import {
+  matchSpokenToScript,
+  tokeniseSpoken,
+} from '../dashboard/lib/teleprompterMatch';
 import '../dashboard/styles/copilot-teleprompter.css';
 
 /**
@@ -43,6 +47,12 @@ const WPM_STEP = 10;
 const STREAM_BUFFER_WORDS = 2;
 const POST_FINAL_HOLD_MS = 800;
 const STATUS_FADE_MS = 1800;
+
+/** Phase 4b: how long the cursor must go without a user-transcript-
+ *  driven advance before the legacy WPM timer takes over. Mirror of
+ *  the constant in `CopilotTeleprompter.tsx` — the two windows behave
+ *  identically by design. */
+const ASR_SILENCE_FALLBACK_MS = 2_000;
 
 const PUNCTUATION_HOLDS_MS = {
   comma: 140,
@@ -94,6 +104,11 @@ interface TeleprompterPayload {
   text: string;
   isStreaming: boolean;
   sessionActive: boolean;
+  /** Phase 4b: cumulative user-voice transcript (final + partial,
+   *  pre-joined on the dashboard side). Empty string when Phase 4b
+   *  isn't active for this session — the standalone window then
+   *  falls back to Phase 4a timer-only advance. */
+  userPartial: string;
 }
 
 export default function TeleprompterApp() {
@@ -105,6 +120,7 @@ export default function TeleprompterApp() {
     text: '',
     isStreaming: false,
     sessionActive: false,
+    userPartial: '',
   });
 
   useEffect(() => {
@@ -117,6 +133,8 @@ export default function TeleprompterApp() {
         text: typeof e.payload.text === 'string' ? e.payload.text : '',
         isStreaming: !!e.payload.isStreaming,
         sessionActive: !!e.payload.sessionActive,
+        userPartial:
+          typeof e.payload.userPartial === 'string' ? e.payload.userPartial : '',
       });
     })
       .then((u) => {
@@ -131,7 +149,7 @@ export default function TeleprompterApp() {
     };
   }, []);
 
-  const { text, isStreaming, sessionActive } = payload;
+  const { text, isStreaming, sessionActive, userPartial } = payload;
 
   // Tokenize the answer + compute the word-only subsequence for
   // the cursor. Same logic as the in-dashboard component.
@@ -141,6 +159,9 @@ export default function TeleprompterApp() {
     [tokens],
   );
   const totalWords = wordTokens.length;
+
+  // Phase 4b: pre-normalised script tokens for the matcher.
+  const scriptTokens = useMemo(() => tokeniseSpoken(text), [text]);
 
   const [cursor, setCursor] = useState(0);
   const [wpm, setWpm] = useState(WPM_DEFAULT);
@@ -170,6 +191,35 @@ export default function TeleprompterApp() {
     }
   }, [isStreaming, text.length]);
 
+  // Phase 4b: track when the matcher last advanced the cursor so
+  // the timer below can yield while the user is actively speaking.
+  const lastAsrAdvanceAtRef = useRef<number>(0);
+
+  // Phase 4b: matcher — drives the cursor from the candidate's
+  // voice via banded Levenshtein. Same algorithm as
+  // `CopilotTeleprompter.tsx`; the only delta is the input source
+  // (Tauri event payload here vs Zustand selector in-dashboard).
+  useEffect(() => {
+    if (totalWords === 0) return;
+    if (scriptTokens.length === 0) return;
+    if (!userPartial) return;
+    const spoken = tokeniseSpoken(userPartial);
+    if (spoken.length === 0) return;
+    setCursor((prev) => {
+      const candidate = matchSpokenToScript(spoken, scriptTokens, prev);
+      if (candidate === null) return prev;
+      const next = Math.min(candidate, advanceCeiling);
+      if (next > prev) {
+        lastAsrAdvanceAtRef.current = Date.now();
+        return next;
+      }
+      return prev;
+    });
+  }, [userPartial, scriptTokens, totalWords, advanceCeiling]);
+
+  // Phase 4a timer — now a fallback. See the matching effect in
+  // `CopilotTeleprompter.tsx` for the full rationale; this is a
+  // verbatim port for the standalone window.
   useEffect(() => {
     if (totalWords === 0 || paused) return undefined;
     let cancelled = false;
@@ -185,6 +235,15 @@ export default function TeleprompterApp() {
         const fa = finishedAtRef.current;
         if (fa !== null && Date.now() - fa < POST_FINAL_HOLD_MS) {
           timer = window.setTimeout(tick, POST_FINAL_HOLD_MS);
+          return prev;
+        }
+        // Phase 4b: yield to ASR if it advanced the cursor recently.
+        const sinceAsr = Date.now() - lastAsrAdvanceAtRef.current;
+        if (
+          lastAsrAdvanceAtRef.current > 0 &&
+          sinceAsr < ASR_SILENCE_FALLBACK_MS
+        ) {
+          timer = window.setTimeout(tick, baseMs);
           return prev;
         }
         const tok = wordTokens[prev];

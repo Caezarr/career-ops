@@ -1,5 +1,24 @@
 //! Continuous session mode: streams mic/loopback to AssemblyAI real-time STT,
 //! fires the Claude pipeline the moment AssemblyAI signals end of utterance.
+//!
+//! ## Phase 4b — dual AAI streams
+//!
+//! When `CaptureConfig::user_voice_assemblyai_token` is non-empty, the
+//! session opens a SECOND streaming WebSocket dedicated to the mic
+//! (= the candidate's voice). The events from this stream are emitted
+//! as `user-transcript` on the Tauri side, with the same `{ text,
+//! final }` shape as the existing `transcript` event. The frontend
+//! teleprompter uses these to drive its cursor via banded Levenshtein
+//! matching against the script — a per-word advance that tracks what
+//! the candidate is actually saying instead of the legacy Phase 4a
+//! WPM timer.
+//!
+//! The user-voice stream is BEST-EFFORT: it must NEVER affect the
+//! interviewer pipeline. If the second WebSocket connection fails or
+//! the temp token is missing we log a warning and degrade gracefully
+//! to Phase 4a (timer-only cursor). The Claude debouncer is fed from
+//! the interviewer turn-ends only — the user-voice stream never
+//! triggers an LLM call.
 
 use crate::audio::SYSTEM_AUDIO_TAP_SENTINEL;
 use crate::audio_tap::LiveSystemAudio;
@@ -79,6 +98,39 @@ struct TranscriptEvent<'a> {
     is_final: bool,
 }
 
+/// Phase 4b: outbound `user-transcript` event sent to the frontend.
+/// Same shape as `TranscriptEvent` but emitted from the SECOND AAI
+/// stream (candidate's mic). Drives the teleprompter cursor matcher.
+#[derive(serde::Serialize)]
+struct UserTranscriptEvent<'a> {
+    text: &'a str,
+    #[serde(rename = "final")]
+    is_final: bool,
+}
+
+/// Which side of the audio split a streamer is transcribing.
+///
+/// Decides:
+///   - which Tauri event the parsed turns get emitted on
+///     (`transcript` vs `user-transcript`)
+///   - whether finalised turns are forwarded to the Claude debouncer
+///     (interviewer side only — the candidate's own voice is never
+///     supposed to fire an LLM call).
+#[derive(Clone, Copy, Debug)]
+enum StreamSide {
+    Interviewer,
+    User,
+}
+
+impl StreamSide {
+    fn label(self) -> &'static str {
+        match self {
+            StreamSide::Interviewer => "interviewer",
+            StreamSide::User => "user",
+        }
+    }
+}
+
 // ── Public entry point ────────────────────────────────────────────────────────
 
 pub async fn run_session(
@@ -101,8 +153,19 @@ pub async fn run_session(
     });
 
     // ── Open audio devices in a blocking thread (cpal is !Send) ──────────────
-    let (dev_tx, dev_rx) =
-        oneshot::channel::<(Arc<Mutex<Vec<f32>>>, u32)>();
+    //
+    // We now return TWO audio buffers from the blocking init:
+    //   - the primary feed (= what we ship to AssemblyAI as the
+    //     interviewer stream — either the Core Audio Tap, a cpal
+    //     loopback, or the mic if no loopback is available)
+    //   - the mic buffer (= the candidate's voice — Phase 4b only;
+    //     `None` if no mic could be opened, which means the user-voice
+    //     transcript is silently disabled)
+    let (dev_tx, dev_rx) = oneshot::channel::<(
+        Arc<Mutex<Vec<f32>>>,
+        u32,
+        Option<(Arc<Mutex<Vec<f32>>>, u32)>,
+    )>();
 
     let stop_for_audio = stop_flag.clone();
     let config_audio   = config.clone();
@@ -142,8 +205,8 @@ pub async fn run_session(
         let host = cpal::default_host();
 
         let mic = match open_input(&host, &config_audio.audio_device) {
-            Ok(d)  => d,
-            Err(e) => { warn!("mic open error: {e}"); return; }
+            Ok(d)  => Some(d),
+            Err(e) => { warn!("mic open error: {e}"); None }
         };
         // The legacy cpal loopback path is only used when the user
         // has explicitly configured a BlackHole-style device
@@ -165,16 +228,34 @@ pub async fn run_session(
         //      Phase 2 default.
         //   2. cpal loopback (BlackHole) — Phase 1 fallback.
         //   3. Mic — single-input fallback.
-        let (primary_buf, primary_rate) = if let Some(ref tap) = tap_live {
-            (tap.buffer.clone(), tap.rate)
+        let (primary_buf, primary_rate, primary_is_mic) = if let Some(ref tap) = tap_live {
+            (tap.buffer.clone(), tap.rate, false)
         } else if let Some(ref lb) = loopback {
-            (lb.buffer.clone(), lb.rate)
+            (lb.buffer.clone(), lb.rate, false)
+        } else if let Some(ref m) = mic {
+            (m.buffer.clone(), m.rate, true)
         } else {
-            (mic.buffer.clone(), mic.rate)
+            // No primary input at all — surface an empty buffer so
+            // the downstream WS reader sits idle rather than panicking
+            // on a missing channel.
+            (Arc::new(Mutex::new(Vec::new())), 16_000, true)
+        };
+
+        // Phase 4b: the user-voice stream needs the MIC buffer,
+        // distinct from the primary. If the primary already IS the
+        // mic (no loopback / tap), we don't ship a second buffer —
+        // both streams would carry the same audio, doubling the AAI
+        // cost for zero benefit. The caller (frontend) shouldn't
+        // request a user-voice token in that configuration anyway,
+        // but we belt-and-braces it here.
+        let mic_secondary = if primary_is_mic {
+            None
+        } else {
+            mic.as_ref().map(|m| (m.buffer.clone(), m.rate))
         };
 
         info!(
-            "audio ready: {}Hz, loopback={}",
+            "audio ready: {}Hz, loopback={}, mic-secondary={}",
             primary_rate,
             if tap_live.is_some() {
                 "core-audio-tap"
@@ -182,9 +263,10 @@ pub async fn run_session(
                 "cpal"
             } else {
                 "off"
-            }
+            },
+            mic_secondary.is_some(),
         );
-        let _ = dev_tx.send((primary_buf, primary_rate));
+        let _ = dev_tx.send((primary_buf, primary_rate, mic_secondary));
 
         // Keep streams alive until session stops
         while !stop_for_audio.load(Ordering::SeqCst) {
@@ -195,82 +277,17 @@ pub async fn run_session(
         drop(tap_live);
     });
 
-    let (primary_buf, primary_rate) =
+    let (primary_buf, primary_rate, mic_secondary) =
         dev_rx.await.context("audio device init failed")?;
-
-    // ── Connect to AssemblyAI WebSocket ───────────────────────────────────────
-    // AssemblyAI v3 streaming uses query-param token auth, not headers.
-    // We build the URL with the temp token appended; tungstenite handles
-    // sec-websocket-key / Upgrade / Origin via IntoClientRequest.
-    let ws_url = format!("{AAI_WS_URL_BASE}&token={}", config.assemblyai_key);
-    let request = {
-        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
-        ws_url
-            .as_str()
-            .into_client_request()
-            .context("build AAI request")?
-    };
-
-    let (ws_conn, _) = connect_async(request)
-        .await
-        .context("AssemblyAI WebSocket connect failed (token may be expired)")?;
-
-    info!("AssemblyAI connected");
-    app.emit("status", "listening").ok();
-
-    let (mut ws_sink, mut ws_rx) = ws_conn.split();
-
-    // ── Audio reader → pcm channel ────────────────────────────────────────────
-    let (pcm_tx, mut pcm_rx) = mpsc::channel::<Bytes>(64);
-
-    let stop_reader = stop_flag.clone();
-    tokio::spawn(async move {
-        let mut last_idx: usize = 0;
-        loop {
-            if stop_reader.load(Ordering::SeqCst) { break; }
-            tokio::time::sleep(Duration::from_millis(CHUNK_MS)).await;
-
-            let new_samples: Vec<f32> = {
-                let buf = primary_buf.lock().unwrap();
-                let start = last_idx.min(buf.len());
-                let end   = buf.len();
-                last_idx  = end;
-                if end > start { buf[start..end].to_vec() } else { Vec::new() }
-            };
-            if new_samples.is_empty() { continue; }
-
-            let resampled = resample_to_16k(&new_samples, primary_rate);
-            let pcm: Vec<u8> = resampled
-                .iter()
-                .flat_map(|&s| {
-                    let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
-                    i.to_le_bytes()
-                })
-                .collect();
-
-            if pcm_tx.send(Bytes::from(pcm)).await.is_err() { break; }
-        }
-    });
-
-    // ── pcm channel → WebSocket binary frames ─────────────────────────────────
-    let stop_sender = stop_flag.clone();
-    tokio::spawn(async move {
-        while let Some(pcm) = pcm_rx.recv().await {
-            if stop_sender.load(Ordering::SeqCst) { break; }
-            if ws_sink.send(Message::Binary(pcm.into())).await.is_err() { break; }
-        }
-        let _ = ws_sink
-            .send(Message::Text(r#"{"type":"Terminate"}"#.to_string()))
-            .await;
-        let _ = ws_sink.close().await;
-    });
 
     // ── Conversation history ──────────────────────────────────────────────────
     let history: Arc<Mutex<Vec<llm::HistoryEntry>>> =
         Arc::new(Mutex::new(Vec::new()));
 
-    // ── Debouncer: accumulate formatted turns, fire Claude after 1 s silence ──
+    // ── Debouncer: accumulate formatted turns, fire Claude after N s silence ──
     // Prevents firing mid-question when the recruiter pauses between sentences.
+    // ONLY the interviewer stream pushes into this channel — the
+    // candidate's voice is never supposed to fire an LLM call.
     let (question_tx, mut question_rx) = mpsc::channel::<String>(8);
     {
         let app_d  = app.clone();
@@ -309,7 +326,7 @@ pub async fn run_session(
                     }
                     // Channel closed — session ended
                     Ok(None) => break,
-                    // 1 s silence with pending text → fire Claude
+                    // N s silence with pending text → fire Claude
                     Err(_) if !accumulated.is_empty() => {
                         let question      = std::mem::take(&mut accumulated);
                         let hist_snapshot = hist_d.lock().unwrap().clone();
@@ -345,6 +362,174 @@ pub async fn run_session(
         });
     }
 
+    // ── Phase 4b: spawn the user-voice stream (best-effort) ────────────────
+    //
+    // When both the second token AND a distinct mic buffer are
+    // available, fire up a second AAI WebSocket dedicated to the
+    // candidate's voice. Connection failures here are non-fatal:
+    // log a warning and continue with the interviewer stream alone.
+    // The frontend teleprompter will fall back to Phase 4a timer-only
+    // advance.
+    if !config.user_voice_assemblyai_token.is_empty() {
+        if let Some((mic_buf, mic_rate)) = mic_secondary.clone() {
+            let app_user  = app.clone();
+            let stop_user = stop_flag.clone();
+            let token     = config.user_voice_assemblyai_token.clone();
+            // The user stream uses its own dummy debouncer channel
+            // that's immediately dropped — `run_aai_stream` writes
+            // to it on `end_of_turn` only for the interviewer side,
+            // but the abstraction takes a channel uniformly so we
+            // hand it a never-listened-to sender for symmetry.
+            let (user_dummy_tx, mut user_dummy_rx) = mpsc::channel::<String>(1);
+            tokio::spawn(async move {
+                // Drain so the channel doesn't back-pressure if the
+                // helper accidentally writes to it.
+                while user_dummy_rx.recv().await.is_some() {}
+            });
+            tokio::spawn(async move {
+                if let Err(e) = run_aai_stream(
+                    app_user,
+                    token,
+                    mic_buf,
+                    mic_rate,
+                    stop_user,
+                    user_dummy_tx,
+                    StreamSide::User,
+                )
+                .await
+                {
+                    warn!("user-voice AAI stream ended with error: {e:#}");
+                }
+            });
+        } else {
+            warn!(
+                "user-voice token provided but no secondary mic buffer — \
+                 mic may be the primary input (no loopback / tap). \
+                 Phase 4b ASR cursor disabled for this session."
+            );
+        }
+    }
+
+    // ── Interviewer stream — runs inline so the function returns when
+    //    the connection drops or the stop signal fires.
+    run_aai_stream(
+        app.clone(),
+        config.assemblyai_key.clone(),
+        primary_buf,
+        primary_rate,
+        stop_flag.clone(),
+        question_tx,
+        StreamSide::Interviewer,
+    )
+    .await?;
+
+    stop_flag.store(true, Ordering::SeqCst);
+    app.emit("status", "idle").ok();
+    info!("session ended");
+    Ok(())
+}
+
+// ── AAI streaming helper (shared by interviewer + user-voice) ────────────────
+
+/// Run a single AAI streaming WebSocket loop end-to-end:
+///   1. open the WS using the supplied token
+///   2. spawn an audio reader that drains `audio_buf` every `CHUNK_MS`
+///   3. spawn a PCM-to-WS forwarder
+///   4. parse incoming turn events and emit `transcript` /
+///      `user-transcript` to the frontend depending on `side`
+///   5. forward finalised interviewer turns into `question_tx` so the
+///      Claude debouncer can pick them up
+///
+/// Returns when the WS closes or `stop_flag` is set. Errors propagate
+/// to the caller which decides whether to surface them (interviewer
+/// stream = fatal, user-voice stream = warn-and-continue).
+async fn run_aai_stream(
+    app: AppHandle,
+    token: String,
+    audio_buf: Arc<Mutex<Vec<f32>>>,
+    audio_rate: u32,
+    stop_flag: Arc<AtomicBool>,
+    question_tx: mpsc::Sender<String>,
+    side: StreamSide,
+) -> Result<()> {
+    // ── Connect to AssemblyAI WebSocket ───────────────────────────────────────
+    // AssemblyAI v3 streaming uses query-param token auth, not headers.
+    let ws_url = format!("{AAI_WS_URL_BASE}&token={token}");
+    let request = {
+        use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+        ws_url
+            .as_str()
+            .into_client_request()
+            .with_context(|| format!("build AAI request ({})", side.label()))?
+    };
+
+    let (ws_conn, _) = connect_async(request).await.with_context(|| {
+        format!(
+            "AssemblyAI WebSocket connect failed ({}) — token may be expired",
+            side.label()
+        )
+    })?;
+
+    info!("AssemblyAI connected ({})", side.label());
+    if matches!(side, StreamSide::Interviewer) {
+        app.emit("status", "listening").ok();
+    }
+
+    let (mut ws_sink, mut ws_rx) = ws_conn.split();
+
+    // ── Audio reader → pcm channel ────────────────────────────────────────────
+    let (pcm_tx, mut pcm_rx) = mpsc::channel::<Bytes>(64);
+
+    let stop_reader = stop_flag.clone();
+    tokio::spawn(async move {
+        let mut last_idx: usize = 0;
+        loop {
+            if stop_reader.load(Ordering::SeqCst) { break; }
+            tokio::time::sleep(Duration::from_millis(CHUNK_MS)).await;
+
+            let new_samples: Vec<f32> = {
+                // `lock()` returns `PoisonError` on a panicking sibling
+                // thread. In a session that's recoverable: keep reading
+                // whatever's currently in the buffer rather than tearing
+                // the whole stream down. This is one of the long-running
+                // tasks the requirements call out — no `.unwrap()` here.
+                let buf = match audio_buf.lock() {
+                    Ok(g) => g,
+                    Err(p) => p.into_inner(),
+                };
+                let start = last_idx.min(buf.len());
+                let end   = buf.len();
+                last_idx  = end;
+                if end > start { buf[start..end].to_vec() } else { Vec::new() }
+            };
+            if new_samples.is_empty() { continue; }
+
+            let resampled = resample_to_16k(&new_samples, audio_rate);
+            let pcm: Vec<u8> = resampled
+                .iter()
+                .flat_map(|&s| {
+                    let i = (s.clamp(-1.0, 1.0) * i16::MAX as f32) as i16;
+                    i.to_le_bytes()
+                })
+                .collect();
+
+            if pcm_tx.send(Bytes::from(pcm)).await.is_err() { break; }
+        }
+    });
+
+    // ── pcm channel → WebSocket binary frames ─────────────────────────────────
+    let stop_sender = stop_flag.clone();
+    tokio::spawn(async move {
+        while let Some(pcm) = pcm_rx.recv().await {
+            if stop_sender.load(Ordering::SeqCst) { break; }
+            if ws_sink.send(Message::Binary(pcm.into())).await.is_err() { break; }
+        }
+        let _ = ws_sink
+            .send(Message::Text(r#"{"type":"Terminate"}"#.to_string()))
+            .await;
+        let _ = ws_sink.close().await;
+    });
+
     // ── Receive loop: transcript events from AssemblyAI ───────────────────────
     while let Some(msg) = ws_rx.next().await {
         if stop_flag.load(Ordering::SeqCst) { break; }
@@ -352,7 +537,7 @@ pub async fn run_session(
         let text = match msg {
             Ok(Message::Text(t))  => t,
             Ok(Message::Close(_)) => break,
-            Err(e) => { warn!("WS recv error: {e}"); break; }
+            Err(e) => { warn!("WS recv error ({}): {e}", side.label()); break; }
             _      => continue,
         };
 
@@ -374,15 +559,33 @@ pub async fn run_session(
             //    replacing the partial).
             //  - end_of_turn=true   → speaker has finished. Frontend
             //    promotes the partial into the accumulated buffer,
-            //    AND we push to the Claude debouncer.
+            //    AND we push to the Claude debouncer (interviewer only).
             "Turn" if !ev.transcript.is_empty() => {
-                let payload = TranscriptEvent {
-                    text: &ev.transcript,
-                    is_final: ev.end_of_turn,
-                };
-                app.emit("transcript", &payload).ok();
-                if ev.end_of_turn {
-                    question_tx.send(ev.transcript.clone()).await.ok();
+                match side {
+                    StreamSide::Interviewer => {
+                        let payload = TranscriptEvent {
+                            text: &ev.transcript,
+                            is_final: ev.end_of_turn,
+                        };
+                        app.emit("transcript", &payload).ok();
+                        if ev.end_of_turn {
+                            // Forwarding to the Claude debouncer.
+                            // `send()` only errors when the receiver
+                            // has been dropped (session winding down);
+                            // ignore on purpose.
+                            let _ = question_tx.send(ev.transcript.clone()).await;
+                        }
+                    }
+                    StreamSide::User => {
+                        let payload = UserTranscriptEvent {
+                            text: &ev.transcript,
+                            is_final: ev.end_of_turn,
+                        };
+                        app.emit("user-transcript", &payload).ok();
+                        // Deliberately NOT forwarding to question_tx
+                        // — the candidate's own voice must not fire
+                        // an LLM call.
+                    }
                 }
             }
             "Termination" => break,
@@ -390,9 +593,6 @@ pub async fn run_session(
         }
     }
 
-    stop_flag.store(true, Ordering::SeqCst);
-    app.emit("status", "idle").ok();
-    info!("session ended");
     Ok(())
 }
 
@@ -432,7 +632,10 @@ fn open_input(host: &cpal::Host, device_name: &str) -> Result<LiveDevice> {
             device.build_input_stream(
                 &cfg,
                 move |data: &[f32], _| {
-                    let mut b = buf_clone.lock().unwrap();
+                    let mut b = match buf_clone.lock() {
+                        Ok(g) => g,
+                        Err(p) => p.into_inner(),
+                    };
                     if channels == 1 {
                         b.extend_from_slice(data);
                     } else {
@@ -450,7 +653,10 @@ fn open_input(host: &cpal::Host, device_name: &str) -> Result<LiveDevice> {
             device.build_input_stream(
                 &cfg,
                 move |data: &[i16], _| {
-                    let mut b = buf_clone.lock().unwrap();
+                    let mut b = match buf_clone.lock() {
+                        Ok(g) => g,
+                        Err(p) => p.into_inner(),
+                    };
                     if channels == 1 {
                         b.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
                     } else {
@@ -473,7 +679,10 @@ fn open_input(host: &cpal::Host, device_name: &str) -> Result<LiveDevice> {
             device.build_input_stream(
                 &cfg,
                 move |data: &[u16], _| {
-                    let mut b = buf_clone.lock().unwrap();
+                    let mut b = match buf_clone.lock() {
+                        Ok(g) => g,
+                        Err(p) => p.into_inner(),
+                    };
                     let scale = u16::MAX as f32 / 2.0;
                     if channels == 1 {
                         b.extend(data.iter().map(|&s| (s as f32 - scale) / scale));

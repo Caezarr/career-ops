@@ -35,6 +35,7 @@ export function useCopilotEventBridge() {
   const setStatus = useAppStore((s) => s.setCopilotStatus);
   const setError = useAppStore((s) => s.setCopilotError);
   const applyTranscriptDelta = useAppStore((s) => s.applyTranscriptDelta);
+  const applyUserTranscriptDelta = useAppStore((s) => s.applyUserTranscriptDelta);
   const appendPendingAnswerToken = useAppStore((s) => s.appendPendingAnswerToken);
   const clearPendingAnswer = useAppStore((s) => s.clearPendingAnswer);
   const commitPendingTranscript = useAppStore((s) => s.commitPendingTranscript);
@@ -119,6 +120,18 @@ export function useCopilotEventBridge() {
       }),
     );
 
+    // Phase 4b: candidate's voice (mic), transcribed by the second
+    // AAI stream. Routes to a dedicated pair of buffers — partial +
+    // cumulative finalised — that the teleprompter cursor matcher
+    // consumes. Deliberately NOT touching pendingTranscript /
+    // pendingAnswer here: the user's own voice must not look like a
+    // new interviewer question to the rest of the pipeline.
+    track(
+      listen<{ text: string; final: boolean }>('user-transcript', (e) => {
+        applyUserTranscriptDelta(e.payload);
+      }),
+    );
+
     track(
       listen<string>('answer-token', (e) => {
         appendPendingAnswerToken(e.payload);
@@ -139,6 +152,7 @@ export function useCopilotEventBridge() {
     setStatus,
     setError,
     applyTranscriptDelta,
+    applyUserTranscriptDelta,
     appendPendingAnswerToken,
     clearPendingAnswer,
     commitPendingTranscript,
@@ -169,6 +183,15 @@ export function useTeleprompterBridge(): void {
   const sessions = useAppStore((s) => s.copilotSessions);
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const status = useAppStore((s) => s.copilotStatus);
+  // Phase 4b: snapshot the latest user-voice ASR text so the
+  // standalone teleprompter window can run the same banded-Levenshtein
+  // cursor matcher as the in-dashboard component. We push the
+  // PARTIAL + FINAL joined into a single string — the standalone
+  // window doesn't care about the split (the matcher already
+  // tokenises + only uses the tail of the spoken stream).
+  const userTranscriptPartial = useAppStore((s) => s.userTranscriptPartial);
+  const userTranscriptFinal = useAppStore((s) => s.userTranscriptFinal);
+  const userTranscriptTick = useAppStore((s) => s.userTranscriptTick);
 
   const session = activeSessionId
     ? sessions.find((s) => s.id === activeSessionId) ?? null
@@ -177,17 +200,25 @@ export function useTeleprompterBridge(): void {
   const text = pendingAnswer || lastAnswerText;
   const isStreaming = status === 'thinking' && pendingAnswer.length > 0;
   const sessionActive = activeSessionId !== null && status !== 'idle';
+  const userPartial =
+    userTranscriptFinal && userTranscriptPartial
+      ? `${userTranscriptFinal} ${userTranscriptPartial}`
+      : userTranscriptFinal || userTranscriptPartial;
 
   // Push the snapshot every time the derived triple changes. The
   // Rust command is `emit_to`-only — fire-and-forget, sub-ms.
+  // Phase 4b: we also fire on every `userTranscriptTick` bump so the
+  // standalone window's matcher gets a chance to advance the cursor
+  // even when the text payload stayed the same (AAI re-emits stable
+  // partials).
   useEffect(() => {
     invoke('push_teleprompter_state', {
-      state: { text, isStreaming, sessionActive },
+      state: { text, isStreaming, sessionActive, userPartial },
     }).catch((err) => {
       // eslint-disable-next-line no-console
       console.warn('[teleprompter] push state failed:', err);
     });
-  }, [text, isStreaming, sessionActive]);
+  }, [text, isStreaming, sessionActive, userPartial, userTranscriptTick]);
 
   // Show / hide the dedicated window on session lifecycle. Only
   // depends on `sessionActive` — not on the answer state — so we
@@ -274,6 +305,18 @@ export function useCopilotControls() {
       // CaptureConfig handed to Rust — session.rs appends it as
       // `?token=…` on the AssemblyAI v3 WebSocket URL.
       let assemblyaiToken: string;
+      // Phase 4b: a SECOND token dedicated to the candidate's mic
+      // (drives the teleprompter cursor via banded Levenshtein). The
+      // Worker rate-limits transcription tokens per-day (not per-
+      // session), so two calls per `start()` is fine — the daily
+      // budget (120) still covers 60 sessions, well above the
+      // expected ceiling for a single user.
+      //
+      // The second fetch is BEST-EFFORT: if it fails (rate-limited,
+      // network blip, etc.) we log a warning and pass an empty
+      // string — Rust silently drops the second WS spawn and the
+      // teleprompter falls back to the Phase 4a timer.
+      let userVoiceAssemblyaiToken = '';
       try {
         const { getAssemblyAiToken } = await import('../lib/copilotToken');
         // 5 minutes — long enough that a normal interview session
@@ -282,6 +325,20 @@ export function useCopilotControls() {
         // token expiry as long as the stream was established.
         const tokenResp = await getAssemblyAiToken(300);
         assemblyaiToken = tokenResp.token;
+        try {
+          const userTokenResp = await getAssemblyAiToken(300);
+          userVoiceAssemblyaiToken = userTokenResp.token;
+        } catch (userTokenErr) {
+          // Don't fail session start — Phase 4a timer fallback still
+          // works. Surfacing as a console.warn keeps the failure
+          // visible to devs without breaking the user flow.
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[copilot] user-voice transcription token unavailable, ' +
+              'teleprompter will fall back to Phase 4a timer:',
+            userTokenErr,
+          );
+        }
       } catch (e) {
         const msg =
           e instanceof Error
@@ -321,9 +378,16 @@ export function useCopilotControls() {
         // Override `assemblyaiKey` with the freshly-minted server
         // token. buildConfig still reads the legacy BYOK field for
         // backwards-compat — we explicitly clobber it here.
+        //
+        // Phase 4b: `userVoiceAssemblyaiToken` is forwarded as a
+        // camelCase field — serde's `rename_all = "camelCase"` on
+        // CaptureConfig maps it to `user_voice_assemblyai_token` on
+        // the Rust side. Empty string disables the second AAI
+        // stream entirely (Rust treats empty as "no Phase 4b").
         const config = {
           ...buildConfig(opts.mode, { snap: cfg, cvText, jdText }),
           assemblyaiKey: assemblyaiToken,
+          userVoiceAssemblyaiToken,
         };
         await invoke('start_session', { config });
         // Flip the app to macOS `Accessory` activation: Dock icon

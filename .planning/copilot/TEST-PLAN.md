@@ -349,3 +349,111 @@ Une fois ce test fait + ton rapport en main, on attaque dans cet ordre :
 - Cleanup propre sur quit (persist transcript snapshot)
 - Toast feedback sur copy/share
 - Empty states cosmétiques
+
+---
+
+## §7 — Phase 4b — ASR-driven teleprompter cursor (live test)
+
+Phase 4b ajoute un **deuxième WebSocket AssemblyAI** dédié à la voix
+du candidat (mic). Les mots transcrits font avancer le curseur du
+teleprompter via un matcher Levenshtein "banded" — au lieu (ou en
+plus) du timer 150 WPM de la Phase 4a. Le timer reste en filet de
+sécurité quand le candidat se tait > 2s ou part hors-script.
+
+### 7.1 Pré-flight (1 min)
+
+Vérifier que le Worker peut bien servir DEUX tokens AAI par session :
+```bash
+cd /Users/gabriel/Desktop/Wonka/code/interview-copilot/worker
+pnpm dlx wrangler tail --format pretty | grep "transcription-token"
+# Tu dois voir 2 hits POST /v1/copilot/transcription-token
+# au démarrage de chaque session Copilot.
+```
+
+Le rate limit est journalier (120/jour/user, défini dans
+`worker/src/lib/rateLimit.ts`) — 2 tokens par session = 60
+sessions/jour max. Largement OK pour la beta.
+
+### 7.2 Test happy path — curseur suit la voix (5 min)
+
+1. **Démarrer une session Copilot** (mode QA), poser une question
+   bidon dans Zoom/Meet (ou jouer un sample audio sur les enceintes
+   capturées par le Core Audio Tap / BlackHole).
+2. **Attendre que Claude génère une réponse** — le teleprompter
+   apparaît avec le texte streamé.
+3. **Lire la réponse à voix haute** au mic, posément.
+4. **Vérifier** :
+   - Le curseur (mot surligné `--current`) doit avancer **dans les
+     ~500 ms** après chaque mot prononcé. Pas de saccade visible.
+   - Si tu sautes un mot ("voilà" → silence → "donc"), le matcher
+     doit rattraper sur le bloc de 3-5 mots suivants.
+   - Si tu te trompes (paraphrase, mot inversé), le curseur n'avance
+     pas — il attend que tu retrouves le script.
+
+### 7.3 Test fallback — silence du candidat (2 min)
+
+1. Démarrer une session, laisser Claude générer une réponse.
+2. **NE PAS lire à voix haute.**
+3. **Vérifier** :
+   - Pendant ~2 secondes le curseur reste sur le mot courant.
+   - Après 2s de silence, **le timer 150 WPM prend le relais** et
+     fait avancer le curseur tout seul (Phase 4a inchangée).
+   - Dès que tu reprends la lecture à voix haute, le matcher reprend
+     la main et le curseur saute au mot que tu viens de dire.
+
+### 7.4 Test rate-limit graceful (1 min)
+
+1. Forcer un échec du second token : couper le réseau APRÈS le
+   premier `getAssemblyAiToken()` mais avant le second (DevTools →
+   Network → Offline pendant 200 ms autour du `start()`).
+2. **Vérifier** :
+   - La session démarre quand même (un warning console
+     `[copilot] user-voice transcription token unavailable…`).
+   - Le teleprompter fonctionne en mode Phase 4a (timer-only),
+     aucun event `user-transcript` n'arrive.
+   - Pas de banner d'erreur visible côté UI.
+
+### 7.5 Test fenêtre standalone (1 min)
+
+1. Démarrer une session — la fenêtre `teleprompter` doit s'afficher
+   en haut de l'écran (Phase 5).
+2. Lire à voix haute.
+3. **Vérifier** : le curseur dans la fenêtre standalone suit la voix
+   **identiquement** à celui du dashboard. Le payload
+   `teleprompter-state` ship maintenant un champ `userPartial`
+   supplémentaire — le matcher Levenshtein tourne dans la webview
+   `teleprompter` exactement comme dans `main`.
+
+### 7.6 Vérifier que la Phase 4a n'est PAS cassée (1 min)
+
+1. **Désactiver Phase 4b** : commenter localement le push du
+   `userVoiceAssemblyaiToken` dans `useCopilotSession.ts::start()`
+   (passer `''` à la place).
+2. Lancer une session.
+3. **Vérifier** : le teleprompter fonctionne comme avant — curseur
+   timer 150 WPM, hotkeys ⌥+espace / flèches OK. Aucun changement
+   visible côté UX.
+4. Recommitter le push après.
+
+### Résultat attendu
+
+- 2 tokens AAI fetchés par session start (`wrangler tail` confirme).
+- 2 WebSockets AAI vivants (logs Rust : `AssemblyAI connected
+  (interviewer)` + `AssemblyAI connected (user)`).
+- Le curseur suit la voix dans les ~500 ms ; fallback timer après 2s
+  de silence ; le mode legacy continue de marcher sans le second
+  token.
+
+### Caveats connus
+
+- Le matcher est ancré sur la fenêtre `[cursor-2, cursor+5]` — si le
+  candidat sait sa réponse par cœur et la débite à 220 WPM
+  ininterrompu, il peut "déborder" la fenêtre. Pas vu en prod ; à
+  re-tuner si feedback.
+- Le matcher tolère ~40% d'edit distance — sur des passages
+  techniques avec beaucoup de noms propres ("Levenshtein", "Tauri",
+  "AssemblyAI") la confiance peut chuter et le curseur reste en
+  arrière. C'est OK : le timer fallback le rattrapera.
+- Le second token consomme le budget AAI : avec 120 tokens/jour le
+  candidat est limité à 60 sessions/jour. Au-delà, augmenter
+  `transcription-token` dans `worker/src/lib/rateLimit.ts`.

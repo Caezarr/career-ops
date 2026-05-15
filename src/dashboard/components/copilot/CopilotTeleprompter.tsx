@@ -4,6 +4,10 @@ import {
   unregister as unregisterGlobalShortcut,
 } from '@tauri-apps/plugin-global-shortcut';
 import { useAppStore } from '../../store';
+import {
+  matchSpokenToScript,
+  tokeniseSpoken,
+} from '../../lib/teleprompterMatch';
 
 /**
  * CopilotTeleprompter — Moody-style notch teleprompter (Phase 3) +
@@ -60,6 +64,13 @@ const WPM_STEP = 10;
 const STREAM_BUFFER_WORDS = 2;
 const POST_FINAL_HOLD_MS = 800;
 const STATUS_FADE_MS = 1800;
+
+/** Phase 4b: how long the cursor must go without a user-transcript-
+ *  driven advance before the legacy WPM timer takes over. 2s mirrors
+ *  the natural inter-sentence silence a thoughtful speaker leaves —
+ *  shorter and the timer fights the matcher on every breath, longer
+ *  and the cursor visibly stalls when the candidate goes off-script. */
+const ASR_SILENCE_FALLBACK_MS = 2_000;
 
 /** Per-token "hold" added on top of the base WPM interval when the
  *  cursor crosses certain punctuation. The amounts are tuned to feel
@@ -128,6 +139,10 @@ export default function CopilotTeleprompter() {
   const activeSessionId = useAppStore((s) => s.activeSessionId);
   const pendingAnswer = useAppStore((s) => s.pendingAnswer);
   const status = useAppStore((s) => s.copilotStatus);
+  // Phase 4b: candidate's voice ASR — drives the cursor matcher.
+  const userTranscriptPartial = useAppStore((s) => s.userTranscriptPartial);
+  const userTranscriptFinal = useAppStore((s) => s.userTranscriptFinal);
+  const userTranscriptTick = useAppStore((s) => s.userTranscriptTick);
 
   const session =
     sessions.find((s) => s.id === activeSessionId) ?? sessions[0] ?? null;
@@ -141,6 +156,15 @@ export default function CopilotTeleprompter() {
     [tokens],
   );
   const totalWords = wordTokens.length;
+
+  // Phase 4b: pre-normalised script tokens — the matcher operates on
+  // lowercased, punctuation-stripped strings on both sides. We
+  // memoise here so the per-tick matcher call doesn't re-tokenise the
+  // whole script on every spoken word.
+  const scriptTokens = useMemo(
+    () => tokeniseSpoken(text),
+    [text],
+  );
 
   const [cursor, setCursor] = useState(0);
   const [wpm, setWpm] = useState(WPM_DEFAULT);
@@ -174,9 +198,69 @@ export default function CopilotTeleprompter() {
     }
   }, [isStreaming, text.length]);
 
-  // Pace-aware auto-advance. The interval re-arms after every tick
-  // so we can apply punctuation-based extra holds without a
-  // separate timer or queue.
+  // Phase 4b: track when the last user-transcript-driven advance
+  // landed. The timer fallback below consults this — if the matcher
+  // moved the cursor within ASR_SILENCE_FALLBACK_MS, the timer
+  // yields. When the candidate is silent (or goes off-script and the
+  // matcher can't find a confident anchor for >2s), the timer kicks
+  // back in so the cursor doesn't visibly freeze.
+  const lastAsrAdvanceAtRef = useRef<number>(0);
+
+  // Phase 4b: matcher — runs on every user-transcript update.
+  // Tokenises the spoken stream (cumulative final + latest partial),
+  // calls the banded-Levenshtein matcher against the script, and
+  // advances the cursor when it returns a forward-only hit.
+  //
+  // We rebuild the spoken-tokens array on every update because the
+  // matcher only ever uses its tail (last ~4 words); slicing here
+  // would mean re-implementing the same heuristic in two places.
+  useEffect(() => {
+    if (totalWords === 0) return;
+    if (scriptTokens.length === 0) return;
+    // Spoken stream = everything the candidate has said so far this
+    // session (cumulative final) + the in-flight partial. The
+    // matcher will only use the trailing N words anyway.
+    const spoken = tokeniseSpoken(
+      userTranscriptFinal && userTranscriptPartial
+        ? `${userTranscriptFinal} ${userTranscriptPartial}`
+        : userTranscriptFinal || userTranscriptPartial,
+    );
+    if (spoken.length === 0) return;
+    setCursor((prev) => {
+      const candidate = matchSpokenToScript(spoken, scriptTokens, prev);
+      if (candidate === null) return prev;
+      // Only advance — never rewind via the matcher. A user can
+      // still rewind via ⌥ ←. Cap at the streaming ceiling so we
+      // don't outrun Claude's trailing tokens.
+      const next = Math.min(candidate, advanceCeiling);
+      if (next > prev) {
+        lastAsrAdvanceAtRef.current = Date.now();
+        return next;
+      }
+      // Same or lower — keep the cursor put (matcher confidence
+      // wasn't enough to move forward; let the next event try).
+      return prev;
+    });
+  }, [
+    userTranscriptTick,
+    userTranscriptPartial,
+    userTranscriptFinal,
+    scriptTokens,
+    totalWords,
+    advanceCeiling,
+  ]);
+
+  // Pace-aware auto-advance — Phase 4a, now demoted to FALLBACK.
+  // The interval re-arms after every tick so we can apply
+  // punctuation-based extra holds without a separate timer or queue.
+  //
+  // Phase 4b behaviour: each tick checks whether the matcher has
+  // moved the cursor recently (within ASR_SILENCE_FALLBACK_MS). If
+  // it has, the timer NO-OPS for one beat — the matcher is in the
+  // driver's seat. If the matcher has been silent for longer than
+  // the threshold (candidate paused / went off-script), the timer
+  // advances one word like before. Net effect: the timer is the
+  // safety net that prevents the cursor from freezing on silence.
   useEffect(() => {
     if (totalWords === 0 || paused) return undefined;
     let cancelled = false;
@@ -196,6 +280,18 @@ export default function CopilotTeleprompter() {
         const fa = finishedAtRef.current;
         if (fa !== null && Date.now() - fa < POST_FINAL_HOLD_MS) {
           timer = window.setTimeout(tick, POST_FINAL_HOLD_MS);
+          return prev;
+        }
+        // Phase 4b: yield to the ASR matcher if it advanced the
+        // cursor recently. Re-check on the next base interval — we
+        // want the timer ready to step in the instant the user goes
+        // silent, not waste a full WPM beat on the silence detection.
+        const sinceAsr = Date.now() - lastAsrAdvanceAtRef.current;
+        if (
+          lastAsrAdvanceAtRef.current > 0 &&
+          sinceAsr < ASR_SILENCE_FALLBACK_MS
+        ) {
+          timer = window.setTimeout(tick, baseMs);
           return prev;
         }
         // Compute the delay AFTER this word: base interval plus

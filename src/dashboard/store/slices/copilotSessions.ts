@@ -97,6 +97,25 @@ export interface CopilotSessionsSlice {
   /** Latest streaming answer text, accumulated from `answer-token`
    *  events. Cleared when a new question arrives. */
   pendingAnswer: string;
+  /** Phase 4b: the most recent **partial** user-voice transcript chunk
+   *  (the candidate's mic, transcribed by the second AAI stream).
+   *  Replaced on every partial event. Cleared on session end. Drives
+   *  the teleprompter cursor's banded-Levenshtein matcher together
+   *  with `userTranscriptFinal`. */
+  userTranscriptPartial: string;
+  /** Phase 4b: the cumulative **finalised** user-voice transcript —
+   *  one continuous string built by appending every finalised turn
+   *  the second AAI stream emits. Cleared on session end. The
+   *  matcher reads `userTranscriptFinal + ' ' + userTranscriptPartial`
+   *  to anchor the cursor against everything the candidate has said
+   *  so far. */
+  userTranscriptFinal: string;
+  /** Phase 4b: monotonic counter — bumped on every user-transcript
+   *  event so React effects can run the matcher even when the text
+   *  payload didn't change (e.g. AAI emits the same partial twice).
+   *  Without this the effect dependency array would dedupe the
+   *  cursor advance and the candidate would feel a stutter. */
+  userTranscriptTick: number;
   /** Last error message surfaced by the backend, if any. */
   copilotError: string | null;
 
@@ -124,6 +143,16 @@ export interface CopilotSessionsSlice {
    *  catastrophic for multi-pause ones (the user would see the
    *  transcript "delete" itself between turns of a long question). */
   applyTranscriptDelta: (delta: { text: string; final: boolean }) => void;
+  /** Phase 4b: ingest a user-voice transcript event from the second
+   *  AAI stream. Partials replace `userTranscriptPartial`; finals
+   *  append to `userTranscriptFinal` (with a leading space if the
+   *  cumulative buffer is non-empty) and clear `userTranscriptPartial`.
+   *  Always bumps `userTranscriptTick` so the matcher effect re-runs. */
+  applyUserTranscriptDelta: (delta: { text: string; final: boolean }) => void;
+  /** Phase 4b: wipe both the partial and finalised user-voice
+   *  transcripts. Called on session start AND end so the matcher
+   *  starts each interview from a clean slate. */
+  resetUserTranscript: () => void;
   /** Append a streamed answer token to the in-flight answer. */
   appendPendingAnswerToken: (token: string) => void;
   /** Reset the in-flight answer (e.g. when a new question begins). */
@@ -159,6 +188,9 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
   pendingTranscript: '',
   pendingTranscriptPartialStart: 0,
   pendingAnswer: '',
+  userTranscriptPartial: '',
+  userTranscriptFinal: '',
+  userTranscriptTick: 0,
   copilotError: null,
 
   startCopilotSession: ({ mode, company, role, jobId, cvId }) => {
@@ -181,6 +213,10 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       pendingTranscript: '',
       pendingTranscriptPartialStart: 0,
       pendingAnswer: '',
+      // Phase 4b: fresh session = fresh user-voice ASR buffer.
+      userTranscriptPartial: '',
+      userTranscriptFinal: '',
+      userTranscriptTick: 0,
       copilotError: null,
     }));
     return id;
@@ -197,6 +233,11 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       pendingTranscript: '',
       pendingTranscriptPartialStart: 0,
       pendingAnswer: '',
+      // Phase 4b: clear ASR buffers so a stale partial doesn't bleed
+      // into the next session's matcher.
+      userTranscriptPartial: '',
+      userTranscriptFinal: '',
+      userTranscriptTick: 0,
     }));
   },
 
@@ -224,6 +265,38 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       return { pendingTranscript: newDisplay };
     });
   },
+  applyUserTranscriptDelta: ({ text, final }) => {
+    // Phase 4b: ingest the second AAI stream's events. Same partial /
+    // final split as the recruiter side, but written to a dedicated
+    // pair of buffers + bumps a tick counter so React effects can
+    // run the cursor matcher even when the text payload is identical
+    // to the previous frame (AAI re-emits stable partials regularly).
+    const trimmed = text.trim();
+    set((s) => {
+      const tick = s.userTranscriptTick + 1;
+      if (!trimmed) {
+        // Empty payload — only bump the tick so a clearing event
+        // still notifies subscribers (e.g. AAI sometimes sends empty
+        // transcripts on connection state changes).
+        return { userTranscriptTick: tick };
+      }
+      if (final) {
+        const joiner = s.userTranscriptFinal.length > 0 ? ' ' : '';
+        return {
+          userTranscriptFinal: s.userTranscriptFinal + joiner + trimmed,
+          userTranscriptPartial: '',
+          userTranscriptTick: tick,
+        };
+      }
+      return { userTranscriptPartial: trimmed, userTranscriptTick: tick };
+    });
+  },
+  resetUserTranscript: () =>
+    set({
+      userTranscriptPartial: '',
+      userTranscriptFinal: '',
+      userTranscriptTick: 0,
+    }),
   appendPendingAnswerToken: (token) =>
     set((s) => ({ pendingAnswer: s.pendingAnswer + token })),
   clearPendingAnswer: () => set({ pendingAnswer: '' }),
