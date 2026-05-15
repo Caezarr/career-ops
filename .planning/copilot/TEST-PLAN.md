@@ -457,3 +457,139 @@ sessions/jour max. Largement OK pour la beta.
 - Le second token consomme le budget AAI : avec 120 tokens/jour le
   candidat est limité à 60 sessions/jour. Au-delà, augmenter
   `transcription-token` dans `worker/src/lib/rateLimit.ts`.
+
+---
+
+## §8 — Phase 5.5 : Test matrix multi-tools (production readiness)
+
+**Objectif** : valider Career OS sur les 4 outils de visio que les
+candidats MBB/IB/FAANG utilisent vraiment, dans les configurations
+réelles. Pas du test ponctuel — un protocole reproductible que tu
+re-roules à chaque release majeure pour éviter une régression
+silencieuse.
+
+À faire avant chaque DMG signée distribuée à plus de 10 users.
+
+### 8.1 Matrice de couverture
+
+|              | Audio capture       | Stealth (share-screen) | Teleprompter visible | Hotkeys ⌥ globaux | ASR cursor (Phase 4b) |
+|---           |---                  |---                     |---                   |---                |---                    |
+| **Zoom**     | ☐                   | ☐                      | ☐                    | ☐                 | ☐                     |
+| **Teams**    | ☐                   | ☐                      | ☐                    | ☐                 | ☐                     |
+| **Meet**     | ☐                   | ☐                      | ☐                    | ☐                 | ☐                     |
+| **QuickTime**| ☐ (audio recording) | ☐ (screen recording)   | n/a                  | n/a               | n/a                   |
+
+Chaque cellule = un test 30-60 s à reproduire dans l'ordre.
+
+### 8.2 Setup par outil
+
+#### Zoom
+1. Compte Zoom basic suffit (40 min gratuit)
+2. Lance un meeting solo. Rejoins-toi avec un 2ᵉ device (iPhone) =
+   tu joues le rôle de l'interviewer
+3. Configure ton output audio : System Settings → Sound → Output →
+   `Career OS Output` (Multi-Output BlackHole, sauf si Phase 2
+   Core Audio Tap est restored — alors output normal)
+
+#### Teams
+1. Compte gratuit Microsoft → Teams personal
+2. Démarre un meeting Now, copie le lien, ouvre-le sur l'iPhone
+3. Output → `Career OS Output` ou tap
+
+#### Google Meet
+1. https://meet.google.com → Nouvelle réunion → "Démarrer instantanée"
+2. Rejoins depuis l'iPhone via le code meeting
+3. Output → idem
+
+#### QuickTime (pour les tests de stealth + screen recording)
+1. New Screen Recording (`CMD + SHIFT + 5` → "Record Entire Screen")
+2. Stop après 10 s
+3. Lis l'enregistrement dans QuickTime Player
+
+### 8.3 Protocole par cellule
+
+Pour chaque ligne (outil) × colonne (feature) du tableau, voici les
+étapes :
+
+**Audio capture**
+1. Pendant le call, l'iPhone joue une question d'entretien (5-15 s)
+2. Vérifier dans Career OS Live Transcript : la voix de l'iPhone
+   apparaît dans le transcript dans les < 2 s
+3. Coche ☑ si OK ; sinon note l'erreur
+
+**Stealth (share-screen)**
+1. Pendant le call, lance une session Copilot (attend que Claude
+   réponde — le téléprompteur doit apparaître au top de l'écran)
+2. Click "Share Screen" → "Entire Screen" dans Zoom/Teams/Meet
+3. Sur l'iPhone (côté interviewer) : vérifier que le téléprompteur
+   N'APPARAÎT PAS dans le partage. La zone du téléprompteur doit
+   être soit noire, soit afficher le bureau derrière
+4. ⚠ macOS 15+ via ScreenCaptureKit peut bypasser sur certaines
+   versions Zoom/Teams récentes — c'est une limitation Apple connue,
+   même Cluely a le souci. Documente le comportement réel.
+
+**Teleprompter visible (côté candidat)**
+1. Pendant le call, vérifier que la fenêtre teleprompter standalone
+   apparaît au-dessus de Zoom/Teams/Meet quand Claude répond
+2. Le texte doit être lisible (off-white, ~34px, IBM Plex Mono)
+3. Le téléprompteur doit être click-through : un clic sur sa zone
+   doit aller à la fenêtre Zoom/Teams/Meet derrière
+
+**Hotkeys ⌥ globaux**
+1. Career OS PAS focusé (Zoom focusé)
+2. Appuyer `⌥ Espace` → vérifier que le téléprompteur passe en mode
+   "Paused · ⌥ Space to resume"
+3. Appuyer `⌥ Espace` à nouveau → reprise
+4. `⌥ ↑` → +10 WPM (visible dans la status badge)
+5. `⌥ R` → curseur revient à 0
+6. **Note** : première utilisation, macOS demande "Input Monitoring"
+   permission. Accepte dans System Settings → Privacy & Security
+
+**ASR cursor (Phase 4b)**
+1. Pendant que Claude streame une réponse, lis-la à voix haute
+   dans le mic
+2. Vérifier que le curseur (mot highlighté) suit ta voix dans les
+   ~500 ms — il NE doit PAS rester sur le timer 150 WPM
+3. Reste silencieux 3 s → le timer prend le relais (le curseur
+   continue d'avancer)
+4. Reprends la lecture → le matcher reprend le contrôle
+
+### 8.4 Synthèse de test matrix
+
+À remplir après chaque passe :
+
+```
+Date / version : ___________
+macOS version : ___________
+Xcode version  : ___________
+
+ZOOM      [PASS / FAIL] — notes :
+TEAMS     [PASS / FAIL] — notes :
+MEET      [PASS / FAIL] — notes :
+QUICKTIME [PASS / FAIL] — notes :
+
+Bugs majeurs (à fixer avant release) :
+- ...
+
+Limitations connues (à documenter pour les users) :
+- ...
+```
+
+### 8.5 Cas de production à pré-tester
+
+Au-delà du happy path, voici les scénarios que les beta users
+rencontreront vraiment :
+
+| Cas | Comportement attendu |
+|---|---|
+| Le candidat passe Zoom en plein écran (sans share) | Téléprompteur reste visible au-dessus, click-through |
+| Le candidat alt-tab vers Career OS pendant la session | Téléprompteur ET dashboard panel visibles simultanément |
+| Le candidat quitte Career OS (CMD+Q) pendant un appel | Téléprompteur disparaît proprement, session se ferme |
+| Le wifi coupe 5 s pendant un meeting | Banner "Connexion perdue", reprise auto à la reconnexion |
+| L'audio interviewer s'arrête (Zoom met en pause) | Transcript se vide silencieusement, pas de crash |
+| Le candidat parle pendant 10 min ininterrompues | Téléprompteur scroll smooth, pas de freeze |
+| 2ᵉ session enchaînée sans quitter Career OS | Token AAI re-fetch, transcript reset propre |
+| Hotkey ⌥ Espace pendant que la barre Format Zoom est ouverte | Hotkey priorise Career OS (registered global) |
+
+Cocher chaque ligne quand testée et validée. Documenter les bugs en
+synthèse §8.4.
