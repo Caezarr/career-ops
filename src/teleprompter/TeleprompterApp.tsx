@@ -352,8 +352,12 @@ export default function TeleprompterApp() {
     };
   }, [sessionActive, bumpWpm]);
 
-  // Auto-scroll so the current word stays centred in the visible
-  // capsule region.
+  // Lazy auto-scroll — see the equivalent comment in
+  // `CopilotTeleprompter.tsx` for the full rationale. Short version:
+  // re-centring on every word advance makes the page shimmy at the
+  // candidate's reading speed, which destroys the teleprompter UX.
+  // Only scroll when the cursor crosses 75% of the visible height OR
+  // somehow ended up off-screen above (e.g. after a manual ⌥ ← chain).
   const bodyRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = bodyRef.current;
@@ -361,8 +365,13 @@ export default function TeleprompterApp() {
     const target = el.querySelector<HTMLElement>(
       `[data-word-index="${cursor}"]`,
     );
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!target) return;
+    const containerRect = el.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const relativeY =
+      (targetRect.top - containerRect.top) / containerRect.height;
+    if (relativeY > 0.75 || relativeY < 0) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [cursor]);
 

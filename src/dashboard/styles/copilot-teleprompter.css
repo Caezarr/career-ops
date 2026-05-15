@@ -139,54 +139,62 @@
 }
 
 /*
- * Phase 4a — per-word highlight states. The teleprompter advances
- * one word at a time at ~150 WPM; the cursor index lives in the
- * React component. Each `<span class="cp-teleprompter__word">`
- * gets one of these modifier classes so the candidate can see
- *   - PAST words: dim, sets context "you've said this already"
- *   - CURRENT word: full brightness + subtle scale + glow
- *   - FUTURE words: medium dim, readable but lower priority
+ * Per-word position indicator — Moody-style "all text equally
+ * readable, position marker is minimal".
  *
- * Visual contrast intentionally subtle — at 150 WPM the cursor
- * crosses ~3 words per second, so a heavy highlight pulse would
- * strobe and induce eye fatigue over a 30-min interview.
+ * Earlier iteration (v1) used aggressive opacity dimming on past
+ * words (0.42) + brightness pulse on the current word. Looked
+ * impressive in isolation but broke real reading flow: every time
+ * the candidate spoke a word, the previous word DIMMED, yanking
+ * their eye back to the cursor instead of letting them scan ahead.
+ * Defeats the entire purpose of a teleprompter.
+ *
+ * New rule: ALL words stay at full readable brightness regardless
+ * of position. The current word gets a single very thin underline
+ * — visible if the candidate's eye looks for it, ignorable if it
+ * doesn't. Past + future words have ZERO visual difference from
+ * each other or from the current word's text rendering. The
+ * candidate reads at their own pace; the cursor advance only
+ * drives the auto-scroll (so the right section stays in view).
  */
 .cp-teleprompter__word {
-  /* `transition` runs on every state change. 180ms = fast enough
-     to track the cursor at 150 WPM but slow enough that a single
-     word doesn't pop-and-disappear before the eye locks onto it. */
-  transition:
-    opacity 180ms ease-out,
-    color 180ms ease-out,
-    text-shadow 180ms ease-out;
+  /* No transition — when this WAS animated the per-speech opacity
+     bounce at ~3 wpm-ticks/sec produced a strobe-and-fatigue effect
+     over a 30-min interview. Static rendering is the right answer. */
+  position: relative;
 }
 
-.cp-teleprompter__word--past {
-  /* "You've said this." Don't dim too hard — the candidate may
-     glance back to recover a phrase if they're improvising over
-     the suggestion. */
-  opacity: 0.42;
+.cp-teleprompter__word--past,
+.cp-teleprompter__word--future {
+  /* Past and future read identically to current. The candidate can
+     scan freely without the eye being pulled toward a "brightness
+     boundary". */
+  opacity: 1;
 }
 
 .cp-teleprompter__word--current {
-  /* Where the cursor is. Pure off-white + slightly heavier shadow
-     to make the word stand out against the future text. No scale
-     transform — at 34 px any growth shifts the surrounding text
-     and feels jittery. */
   opacity: 1;
-  color: #FFFFFF;
-  text-shadow:
-    0 0 14px rgba(0, 0, 0, 0.95),
-    0 0 6px rgba(0, 0, 0, 1),
-    0 0 2px rgba(255, 255, 255, 0.25),
-    0 2px 8px rgba(0, 0, 0, 0.7);
+  /* Single 2 px underline as the position cue. `text-decoration`
+     would inherit the text-shadow → blurry; a `border-bottom`
+     would shift the baseline. A pseudo-element absolutely
+     positioned under the word's text box is the cleanest: it
+     stays out of the layout flow, hides naturally during the
+     candidate's quick eye-scans, and reveals on a focused look. */
 }
 
-.cp-teleprompter__word--future {
-  /* "What comes next." Brighter than past words so the candidate
-     can read ahead and prepare the next breath, but slightly
-     dimmer than current so the cursor is unambiguous. */
-  opacity: 0.78;
+.cp-teleprompter__word--current::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 1px;
+  /* Slow fade so the underline doesn't strobe as the cursor moves
+     word by word. ~ASR latency × 2 keeps the transition smooth even
+     when the matcher fires bursts of advances. */
+  transition: opacity 420ms ease-out;
 }
 
 /*

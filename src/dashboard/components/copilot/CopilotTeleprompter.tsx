@@ -418,10 +418,18 @@ export default function CopilotTeleprompter() {
     };
   }, [sessionActive, bumpWpm]);
 
-  // Auto-scroll: keep the current word centered in the visible
-  // capsule region. `scrollIntoView` with smooth behaviour reads
-  // way better than pinning to scrollHeight (which hides earlier
-  // lines as the answer grows).
+  // Lazy auto-scroll: only scroll when the cursor LEAVES the visible
+  // region, not on every word advance. `scrollIntoView({block:
+  // 'center'})` on each cursor change yanks the page a few px every
+  // word — at 3 wpm-ticks/sec it makes the whole text shimmy under
+  // the candidate's eye, which is the opposite of what a teleprompter
+  // is supposed to do (let you READ).
+  //
+  // New behaviour: compare the current word's bounding box to the
+  // container's. Only scroll when the word is in the bottom ~25% of
+  // the visible area (so we keep some "next line" peek) — and even
+  // then, jump only to the top of the next "page" rather than
+  // re-centring.
   const bodyRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = bodyRef.current;
@@ -429,8 +437,18 @@ export default function CopilotTeleprompter() {
     const target = el.querySelector<HTMLElement>(
       `[data-word-index="${cursor}"]`,
     );
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!target) return;
+    const containerRect = el.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    // How far down the visible area is the current word? 0 = top
+    // edge, 1 = bottom edge.
+    const relativeY =
+      (targetRect.top - containerRect.top) / containerRect.height;
+    // Only scroll when the cursor is past 75% of the way down OR
+    // somehow ended up off-screen above. The intermediate range
+    // (0-75%) is "comfortable reading" and triggers NO scroll.
+    if (relativeY > 0.75 || relativeY < 0) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [cursor]);
 
