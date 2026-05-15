@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  register as registerGlobalShortcut,
+  unregister as unregisterGlobalShortcut,
+} from '@tauri-apps/plugin-global-shortcut';
 import { useAppStore } from '../../store';
 
 /**
@@ -267,6 +271,57 @@ export default function CopilotTeleprompter() {
     return () => window.removeEventListener('keydown', onKey);
   }, [sessionActive, advanceCeiling, bumpWpm]);
 
+  // Global shortcuts (Tauri plugin) — same ⌥-modified keys as the
+  // local handler, but registered with the OS so they fire even when
+  // Career OS doesn't have focus. THAT is the actual use case during
+  // a real interview: the candidate is staring at Zoom/Teams, can't
+  // alt-tab back without raising suspicion, and needs to pause /
+  // step / change pace from inside the call.
+  //
+  // First-time use: macOS prompts for Input Monitoring permission.
+  // The user grants it once in System Settings → Privacy & Security
+  // and never sees the prompt again. If they decline we keep the
+  // local-window handler above as a fallback.
+  //
+  // Closures over React state are stale by definition (the registered
+  // callback lives outside React's render cycle). We mirror the few
+  // values the callbacks need into refs so the latest state is
+  // always read.
+  const ceilingRef = useRef(advanceCeiling);
+  ceilingRef.current = advanceCeiling;
+  useEffect(() => {
+    if (!sessionActive) return undefined;
+    // Tauri accelerator strings. `Alt` is macOS Option. Key codes
+    // match the `KeyboardEvent.code` family — `Space`, arrows, `KeyR`.
+    const bindings: Array<[string, () => void]> = [
+      ['Alt+Space', () => setPaused((p) => !p)],
+      ['Alt+Left', () => setCursor((c) => Math.max(0, c - 1))],
+      ['Alt+Right', () =>
+        setCursor((c) => Math.min(ceilingRef.current, c + 1))],
+      ['Alt+Up', () => bumpWpm(WPM_STEP)],
+      ['Alt+Down', () => bumpWpm(-WPM_STEP)],
+      ['Alt+KeyR', () => setCursor(0)],
+    ];
+    const accelerators = bindings.map(([acc]) => acc);
+    // Best-effort register. If the plugin throws (permission denied,
+    // shortcut already registered by another app, etc.) we swallow
+    // the error — the local-window handler above still works while
+    // Career OS is focused.
+    bindings.forEach(([acc, handler]) => {
+      registerGlobalShortcut(acc, handler).catch((err) => {
+        // eslint-disable-next-line no-console
+        console.warn(`[teleprompter] failed to register ${acc}:`, err);
+      });
+    });
+    return () => {
+      accelerators.forEach((acc) => {
+        unregisterGlobalShortcut(acc).catch(() => {
+          /* unregister is best-effort */
+        });
+      });
+    };
+  }, [sessionActive, bumpWpm]);
+
   // Auto-scroll: keep the current word centered in the visible
   // capsule region. `scrollIntoView` with smooth behaviour reads
   // way better than pinning to scrollHeight (which hides earlier
@@ -318,17 +373,24 @@ export default function CopilotTeleprompter() {
         </div>
       </div>
 
-      {/* Status badge — surfaces the current WPM + pause state
-          + words remaining. Fades in on change, fades out after
-          STATUS_FADE_MS. `aria-hidden` because screen readers
-          would announce every tick; the cursor itself is the
-          accessible signal of progress. */}
+      {/* Status badge — surfaces the current WPM + pause state +
+          words remaining + (when paused) a hint at the resume
+          hotkey. Fades in on change, fades out after STATUS_FADE_MS.
+          `aria-hidden` because screen readers would announce every
+          tick; the cursor itself is the accessible signal of
+          progress.
+
+          The hotkey hint matters more than it looks: the candidate
+          is in a Zoom call, can't see a help menu, has zero context
+          for "what does ⌥ Space do". Surfacing the binding the
+          moment they hit pause is the difference between "did
+          something happen?" and "I know exactly how to unpause". */}
       <div
         className={`cp-teleprompter__status${statusVisible ? ' cp-teleprompter__status--visible' : ''}`}
         aria-hidden="true"
       >
         <span className="cp-teleprompter__status-pill">
-          {paused ? 'Paused' : `${wpm} wpm`}
+          {paused ? 'Paused · ⌥ Space to resume' : `${wpm} wpm · ⌥ ↑↓`}
         </span>
         <span className="cp-teleprompter__status-pill cp-teleprompter__status-pill--subtle">
           {remaining} words left
