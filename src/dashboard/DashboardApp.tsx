@@ -25,7 +25,10 @@ import { useJobTeaserAuthListener } from "./hooks/useJobTeaserAuthListener";
 import { useAuthDeepLink } from "./hooks/useAuthDeepLink";
 import { useBillingDeepLink } from "./hooks/useBillingDeepLink";
 import { useAutoUpdate } from "./hooks/useAutoUpdate";
-import { useCopilotEventBridge } from "./hooks/useCopilotSession";
+import {
+  useCopilotEventBridge,
+  useTeleprompterBridge,
+} from "./hooks/useCopilotSession";
 import { useBillingHydrate } from "./hooks/useBillingHydrate";
 import "./styles/tokens.css";
 import "./styles/sidebar.css";
@@ -194,6 +197,15 @@ function CopilotEventBridge() {
   return null;
 }
 
+/** Pushes the Copilot answer state to the dedicated teleprompter
+ *  window (Phase 5) on every change, and shows/hides the window on
+ *  session lifecycle. Mounted alongside CopilotEventBridge so the
+ *  bridge is always live as long as the dashboard webview is up. */
+function TeleprompterBridge() {
+  useTeleprompterBridge();
+  return null;
+}
+
 /** Idempotently seeds Settings → Job Sources from the curated
  *  BUILTIN_SOURCES list shipped in Rust on first launch. After
  *  that, the user's enabled / disabled / custom sources own the
@@ -268,6 +280,7 @@ export function DashboardApp() {
             <AppearanceApplier />
             <AutostartApplier />
             <CopilotEventBridge />
+            <TeleprompterBridge />
             <IngestSourcesSeeder />
             <JobTeaserAuthListener />
             <AuthDeepLinkBridge />

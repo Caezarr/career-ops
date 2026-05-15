@@ -51,6 +51,29 @@
         "visibleOnAllWorkspaces": true,
         "contentProtected": true,
         "visible": false
+      },
+      {
+        "title": "Career OS Teleprompter",
+        "label": "teleprompter",
+        "url": "index.html#teleprompter",
+        "width": 1400,
+        "height": 220,
+        "x": 0,
+        "y": 0,
+        "minWidth": 320,
+        "minHeight": 100,
+        "resizable": false,
+        "fullscreen": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "hiddenTitle": true,
+        "shadow": false,
+        "visibleOnAllWorkspaces": true,
+        "contentProtected": true,
+        "focus": false,
+        "visible": false
       }
     ],
     "security": {

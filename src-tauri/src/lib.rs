@@ -47,10 +47,13 @@ use commands::db::*;
 
 /// Reject calls that didn't originate from one of our app windows.
 /// Used by every command that touches user data, API keys, or
-/// privileged OS operations.
+/// privileged OS operations. Now also accepts the `teleprompter`
+/// window (Phase 5 — dedicated notch overlay) so it can call the
+/// stealth-mode toggle on session start/stop without bouncing IPC
+/// through the dashboard webview.
 pub(crate) fn assert_main_or_copilot(window: &WebviewWindow) -> Result<(), String> {
     let label = window.label();
-    if label == "main" || label == "copilot" {
+    if label == "main" || label == "copilot" || label == "teleprompter" {
         Ok(())
     } else {
         Err(format!(
@@ -281,6 +284,111 @@ async fn show_copilot_window(window: WebviewWindow,
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+/// Show / hide the dedicated teleprompter overlay window (Phase 5).
+///
+/// The teleprompter has its own Tauri window so the candidate can
+/// have Zoom/Teams/Meet front-and-center and the prompter floats on
+/// top of it — instead of being pinned inside the dashboard webview
+/// where the user has to keep Career OS visible.
+///
+/// On show: position the window flush to the top of the primary
+/// monitor (screen edge to screen edge horizontally; the existing
+/// CSS handles the vertical offset that hides the text behind the
+/// notch on MBP 14/16"). On hide: send the window to (0,0) so the
+/// next show is fast — repositioning is async.
+///
+/// `set_ignore_cursor_events(true)` makes the window click-through:
+/// clicks pass straight to whatever is behind it (Zoom controls,
+/// the user's editor, etc.). Without it the candidate accidentally
+/// focuses the prompter when reaching for a Zoom button.
+#[tauri::command]
+async fn set_teleprompter_visible(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    visible: bool,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let Some(tp) = app.get_webview_window("teleprompter") else {
+        // Window not declared / failed to boot. Best-effort no-op so
+        // the JS caller doesn't have to platform-gate.
+        tracing::warn!("teleprompter window unavailable");
+        return Ok(());
+    };
+    if visible {
+        // Resize + reposition to span the top of the primary monitor.
+        // `current_monitor()` returns the monitor the window is
+        // currently on; for the teleprompter we want the user's
+        // PRIMARY display where the camera lives — `primary_monitor`
+        // is the right call. Width × 220 px is enough for 4-5 lines
+        // of the 34 px IBM Plex Mono used in the CSS.
+        if let Ok(Some(monitor)) = app.primary_monitor() {
+            let size = monitor.size();
+            let scale = monitor.scale_factor();
+            let logical_w = (size.width as f64) / scale;
+            let _ = tp.set_size(tauri::LogicalSize::new(logical_w, 220.0));
+            // Anchor to the top-left of the primary monitor. macOS
+            // counts the notch height into the menu bar inset that
+            // the CSS already accounts for.
+            let pos = monitor.position();
+            let logical_x = (pos.x as f64) / scale;
+            let logical_y = (pos.y as f64) / scale;
+            let _ = tp.set_position(tauri::LogicalPosition::new(logical_x, logical_y));
+        }
+        // Click-through. Argument is `ignore` (true = pass clicks
+        // through). `?` would abort the whole call if this errors
+        // on a platform that doesn't support it; we just warn.
+        if let Err(e) = tp.set_ignore_cursor_events(true) {
+            tracing::warn!("teleprompter set_ignore_cursor_events failed: {e}");
+        }
+        tp.show().map_err(|e| e.to_string())?;
+        // Pop above all other windows. `set_always_on_top(true)`
+        // is also set in tauri.conf.json, but re-asserting it on
+        // every show handles cases where macOS demoted the window
+        // (Mission Control, expose, etc.).
+        let _ = tp.set_always_on_top(true);
+    } else {
+        tp.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Snapshot of the data the teleprompter window needs to render.
+/// Mirrors a subset of the dashboard's Zustand store. Pushed via
+/// `app.emit_to("teleprompter", "teleprompter-state", …)` whenever
+/// the relevant fields change — the teleprompter webview owns its
+/// own local state hydrated from this stream.
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TeleprompterState {
+    /// Full answer text the candidate should read. Either the
+    /// in-flight stream or the last committed answer.
+    pub text: String,
+    /// `true` while Claude is still emitting tokens — the
+    /// teleprompter holds the cursor a couple of words behind in
+    /// this mode (see STREAM_BUFFER_WORDS in CopilotTeleprompter).
+    pub is_streaming: bool,
+    /// `true` when a session is open. The teleprompter hides
+    /// itself entirely when this flips false.
+    pub session_active: bool,
+}
+
+/// Push the latest teleprompter state to the standalone window. The
+/// dashboard webview is the source of truth for `pendingAnswer` +
+/// `lastAnswer` + `status`; it calls this command whenever those
+/// change. Cheap fire-and-forget — the teleprompter window listens
+/// on `teleprompter-state` events and re-renders.
+#[tauri::command]
+async fn push_teleprompter_state(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    state: TeleprompterState,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    app.emit_to("teleprompter", "teleprompter-state", state)
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1316,6 +1424,8 @@ pub fn run() {
             generate_pitch,
             show_copilot_window,
             set_stealth_mode,
+            set_teleprompter_visible,
+            push_teleprompter_state,
             // DB: user
             db_get_user,
             db_update_user,

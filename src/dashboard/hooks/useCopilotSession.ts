@@ -146,6 +146,62 @@ export function useCopilotEventBridge() {
   ]);
 }
 
+// ─── Teleprompter bridge (Phase 5) ──────────────────────────────────
+//
+// Pushes a `TeleprompterState` snapshot to the standalone teleprompter
+// window every time `pendingAnswer` / `status` / `activeSessionId`
+// changes, AND shows/hides the window on session start/stop.
+//
+// Why a separate hook rather than baking this into useCopilotControls?
+//   - The state changes we react to (pendingAnswer streaming tokens
+//     in particular) fire HUNDREDS of times per second. We want the
+//     subscription to be narrow + the work per tick trivial.
+//   - The window-visibility commands are session-lifecycle, not per-
+//     token. Decoupling lets us debounce/throttle the high-frequency
+//     pushes without affecting the lifecycle calls.
+//
+// Side-effect-only — returns null. Mount once at the dashboard root.
+export function useTeleprompterBridge(): void {
+  // The hook stays on the dashboard side (label "main") — only the
+  // main webview owns the Zustand store. The teleprompter window
+  // hydrates its own local copy from the events we push below.
+  const pendingAnswer = useAppStore((s) => s.pendingAnswer);
+  const sessions = useAppStore((s) => s.copilotSessions);
+  const activeSessionId = useAppStore((s) => s.activeSessionId);
+  const status = useAppStore((s) => s.copilotStatus);
+
+  const session = activeSessionId
+    ? sessions.find((s) => s.id === activeSessionId) ?? null
+    : sessions[0] ?? null;
+  const lastAnswerText = session?.answers[session.answers.length - 1]?.text ?? '';
+  const text = pendingAnswer || lastAnswerText;
+  const isStreaming = status === 'thinking' && pendingAnswer.length > 0;
+  const sessionActive = activeSessionId !== null && status !== 'idle';
+
+  // Push the snapshot every time the derived triple changes. The
+  // Rust command is `emit_to`-only — fire-and-forget, sub-ms.
+  useEffect(() => {
+    invoke('push_teleprompter_state', {
+      state: { text, isStreaming, sessionActive },
+    }).catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn('[teleprompter] push state failed:', err);
+    });
+  }, [text, isStreaming, sessionActive]);
+
+  // Show / hide the dedicated window on session lifecycle. Only
+  // depends on `sessionActive` — not on the answer state — so we
+  // don't churn the window on every token.
+  useEffect(() => {
+    invoke('set_teleprompter_visible', { visible: sessionActive }).catch(
+      (err) => {
+        // eslint-disable-next-line no-console
+        console.warn('[teleprompter] visibility toggle failed:', err);
+      },
+    );
+  }, [sessionActive]);
+}
+
 // ─── Controls — imperative actions exposed to UI components ────────
 export function useCopilotControls() {
   const setStatus = useAppStore((s) => s.setCopilotStatus);
