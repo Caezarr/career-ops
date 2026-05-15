@@ -138,6 +138,123 @@
   -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.4);
 }
 
+/*
+ * Phase 4a — per-word highlight states. The teleprompter advances
+ * one word at a time at ~150 WPM; the cursor index lives in the
+ * React component. Each `<span class="cp-teleprompter__word">`
+ * gets one of these modifier classes so the candidate can see
+ *   - PAST words: dim, sets context "you've said this already"
+ *   - CURRENT word: full brightness + subtle scale + glow
+ *   - FUTURE words: medium dim, readable but lower priority
+ *
+ * Visual contrast intentionally subtle — at 150 WPM the cursor
+ * crosses ~3 words per second, so a heavy highlight pulse would
+ * strobe and induce eye fatigue over a 30-min interview.
+ */
+.cp-teleprompter__word {
+  /* `transition` runs on every state change. 180ms = fast enough
+     to track the cursor at 150 WPM but slow enough that a single
+     word doesn't pop-and-disappear before the eye locks onto it. */
+  transition:
+    opacity 180ms ease-out,
+    color 180ms ease-out,
+    text-shadow 180ms ease-out;
+}
+
+.cp-teleprompter__word--past {
+  /* "You've said this." Don't dim too hard — the candidate may
+     glance back to recover a phrase if they're improvising over
+     the suggestion. */
+  opacity: 0.42;
+}
+
+.cp-teleprompter__word--current {
+  /* Where the cursor is. Pure off-white + slightly heavier shadow
+     to make the word stand out against the future text. No scale
+     transform — at 34 px any growth shifts the surrounding text
+     and feels jittery. */
+  opacity: 1;
+  color: #FFFFFF;
+  text-shadow:
+    0 0 14px rgba(0, 0, 0, 0.95),
+    0 0 6px rgba(0, 0, 0, 1),
+    0 0 2px rgba(255, 255, 255, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.cp-teleprompter__word--future {
+  /* "What comes next." Brighter than past words so the candidate
+     can read ahead and prepare the next breath, but slightly
+     dimmer than current so the cursor is unambiguous. */
+  opacity: 0.78;
+}
+
+/*
+ * Status badge — surfaces WPM / pause state / words-remaining when
+ * the candidate changes pace via the ⌥ hotkeys. Sits top-right of
+ * the teleprompter region, fades in on change, fades out after
+ * 1.8 s. The fade is deliberately slow on the way out so the
+ * candidate has time to read the new value if they're still
+ * looking up.
+ */
+.cp-teleprompter__status {
+  position: absolute;
+  top: 6px;
+  right: 16px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 380ms ease-out;
+}
+.cp-teleprompter__status--visible {
+  opacity: 1;
+}
+
+.cp-teleprompter__status-pill {
+  font-family:
+    'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Drop-shadow so the pill still reads against a bright
+     background. The cap on white slides ate the previous attempt. */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.cp-teleprompter__status-pill--subtle {
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/*
+ * Respect the candidate's accessibility preference. When the OS
+ * has "Reduce motion" enabled (System Settings → Accessibility →
+ * Display → Reduce motion), we drop the fade-in animation on the
+ * capsule and stop smooth-scrolling. The cursor itself stays
+ * blinking because turning it off would lose the "still streaming"
+ * signal; the candidate's eyes need to know "more is coming".
+ */
+@media (prefers-reduced-motion: reduce) {
+  .cp-teleprompter__capsule {
+    animation: none;
+  }
+  .cp-teleprompter__word {
+    transition: none;
+  }
+  .cp-teleprompter__status {
+    transition: opacity 80ms;
+  }
+}
+
 .cp-teleprompter__cursor {
   display: inline-block;
   width: 0.55em;

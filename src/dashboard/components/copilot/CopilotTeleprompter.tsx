@@ -1,37 +1,124 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../../store';
 
 /**
- * CopilotTeleprompter — Moody-style capsule overlay that reads the
- * current Copilot answer (in-flight stream OR most recent committed)
- * and renders it in a dark blurred capsule fixed to the bottom of the
- * viewport.
+ * CopilotTeleprompter — Moody-style notch teleprompter (Phase 3) +
+ * pace-aware word highlight (Phase 4a) + hotkeys (Phase 4a polish).
  *
- * Why a fixed-position overlay rather than a flow element inside the
- * `EmbeddedCopilotPanel`? Because during a real interview the user is
- * looking at Zoom/Meet on the bulk of their screen, not at our
- * dashboard sidebar. The teleprompter has to sit where the eyeline
- * already is — near the bottom of the display — without forcing the
- * candidate to dart between windows. Same pattern as Moody, Cluely,
- * Final Round AI.
+ * Reads the current Copilot answer from the store and renders it at
+ * the top of the viewport, near the MacBook notch. Words light up
+ * one at a time at a configurable WPM; the pace adapts to punctuation
+ * (commas slow it down, periods + line breaks add a breath) so the
+ * highlight feels like a thoughtful reader rather than a metronome.
  *
- * Typography reference (Phase 0 SOTA research):
- *   IBM Plex Mono, ~26-28 px, weight 500, off-white #EEE, line-height
- *   1.35, max-width ≈ 70 ch. Dark capsule with backdrop-filter blur
- *   so it composites over whatever is behind (video call frame,
- *   slides, code editor) without stealing visual attention.
+ * Phase 4b will replace the timer source with on-device ASR
+ * (Moonshine + banded Levenshtein) so the cursor truly tracks the
+ * candidate's voice. The token + cursor model used here is already
+ * the right shape for that swap.
  *
- * Visual hierarchy:
- *   - The text itself is the only feature. No chrome, no buttons.
- *   - The capsule auto-hides when there's no answer to show OR when
- *     the session is idle — never sits there as an empty box during
- *     "between questions" silence.
- *   - Phase 4 will add per-word highlighting driven by the candidate's
- *     own speech rate (Moonshine ASR + Levenshtein). This component
- *     is the surface that hosts that effect; the data model already
- *     splits `pendingAnswer` vs `lastAnswer` so we can layer the
- *     word-paced cursor in later without restructuring.
+ * # Hotkeys
+ *
+ * The candidate is in Zoom/Teams during a live session and CAN'T use
+ * bare modifier-free shortcuts — `Space` would mute their mic, `←/→`
+ * would seek the call's recording. We bind everything under `⌥`
+ * (Option) which neither Zoom nor Teams use for their main actions.
+ * The Career OS dashboard window has to be focused (CMD-Tab back if
+ * the user is in the video call), but a stealthy quick flip is part
+ * of the workflow already.
+ *
+ *   ⌥ Space   — pause / resume auto-advance
+ *   ⌥ ←       — step cursor back one word
+ *   ⌥ →       — step cursor forward one word
+ *   ⌥ ↑       — speed up (+10 WPM, clamped 80-260)
+ *   ⌥ ↓       — slow down (−10 WPM)
+ *   ⌥ R       — restart cursor at first word
+ *
+ * # Tunables
+ *
+ *   WPM_DEFAULT — 150 wpm reads as relaxed-conversational. The
+ *     candidate's own pace lives between 120 (consulting case
+ *     interview, paced reasoning) and 180 (tech / IB, punchier).
+ *   PUNCTUATION_HOLDS_MS — extra delay on top of the base interval
+ *     when the cursor crosses one of these tokens. Mirrors the way
+ *     a human reader breathes through commas / periods / line
+ *     breaks. Tuned by feel — too long and the cursor stalls,
+ *     too short and the answer reads as monotone.
+ *   STREAM_BUFFER_WORDS — never let the cursor catch up to the
+ *     trailing edge of the LLM stream; leave a buffer so the
+ *     candidate isn't speaking the literal token that just arrived.
+ *   POST_FINAL_HOLD_MS — once the LLM finishes streaming, hold the
+ *     cursor at its current position for this long before resuming.
  */
+const WPM_MIN = 80;
+const WPM_MAX = 260;
+const WPM_DEFAULT = 150;
+const WPM_STEP = 10;
+const STREAM_BUFFER_WORDS = 2;
+const POST_FINAL_HOLD_MS = 800;
+const STATUS_FADE_MS = 1800;
+
+/** Per-token "hold" added on top of the base WPM interval when the
+ *  cursor crosses certain punctuation. The amounts are tuned to feel
+ *  like natural breath points — a comma is a quick beat, a period
+ *  ends a thought, a newline opens a fresh idea. */
+const PUNCTUATION_HOLDS_MS = {
+  comma: 140,
+  semicolon: 220,
+  period: 280,
+  newline: 420,
+  /** Any other character — no extra hold. */
+  none: 0,
+} as const;
+
+interface Token {
+  kind: 'word' | 'space';
+  value: string;
+  /** Only set on word tokens. The extra millisecond hold to apply
+   *  AFTER this word is "passed" by the cursor, derived from the
+   *  punctuation/whitespace that follows it. */
+  trailingHoldMs?: number;
+}
+
+/** Split text into word / space tokens. We also pre-compute each
+ *  word's `trailingHoldMs` from the punctuation that follows it
+ *  (immediate ., ,, ;, or any \n inside the following whitespace).
+ *  This keeps the advance loop O(1) per tick. */
+function tokenize(text: string): Token[] {
+  if (!text) return [];
+  const out: Token[] = [];
+  const re = /(\s+)/g;
+  let last = 0;
+  for (const m of text.matchAll(re)) {
+    if (m.index! > last) {
+      const word = text.slice(last, m.index!);
+      out.push({ kind: 'word', value: word });
+    }
+    out.push({ kind: 'space', value: m[0] });
+    last = m.index! + m[0].length;
+  }
+  if (last < text.length) {
+    out.push({ kind: 'word', value: text.slice(last) });
+  }
+  // Compute trailingHoldMs for each word based on its terminal
+  // character + the whitespace that follows it.
+  for (let i = 0; i < out.length; i += 1) {
+    const t = out[i];
+    if (t.kind !== 'word') continue;
+    let hold: number = PUNCTUATION_HOLDS_MS.none;
+    const last = t.value.slice(-1);
+    if (last === ',') hold = PUNCTUATION_HOLDS_MS.comma;
+    else if (last === ';' || last === ':') hold = PUNCTUATION_HOLDS_MS.semicolon;
+    else if (last === '.' || last === '!' || last === '?') hold = PUNCTUATION_HOLDS_MS.period;
+    // A newline in the next whitespace token gets the biggest hold.
+    const next = out[i + 1];
+    if (next?.kind === 'space' && next.value.includes('\n')) {
+      hold = Math.max(hold, PUNCTUATION_HOLDS_MS.newline);
+    }
+    t.trailingHoldMs = hold;
+  }
+  return out;
+}
+
 export default function CopilotTeleprompter() {
   const sessions = useAppStore((s) => s.copilotSessions);
   const activeSessionId = useAppStore((s) => s.activeSessionId);
@@ -41,47 +128,211 @@ export default function CopilotTeleprompter() {
   const session =
     sessions.find((s) => s.id === activeSessionId) ?? sessions[0] ?? null;
   const lastAnswer = session?.answers[session.answers.length - 1] ?? null;
-
-  // Prefer the in-flight stream so the candidate sees tokens land in
-  // real time; once Claude finishes (status flips to listening) the
-  // pendingAnswer flushes into `lastAnswer` and we hold that on-screen
-  // until the next question arrives — same logic as CopilotAnswerCard.
   const text = pendingAnswer || lastAnswer?.text || '';
   const isStreaming = status === 'thinking' && pendingAnswer.length > 0;
 
-  // Auto-scroll the capsule to the bottom on every token. The
-  // capsule has a fixed max-height so multi-paragraph answers
-  // (notably pitch mode at ~3 min / ~420 words) overflow and need
-  // the same "always show the latest line" behaviour as a real
-  // teleprompter.
+  const tokens = useMemo(() => tokenize(text), [text]);
+  const wordTokens = useMemo(
+    () => tokens.filter((t) => t.kind === 'word'),
+    [tokens],
+  );
+  const totalWords = wordTokens.length;
+
+  const [cursor, setCursor] = useState(0);
+  const [wpm, setWpm] = useState(WPM_DEFAULT);
+  const [paused, setPaused] = useState(false);
+  const [statusVisible, setStatusVisible] = useState(false);
+
+  // Reset cursor when a fresh answer starts (text shrinks below
+  // its previous length, e.g. new question or pitch generation).
+  const lastTextLenRef = useRef(text.length);
+  useEffect(() => {
+    if (text.length < lastTextLenRef.current) {
+      setCursor(0);
+    }
+    lastTextLenRef.current = text.length;
+  }, [text]);
+
+  // Streaming cap — don't outrun the trailing edge of the LLM
+  // stream. While streaming, cap advance at totalWords − buffer.
+  const advanceCeiling = isStreaming
+    ? Math.max(0, totalWords - STREAM_BUFFER_WORDS)
+    : totalWords;
+
+  // Hold a beat once streaming finishes so the candidate can take
+  // a natural pause at end-of-answer.
+  const finishedAtRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isStreaming && text.length > 0) {
+      finishedAtRef.current = Date.now();
+    } else {
+      finishedAtRef.current = null;
+    }
+  }, [isStreaming, text.length]);
+
+  // Pace-aware auto-advance. The interval re-arms after every tick
+  // so we can apply punctuation-based extra holds without a
+  // separate timer or queue.
+  useEffect(() => {
+    if (totalWords === 0 || paused) return undefined;
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const baseMs = Math.round((60 * 1000) / Math.max(1, wpm));
+
+    const tick = () => {
+      if (cancelled) return;
+      setCursor((prev) => {
+        if (prev >= advanceCeiling) {
+          // Cursor at the cap. Re-check in 120 ms so we resume
+          // promptly when more text streams in or the stream ends.
+          timer = window.setTimeout(tick, 120);
+          return prev;
+        }
+        const fa = finishedAtRef.current;
+        if (fa !== null && Date.now() - fa < POST_FINAL_HOLD_MS) {
+          timer = window.setTimeout(tick, POST_FINAL_HOLD_MS);
+          return prev;
+        }
+        // Compute the delay AFTER this word: base interval plus
+        // whatever punctuation hold the current word carries.
+        const tok = wordTokens[prev];
+        const hold = tok?.trailingHoldMs ?? 0;
+        timer = window.setTimeout(tick, baseMs + hold);
+        return prev + 1;
+      });
+    };
+    timer = window.setTimeout(tick, baseMs);
+    return () => {
+      cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [totalWords, advanceCeiling, wpm, paused, wordTokens]);
+
+  // Surface the WPM / pause indicator briefly any time the user
+  // changes pace, then fade it out. The candidate doesn't need a
+  // permanent dashboard — just a flash to confirm the action.
+  useEffect(() => {
+    setStatusVisible(true);
+    const id = window.setTimeout(() => setStatusVisible(false), STATUS_FADE_MS);
+    return () => window.clearTimeout(id);
+  }, [wpm, paused]);
+
+  // Hotkeys. Option (alt) modifier across the board so we don't
+  // collide with Zoom/Teams keyboard shortcuts.
+  const bumpWpm = useCallback((delta: number) => {
+    setWpm((prev) => {
+      const next = prev + delta;
+      if (next < WPM_MIN) return WPM_MIN;
+      if (next > WPM_MAX) return WPM_MAX;
+      return next;
+    });
+  }, []);
+  const sessionActive = activeSessionId !== null && status !== 'idle';
+  useEffect(() => {
+    if (!sessionActive) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey) return;
+      switch (e.key) {
+        case ' ':
+        case 'Space':
+          e.preventDefault();
+          setPaused((p) => !p);
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          setCursor((c) => Math.max(0, c - 1));
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          setCursor((c) => Math.min(advanceCeiling, c + 1));
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          bumpWpm(WPM_STEP);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          bumpWpm(-WPM_STEP);
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          setCursor(0);
+          break;
+        default:
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sessionActive, advanceCeiling, bumpWpm]);
+
+  // Auto-scroll: keep the current word centered in the visible
+  // capsule region. `scrollIntoView` with smooth behaviour reads
+  // way better than pinning to scrollHeight (which hides earlier
+  // lines as the answer grows).
   const bodyRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [text]);
+    const target = el.querySelector<HTMLElement>(
+      `[data-word-index="${cursor}"]`,
+    );
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [cursor]);
 
-  // Hide entirely when there's nothing to show — never sit there as
-  // dead chrome over the user's video call.
-  const sessionActive = activeSessionId !== null && status !== 'idle';
   if (!sessionActive || !text.trim()) return null;
 
+  // Words remaining count — surfaced in the status badge so the
+  // candidate has a rough sense of how long the answer is.
+  const remaining = Math.max(0, totalWords - cursor);
+
+  let wordSeq = 0;
   return (
     <div className="cp-teleprompter" role="region" aria-label="Copilot teleprompter">
       <div className="cp-teleprompter__capsule">
         <div ref={bodyRef} className="cp-teleprompter__body">
-          {/* `white-space: pre-wrap` in CSS preserves any `\n` the
-              system prompt emits at clause boundaries — that's the
-              cheap version of "semantic line breaks" Moody hand-
-              authors. Worker-side prompt will be tuned to emit them
-              at natural breath points. */}
           <p className="cp-teleprompter__text">
-            {text}
+            {tokens.map((t, i) => {
+              if (t.kind === 'space') {
+                return <span key={i}>{t.value}</span>;
+              }
+              const idx = wordSeq;
+              wordSeq += 1;
+              let cls = 'cp-teleprompter__word';
+              if (idx < cursor) cls += ' cp-teleprompter__word--past';
+              else if (idx === cursor) cls += ' cp-teleprompter__word--current';
+              else cls += ' cp-teleprompter__word--future';
+              return (
+                <span key={i} className={cls} data-word-index={idx}>
+                  {t.value}
+                </span>
+              );
+            })}
             {isStreaming && (
               <span className="cp-teleprompter__cursor" aria-hidden="true" />
             )}
           </p>
         </div>
+      </div>
+
+      {/* Status badge — surfaces the current WPM + pause state
+          + words remaining. Fades in on change, fades out after
+          STATUS_FADE_MS. `aria-hidden` because screen readers
+          would announce every tick; the cursor itself is the
+          accessible signal of progress. */}
+      <div
+        className={`cp-teleprompter__status${statusVisible ? ' cp-teleprompter__status--visible' : ''}`}
+        aria-hidden="true"
+      >
+        <span className="cp-teleprompter__status-pill">
+          {paused ? 'Paused' : `${wpm} wpm`}
+        </span>
+        <span className="cp-teleprompter__status-pill cp-teleprompter__status-pill--subtle">
+          {remaining} words left
+        </span>
       </div>
     </div>
   );
