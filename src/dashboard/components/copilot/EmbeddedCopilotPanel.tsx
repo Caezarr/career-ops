@@ -104,12 +104,20 @@ export default function EmbeddedCopilotPanel() {
 
       {sessionActive && <InterviewSessionBar />}
 
-      <LiveTranscript />
-      <CopilotAnswerCard />
-      {/* Phase 3 — Moody-style teleprompter capsule. Position: fixed
-          so it renders as a bottom-of-viewport overlay regardless of
-          where this panel lives in the DOM. Hides itself when no
-          session is active OR no answer to show. */}
+      {/* Transcript + answer card render ONLY while a session is
+          active. On app launch (or after a session ends) the user
+          should see a clean "Start a new session" state — not the
+          fallback rendering of the most recent past session, which
+          made the Copilot look like it was already running and
+          confused the start-fresh flow.
+
+          Past sessions remain reviewable via the Recent Sessions
+          panel elsewhere on the dashboard. */}
+      {sessionActive && <LiveTranscript />}
+      {sessionActive && <CopilotAnswerCard />}
+      {/* Teleprompter has its own internal `if (!sessionActive)
+          return null` guard — safe to leave mounted; it renders
+          fragmentary mounts cheaply. */}
       <CopilotTeleprompter />
 
       {error && (
