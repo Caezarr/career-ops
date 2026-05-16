@@ -487,7 +487,19 @@ async fn run_aai_stream(
 
     let stop_reader = stop_flag.clone();
     tokio::spawn(async move {
-        let mut last_idx: usize = 0;
+        // Discard the backlog accumulated between audio-tap start and
+        // AAI WebSocket connect — typically ~1.5-2 s on macOS Tahoe
+        // because cpal device init + WS handshake aren't instantaneous.
+        // Without this seed, the very first frame we send to AAI
+        // contains all that backlog as ONE binary message (~60 KB at
+        // 16 kHz mono PCM 16-bit), which AAI v3 closes with code 3007
+        // ("See Error message for details" / oversized frame). Setting
+        // last_idx to the current buffer length skips straight to
+        // real-time audio.
+        let mut last_idx: usize = match audio_buf.lock() {
+            Ok(g) => g.len(),
+            Err(p) => p.into_inner().len(),
+        };
         loop {
             if stop_reader.load(Ordering::SeqCst) { break; }
             tokio::time::sleep(Duration::from_millis(CHUNK_MS)).await;
