@@ -758,7 +758,13 @@ function buildCopilotSession(): {
 export function loadDemoSeed(): void {
   const { jobs, applications } = buildJobsAndApplications();
   const { cvs, defaultCvId, atsByDefault } = buildCvs();
-  const { session, pendingAnswer, pendingTranscript } = buildCopilotSession();
+  // `pendingAnswer` + `pendingTranscript` from `buildCopilotSession`
+  // are intentionally ignored — the demo seed must not simulate an
+  // in-flight session (see the `activeSessionId: null` assignment
+  // below + the EmbeddedCopilotPanel gate). Keeping the builder's
+  // return shape unchanged for any future debug seed that DOES want
+  // to mock a live session.
+  const { session } = buildCopilotSession();
   const user = buildUser();
   const todaysTasks = buildTodayTasks();
   const notifications = buildNotifications();
@@ -772,10 +778,19 @@ export function loadDemoSeed(): void {
     selectedCvId: defaultCvId,
     atsByCv: { [defaultCvId]: atsByDefault },
     copilotSessions: [session],
-    activeSessionId: session.id,
-    copilotStatus: "thinking",
-    pendingTranscript,
-    pendingAnswer,
+    // Demo seed populates Copilot HISTORY so Recent Sessions has
+    // content out of the box. It must NOT simulate a live session —
+    // doing so (the old `activeSessionId + status:"thinking"` combo)
+    // made the dashboard render LiveTranscript + CopilotAnswerCard as
+    // if a real interview was already underway, breaking the "click
+    // Start to begin" mental model and tripping the teleprompter
+    // bridge into auto-showing the standalone window. The seeded
+    // session lives in `copilotSessions` but is finished from the
+    // user's perspective.
+    activeSessionId: null,
+    copilotStatus: "idle",
+    pendingTranscript: "",
+    pendingAnswer: "",
     copilotError: null,
     selectedApplicationId: applications[0]?.id ?? null,
     todaysTasks,
