@@ -54,8 +54,8 @@ base64 = "0.22"
 # sibling (see the stub's module doc for the full restore checklist).
 # Until then `audio_tap.rs` is a stub that errors out on use, and
 # session.rs/audio.rs gracefully fall back to the legacy cpal loopback.
-# ringbuf = "0.4"
-# cidre = "0.11"
+ringbuf = "0.4"
+cidre = "0.11"
 # Used by `pdf::profile` for regex-based contact extraction
 # (email / phone / LinkedIn / GitHub / portfolio) when the user
 # uploads a CV during onboarding. Compiled-once statics live in
