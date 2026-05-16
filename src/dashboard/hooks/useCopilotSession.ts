@@ -241,6 +241,23 @@ export function useCopilotControls() {
   const endCopilotSession = useAppStore((s) => s.endCopilotSession);
   const commitPendingAnswer = useAppStore((s) => s.commitPendingAnswer);
 
+  // Idempotency guard for start(). The Tauri `start_session` command
+  // is destructive on re-entry: it cancels any existing session via
+  // `s.stop_signal.take().send(())` then starts a fresh pipeline.
+  // Combine that with React StrictMode's dev-mode double-mount (or
+  // a user double-clicking the Start button), and you get:
+  //   - invoke #1 → spawns audio-tap + AAI streams (session A)
+  //   - invoke #2 → cancels session A, spawns session B
+  //   - session A emits "session ended" → React flips status to idle
+  //   - session B is running but the UI shows idle → confusing
+  // The user reported exactly this pattern: ~1.7s after Start, the
+  // button reverted to "Start session" with no transcript activity,
+  // and the Rust logs showed two audio-tap inits (one per invoke).
+  //
+  // This ref short-circuits any second call to start() while a first
+  // is in flight. Released in both the success and error paths.
+  const startingRef = useRef(false);
+
   /** Build a CaptureConfig with optional job/CV context overrides.
    *  When `cvText`/`jdText` are provided (e.g. from a linked Job /
    *  CV), they win over the legacy `ic-config.cv` / `ic-config.jd`
@@ -289,6 +306,15 @@ export function useCopilotControls() {
       /** Optional CV variant — parsed text fed to Claude as context. */
       cvId?: string;
     }) => {
+      // Idempotency: bail if a start() is already running. See
+      // `startingRef` declaration for full rationale (StrictMode +
+      // destructive-re-entry on the Rust side).
+      if (startingRef.current) {
+        // eslint-disable-next-line no-console
+        console.warn('[copilot] start() ignored — a session start is already in flight');
+        return false;
+      }
+      startingRef.current = true;
       const cfg = readCopilotConfig();
       // Pre-pivot BYOK gate removed: Career OS hosts the Anthropic
       // credit on the Worker. Auth is enforced server-side via the
@@ -345,6 +371,7 @@ export function useCopilotControls() {
             ? e.message
             : 'Transcription token unavailable. Try again in a moment.';
         setError(msg);
+        startingRef.current = false;
         return false;
       }
 
@@ -397,10 +424,12 @@ export function useCopilotControls() {
           console.warn('[copilot] stealth mode enable failed:', err);
         });
         setStatus('listening');
+        startingRef.current = false;
         return true;
       } catch (e) {
         setError(String(e));
         setStatus('error');
+        startingRef.current = false;
         return false;
       }
     },
