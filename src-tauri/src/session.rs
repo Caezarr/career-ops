@@ -596,7 +596,20 @@ async fn run_aai_stream(
 
         let ev = match serde_json::from_str::<AaiEvent>(&text) {
             Ok(e)  => e,
-            Err(_) => continue,
+            Err(_) => {
+                // AAI sends error / info messages as Text frames that
+                // don't match our `AaiEvent` schema (no `type` field,
+                // or `type: "Error"`). Log the raw payload so we see
+                // exactly why AAI is closing — the close-frame
+                // reason="See Error message for details" we're chasing
+                // refers to one of these.
+                tracing::warn!(
+                    "AAI unparseable msg ({}): {}",
+                    side.label(),
+                    text.chars().take(500).collect::<String>(),
+                );
+                continue;
+            }
         };
 
         match ev.event_type.as_str() {
