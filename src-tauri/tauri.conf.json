@@ -109,7 +109,8 @@
     "shortDescription": "Career OS — dashboard, war room, CV manager, and stealth live interview copilot",
     "longDescription": "Mac app that owns the entire job-hunt loop: track applications, tailor CV variants, drill prep questions, and get a CV-grounded stealth coach during live interviews.",
     "macOS": {
-      "infoPlist": "Info.plist"
+      "infoPlist": "Info.plist",
+      "entitlements": "entitlements.plist"
     }
   }
 }
