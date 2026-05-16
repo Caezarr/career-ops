@@ -44,10 +44,14 @@ use tracing::{info, warn};
 // that temp token through `CaptureConfig::assemblyai_key`. We append it as
 // a `?token=<…>` query parameter on the WebSocket URL — no Authorization
 // header needed (and AssemblyAI v3 rejects the header anyway).
+// Dropped `&speech_model=u3-rt-pro` 2026-05-16: AAI v3 closes the
+// stream with code 3007 ("See Error message for details") after
+// ~9 s of valid 100-ms frames when the param is present. The
+// model alias was probably retired between when the agent wrote
+// Phase 4b and now; without the param AAI selects its default
+// streaming model, which is what we want anyway.
 const AAI_WS_URL_BASE: &str =
-    "wss://streaming.assemblyai.com/v3/ws\
-     ?sample_rate=16000\
-     &speech_model=u3-rt-pro";
+    "wss://streaming.assemblyai.com/v3/ws?sample_rate=16000";
 
 /// How many ms of audio we batch per WebSocket frame sent to AssemblyAI.
 /// Reverted from 50 ms back to 100 ms — the 50 ms experiment killed
