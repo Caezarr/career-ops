@@ -336,7 +336,10 @@ async fn set_teleprompter_visible(
             let size = monitor.size();
             let scale = monitor.scale_factor();
             let logical_w = (size.width as f64) / scale;
-            let _ = tp.set_size(tauri::LogicalSize::new(logical_w, 220.0));
+            // 320 px: enough for 3-4 lines of the 44 px Courier text
+            // with line-height 1.45 (≈64 px/line) + the top padding.
+            // Bumped from 220 when the Phase 6 visual upgrade landed.
+            let _ = tp.set_size(tauri::LogicalSize::new(logical_w, 320.0));
             // Anchor to the top-left of the primary monitor. macOS
             // counts the notch height into the menu bar inset that
             // the CSS already accounts for.

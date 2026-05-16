@@ -136,34 +136,43 @@ body.view-teleprompter #root {
 
 .cp-teleprompter__text {
   margin: 0;
-  /* Monospace stack — IBM Plex Mono first if the user has it,
-     SF Mono next (ships with macOS), Menlo as the ultimate
-     fallback. */
+  /* Monospace stack — Courier Prime ships the closest aesthetic to
+     the Moody reference shot (real typewriter rhythm vs IBM Plex
+     Mono's tighter "screen-mono" feel). SF Mono and IBM Plex sit
+     behind it as graceful fallbacks. */
   font-family:
+    'Courier Prime',
+    'Courier New',
     'IBM Plex Mono',
     'SFMono-Regular',
     Menlo,
     Consolas,
     'Liberation Mono',
     monospace;
-  font-size: 34px;
-  line-height: 1.32;
-  font-weight: 500;
-  color: #EFEFEF;
-  letter-spacing: 0.01em;
+  font-size: 44px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #F4F4F4;
+  letter-spacing: 0.02em;
   white-space: pre-wrap;
   font-variant-numeric: tabular-nums;
-  /* The big visual trick: heavy text-shadow + outline so the
-     monospace stays legible against ANY background (slides,
-     code editor, a brightly-lit Zoom face cam, the menu bar).
-     Without this, white text on a white slide is illegible. */
+  /* Layered shadow stack — three jobs:
+     1. Deep black halo (24 px) → text composites cleanly on any
+        backdrop (slides, code editor, video face cam, menu bar)
+     2. Tighter 4 px shadow → makes the letterforms POP, not float
+     3. 1 px white inner glow → the subtle "premium / signal" feel
+        that distinguishes a real teleprompter from a debug overlay
+     The white glow is intentionally tiny (0.15 alpha) — bigger and
+     it reads as a glow effect; this size reads as "high quality
+     rendering." */
   text-shadow:
-    0 0 12px rgba(0, 0, 0, 0.85),
-    0 0 4px rgba(0, 0, 0, 0.95),
-    0 2px 6px rgba(0, 0, 0, 0.6);
-  /* WebKit-only stroke for extra contrast (Safari & WKWebView in
-     Tauri both honour this). Falls back gracefully on Linux. */
-  -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.4);
+    0 0 24px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 1),
+    0 0 1px rgba(255, 255, 255, 0.15),
+    0 2px 10px rgba(0, 0, 0, 0.7);
+  /* Slightly heavier text stroke for true edge definition at 44 px.
+     Falls back gracefully off-WebKit. */
+  -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.55);
 }
 
 /*
@@ -318,8 +327,9 @@ body.view-teleprompter #root {
     padding: 0 12px;
   }
   .cp-teleprompter__text {
-    font-size: 26px;
-    line-height: 1.3;
+    font-size: 32px;
+    line-height: 1.4;
+    letter-spacing: 0.015em;
   }
   .cp-teleprompter__body {
     max-height: 40vh;
