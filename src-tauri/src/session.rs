@@ -673,7 +673,20 @@ async fn run_aai_stream(
                 }
             }
             "Termination" => break,
-            _ => {}
+            other => {
+                // Anything that isn't Turn / Termination — log it so we
+                // can see Begin handshakes, RateLimitExceeded warnings,
+                // Error messages, audio-too-quiet warnings, etc. Without
+                // this every AAI heartbeat is invisible and we mistake
+                // server-side silence detection for client-side bugs.
+                tracing::info!(
+                    "AAI msg ({}) type={} transcript_len={} end_of_turn={}",
+                    side.label(),
+                    other,
+                    ev.transcript.len(),
+                    ev.end_of_turn,
+                );
+            }
         }
     }
 
