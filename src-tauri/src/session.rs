@@ -673,12 +673,23 @@ async fn run_aai_stream(
                 }
             }
             "Termination" => break,
+            "Error" => {
+                // AAI's Error messages carry their payload in
+                // fields our typed `AaiEvent` struct doesn't know
+                // about (error_code, message, etc). Log the FULL
+                // raw JSON so we see exactly what AAI is complaining
+                // about — this is the message the close-frame
+                // reason="See Error message for details" refers to.
+                tracing::warn!(
+                    "AAI Error ({}): {}",
+                    side.label(),
+                    text.chars().take(800).collect::<String>(),
+                );
+            }
             other => {
-                // Anything that isn't Turn / Termination — log it so we
-                // can see Begin handshakes, RateLimitExceeded warnings,
-                // Error messages, audio-too-quiet warnings, etc. Without
-                // this every AAI heartbeat is invisible and we mistake
-                // server-side silence detection for client-side bugs.
+                // Anything that isn't Turn / Termination / Error —
+                // Begin handshakes, RateLimit warnings, etc. Log
+                // type only (these are usually informational).
                 tracing::info!(
                     "AAI msg ({}) type={} transcript_len={} end_of_turn={}",
                     side.label(),
