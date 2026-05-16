@@ -523,12 +523,33 @@ async fn run_aai_stream(
     });
 
     // ── pcm channel → WebSocket binary frames ─────────────────────────────────
+    // Diagnostic logging added 2026-05-16: user-reported "no transcript
+    // even when AAI is connected". We were flying blind on whether
+    // frames were actually being sent + on AAI's close reason. The
+    // counter logs every ~10 frames so we see a steady ~1 line/sec
+    // at 100 ms chunks; absent that, the resampler/cpal upstream is
+    // emitting zero samples.
     let stop_sender = stop_flag.clone();
+    let side_for_send = side;
     tokio::spawn(async move {
+        let mut frames_sent: u64 = 0;
+        let mut bytes_sent: u64 = 0;
         while let Some(pcm) = pcm_rx.recv().await {
             if stop_sender.load(Ordering::SeqCst) { break; }
+            bytes_sent += pcm.len() as u64;
             if ws_sink.send(Message::Binary(pcm.into())).await.is_err() { break; }
+            frames_sent += 1;
+            if frames_sent % 10 == 0 {
+                tracing::info!(
+                    "AAI tx ({}): {frames_sent} frames, {bytes_sent} bytes",
+                    side_for_send.label(),
+                );
+            }
         }
+        tracing::info!(
+            "AAI tx done ({}): {frames_sent} frames, {bytes_sent} bytes total",
+            side_for_send.label(),
+        );
         let _ = ws_sink
             .send(Message::Text(r#"{"type":"Terminate"}"#.to_string()))
             .await;
@@ -541,7 +562,22 @@ async fn run_aai_stream(
 
         let text = match msg {
             Ok(Message::Text(t))  => t,
-            Ok(Message::Close(_)) => break,
+            Ok(Message::Close(frame)) => {
+                // Diagnostic: surface the close reason. AAI v3 closes
+                // with explicit code + text on auth / format / no-audio
+                // errors; without this log we're guessing.
+                if let Some(cf) = frame {
+                    tracing::warn!(
+                        "AAI WS closed ({}): code={}, reason={:?}",
+                        side.label(),
+                        cf.code,
+                        cf.reason.as_ref(),
+                    );
+                } else {
+                    tracing::warn!("AAI WS closed ({}) with no close frame", side.label());
+                }
+                break;
+            }
             Err(e) => { warn!("WS recv error ({}): {e}", side.label()); break; }
             _      => continue,
         };
