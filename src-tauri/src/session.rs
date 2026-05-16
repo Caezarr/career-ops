@@ -44,14 +44,28 @@ use tracing::{info, warn};
 // that temp token through `CaptureConfig::assemblyai_key`. We append it as
 // a `?token=<…>` query parameter on the WebSocket URL — no Authorization
 // header needed (and AssemblyAI v3 rejects the header anyway).
-// Dropped `&speech_model=u3-rt-pro` 2026-05-16: AAI v3 closes the
-// stream with code 3007 ("See Error message for details") after
-// ~9 s of valid 100-ms frames when the param is present. The
-// model alias was probably retired between when the agent wrote
-// Phase 4b and now; without the param AAI selects its default
-// streaming model, which is what we want anyway.
+// Model selection saga 2026-05-16 (chasing close codes 3007 → 3006):
+//
+// 1. Original code (Phase 4b agent): `speech_model=u3-rt-pro`. AAI
+//    closes after ~9 s with 3007. Turns out u3-rt-pro is a DIFFERENT
+//    endpoint (`/v3/ws/u3-rt-pro`); on the plain `/v3/ws` URL it's
+//    not a valid model.
+// 2. Removed the param entirely → AAI closes IMMEDIATELY with 3006
+//    (model required, no default).
+// 3. Set to `universal-streaming-multilingual` — the correct alias
+//    for the public `/v3/ws` endpoint, covers French AND English
+//    which is what Career OS needs (MBB/IB/FAANG interviews swap
+//    languages mid-conversation).
+//
+// Alternatives if `universal-streaming-multilingual` ever proves
+// too lossy on accented English: `universal-streaming-english` is
+// EN-only and slightly more accurate; `whisper-rt` is the highest-
+// accuracy option but with a latency hit.
 const AAI_WS_URL_BASE: &str =
-    "wss://streaming.assemblyai.com/v3/ws?sample_rate=16000";
+    "wss://streaming.assemblyai.com/v3/ws\
+     ?sample_rate=16000\
+     &speech_model=universal-streaming-multilingual\
+     &format_turns=true";
 
 /// How many ms of audio we batch per WebSocket frame sent to AssemblyAI.
 /// Reverted from 50 ms back to 100 ms — the 50 ms experiment killed
