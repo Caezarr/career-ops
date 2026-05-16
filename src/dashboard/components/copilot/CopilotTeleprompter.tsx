@@ -59,7 +59,15 @@ import {
  */
 const WPM_MIN = 80;
 const WPM_MAX = 260;
-const WPM_DEFAULT = 150;
+// Bumped from 150 → 180 after the user-reported lag ("I finish
+// phrases before the prompter can continue"). 180 wpm is closer to
+// the actual speaking pace of MBB / IB candidates under interview
+// pressure (literature says 160-200 wpm for fluent English /
+// French monologue, faster than the relaxed-conversational 130-150
+// the original default targeted). The Phase 4b ASR matcher still
+// overrides this when it has a confident word match — the WPM
+// timer is now the silence fallback only.
+const WPM_DEFAULT = 180;
 const WPM_STEP = 10;
 const STREAM_BUFFER_WORDS = 2;
 const POST_FINAL_HOLD_MS = 800;

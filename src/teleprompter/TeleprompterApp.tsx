@@ -42,7 +42,11 @@ import '../dashboard/styles/copilot-teleprompter.css';
 
 const WPM_MIN = 80;
 const WPM_MAX = 260;
-const WPM_DEFAULT = 150;
+// Bumped 150 → 180 — see the matching constant + comment in
+// `CopilotTeleprompter.tsx`. The two windows must stay aligned
+// or the candidate gets two different paces depending on which
+// renderer is on screen.
+const WPM_DEFAULT = 180;
 const WPM_STEP = 10;
 const STREAM_BUFFER_WORDS = 2;
 const POST_FINAL_HOLD_MS = 800;

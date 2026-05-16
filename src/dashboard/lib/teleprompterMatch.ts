@@ -40,9 +40,20 @@
  * matching whole words, not phonemes).
  */
 
-const DEFAULT_NEEDLE_TAIL = 4;
+// Tuning constants — bumped after real-call testing showed the
+// cursor lagging behind the candidate's actual speech ("I finish
+// phrases before the prompter can continue"). The original values
+// were conservative against false matches; field experience says
+// the candidate's pace is the bigger risk.
+const DEFAULT_NEEDLE_TAIL = 5;
 const DEFAULT_BACK_TOLERANCE = 2;
-const CONFIDENCE_THRESHOLD = 0.4;
+const CONFIDENCE_THRESHOLD = 0.5;
+/** When a match lands, advance the cursor a small step BEYOND the
+ *  matched window. Compensates for the ~500 ms AAI streaming
+ *  latency between the candidate speaking a word and that word
+ *  showing up in the spoken tokens we match against. Empirically:
+ *  the candidate is already 1-2 words ahead of where we're matching. */
+const SPECULATIVE_LOOKAHEAD = 1;
 
 /**
  * Normalise a single token: lowercase + strip everything that isn't
@@ -184,9 +195,14 @@ export function matchSpokenToScript(
 
   if (bestEnd === null) return null;
   // Threshold scales with needle length so a 3-word needle requires
-  // tighter agreement than a 5-word one (3 * 0.4 = 1.2 edit budget vs
-  // 5 * 0.4 = 2). Math.floor keeps the budget integer-comparable.
+  // tighter agreement than a 5-word one (3 * 0.5 = 1.5 edit budget vs
+  // 5 * 0.5 = 2.5). Math.floor keeps the budget integer-comparable.
   const maxAllowed = Math.floor(needle.length * threshold);
   if (bestDistance > maxAllowed) return null;
-  return bestEnd;
+  // Speculative lookahead — the candidate has already moved ahead of
+  // the words we just matched (AAI streaming latency is ~500 ms). If
+  // we land the cursor exactly at the matched end, it stays one or
+  // two words behind real speech the whole session. Clamp to the
+  // script tail so we never overshoot the end of the answer.
+  return Math.min(script.length, bestEnd + SPECULATIVE_LOOKAHEAD);
 }

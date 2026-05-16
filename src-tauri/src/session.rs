@@ -50,7 +50,13 @@ const AAI_WS_URL_BASE: &str =
      &speech_model=u3-rt-pro";
 
 /// How many ms of audio we batch per WebSocket frame sent to AssemblyAI.
-const CHUNK_MS: u64 = 100;
+/// 50 ms is AAI's recommended minimum chunk size for live streaming —
+/// any tighter risks getting throttled, any looser stalls the on-screen
+/// transcript noticeably. User-reported "transcript is slow" maps to
+/// the previous 100 ms config: ~50 ms wasted per chunk before AAI even
+/// sees the audio. Halving the chunk size halves that latency without
+/// changing AAI's own processing pipeline.
+const CHUNK_MS: u64 = 50;
 
 // ── AssemblyAI transcript event ───────────────────────────────────────────────
 
