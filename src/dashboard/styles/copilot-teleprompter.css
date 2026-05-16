@@ -28,6 +28,34 @@
  * macOS ships SF Mono + Menlo as graceful fallbacks at this size.
  */
 
+/*
+ * Standalone teleprompter window only — make the WebView background
+ * transparent so the OS-level `transparent: true` on the Tauri window
+ * actually shows through to whatever app is behind (Zoom, Teams, the
+ * candidate's desktop). Without this, WKWebView paints the system
+ * default body background and the user sees a 220 px tall opaque bar
+ * at the top of their screen instead of a clean notch overlay.
+ *
+ * Scoped to `body.view-teleprompter` (class added in `src/main.tsx`
+ * based on the route hash) so the dashboard window keeps its own
+ * `--bg` dark surface and doesn't accidentally go see-through.
+ */
+body.view-teleprompter,
+body.view-teleprompter html,
+body.view-teleprompter #root {
+  background: transparent !important;
+  /* The dashboard's `.app` shell uses `backdrop-filter: blur(40px)`
+     which would compound with the teleprompter window's own blur and
+     wash out the text. Force it off in this view. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  /* Drop the rounded border the dashboard shell adds — the prompter
+     spans the full top of the screen and any border would draw a thin
+     line across the menu bar. */
+  border: none !important;
+  border-radius: 0 !important;
+}
+
 .cp-teleprompter {
   /* Pinned to the top-center of the viewport. The notch area on a
      14"/16" MacBook is ~32 px tall — we shift the text down a

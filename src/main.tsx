@@ -22,6 +22,13 @@ const view: View =
       ? "teleprompter"
       : "dashboard";
 
+// Tag the body so view-specific CSS can scope itself. Critical for the
+// teleprompter window: the Tauri shell is set to transparent + frameless,
+// but WKWebView paints the body background by default — without an
+// explicit `background: transparent` the candidate sees a 220 px tall
+// black bar at the top of their screen instead of a notch overlay.
+document.body.classList.add(`view-${view}`);
+
 const root = ReactDOM.createRoot(document.getElementById("root")!);
 
 // Sprint 1 PR-B: hydrate the Keychain-backed secrets cache + run
