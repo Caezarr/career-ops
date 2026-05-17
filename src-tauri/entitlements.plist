@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!--
+  Hardened-runtime entitlements for Career OS.
+
+  Without an `entitlements.plist` bound to the code signature, macOS
+  Tahoe (26+) silently refuses any TCC-gated capability the app
+  declares in Info.plist. The user grants nothing in System Settings
+  because the OS never even asks — the request is rejected before
+  reaching the user-facing permission flow.
+
+  This file declares the minimum entitlements Career OS needs:
+
+    audio-input
+      Microphone access for the cpal mic capture (Phase 4b user-
+      voice transcription) AND the WKWebView getUserMedia loop
+      (mic-meter UI).
+
+    allow-unsigned-executable-memory + allow-jit
+      Required for WebKit's V8 engine inside WKWebView — without
+      them the dashboard webview won't load on hardened runtime.
+
+    cs.disable-library-validation
+      Tauri's plugin loader links some helpers at runtime. With
+      strict library validation the loader bails on hardened
+      runtime. Disabled here only — the binary itself stays
+      hardened.
+
+  Things we intentionally DON'T enable:
+
+    com.apple.security.app-sandbox
+      Career OS is NOT sandboxed. The Core Audio Tap, the
+      Keychain access, and the deep-link URL scheme all need
+      out-of-sandbox capabilities. Distribution path is direct
+      DMG download (not the Mac App Store), so sandbox is
+      optional.
+
+    com.apple.security.network.client
+      Outbound network is allowed by default for non-sandboxed
+      apps. Declaring it explicitly would be a no-op.
+
+  Bound to the code signature via tauri.conf.json::bundle.macOS
+  .entitlements. On `pnpm tauri build` the signer reads this file
+  and embeds it into the binary's __TEXT.__entitlements section.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

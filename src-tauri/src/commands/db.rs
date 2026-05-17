@@ -480,3 +480,89 @@ pub async fn db_set_bookmark(
     assert_main_or_copilot_db(&window)?;
     db::ingest::set_bookmark(&pool, &job_id, bookmarked).await
 }
+
+// ============================================================================
+// DB commands — Copilot conversations (Sprint Week 1, task 1.3)
+// ============================================================================
+//
+// Persistent Live Copilot conversations + messages. The store on the
+// dashboard side calls these via `invoke('db_copilot_*', …)`; persistence
+// is fail-soft (frontend logs to console on error and keeps the session
+// going) so a transient DB hiccup never tanks a live interview.
+
+#[tauri::command]
+pub async fn db_copilot_create_conversation(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+    input: db::copilot_conversation::CreateConversationInput,
+) -> Result<db::copilot_conversation::CopilotConversation, DbError> {
+    assert_main_or_copilot_db(&window)?;
+    db::copilot_conversation::create(pool.inner(), input).await
+}
+
+#[tauri::command]
+pub async fn db_copilot_append_message(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+    input: db::copilot_conversation::AppendMessageInput,
+) -> Result<db::copilot_conversation::CopilotMessage, DbError> {
+    assert_main_or_copilot_db(&window)?;
+    db::copilot_conversation::append_message(pool.inner(), input).await
+}
+
+#[tauri::command]
+pub async fn db_copilot_load_conversation(
+    pool: State<'_, SqlitePool>,
+    id: String,
+) -> Result<db::copilot_conversation::ConversationWithMessages, DbError> {
+    db::copilot_conversation::load(pool.inner(), &id).await
+}
+
+#[tauri::command]
+pub async fn db_copilot_list_conversations(
+    pool: State<'_, SqlitePool>,
+    limit: Option<u32>,
+    offset: Option<u32>,
+) -> Result<Vec<db::copilot_conversation::ConversationSummary>, DbError> {
+    db::copilot_conversation::list(pool.inner(), limit, offset).await
+}
+
+#[tauri::command]
+pub async fn db_copilot_search_conversations(
+    pool: State<'_, SqlitePool>,
+    query: String,
+    limit: Option<u32>,
+) -> Result<Vec<db::copilot_conversation::ConversationSummary>, DbError> {
+    db::copilot_conversation::search(pool.inner(), &query, limit).await
+}
+
+#[tauri::command]
+pub async fn db_copilot_archive_conversation(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+    id: String,
+) -> Result<(), DbError> {
+    assert_main_or_copilot_db(&window)?;
+    db::copilot_conversation::archive(pool.inner(), &id).await
+}
+
+#[tauri::command]
+pub async fn db_copilot_delete_conversation(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+    id: String,
+) -> Result<(), DbError> {
+    assert_main_or_copilot_db(&window)?;
+    db::copilot_conversation::delete(pool.inner(), &id).await
+}
+
+#[tauri::command]
+pub async fn db_copilot_update_title(
+    window: WebviewWindow,
+    pool: State<'_, SqlitePool>,
+    id: String,
+    title: String,
+) -> Result<(), DbError> {
+    assert_main_or_copilot_db(&window)?;
+    db::copilot_conversation::update_title(pool.inner(), &id, &title).await
+}

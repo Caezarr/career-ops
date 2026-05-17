@@ -1,4 +1,5 @@
 pub mod application;
+pub mod copilot_conversation;
 pub mod cv;
 pub mod error;
 pub mod ingest;

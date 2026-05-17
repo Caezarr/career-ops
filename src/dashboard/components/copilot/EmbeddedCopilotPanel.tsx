@@ -5,6 +5,7 @@ import ModeTabsRow from './ModeTabsRow';
 import InterviewSessionBar from './InterviewSessionBar';
 import LiveTranscript from './LiveTranscript';
 import CopilotAnswerCard from './CopilotAnswerCard';
+import CopilotTeleprompter from './CopilotTeleprompter';
 import ModelStatusBar from './ModelStatusBar';
 import ConfigurationPanel from './ConfigurationPanel';
 import CopilotContextPicker from './CopilotContextPicker';
@@ -103,8 +104,21 @@ export default function EmbeddedCopilotPanel() {
 
       {sessionActive && <InterviewSessionBar />}
 
-      <LiveTranscript />
-      <CopilotAnswerCard />
+      {/* Transcript + answer card render ONLY while a session is
+          active. On app launch (or after a session ends) the user
+          should see a clean "Start a new session" state — not the
+          fallback rendering of the most recent past session, which
+          made the Copilot look like it was already running and
+          confused the start-fresh flow.
+
+          Past sessions remain reviewable via the Recent Sessions
+          panel elsewhere on the dashboard. */}
+      {sessionActive && <LiveTranscript />}
+      {sessionActive && <CopilotAnswerCard />}
+      {/* Teleprompter has its own internal `if (!sessionActive)
+          return null` guard — safe to leave mounted; it renders
+          fragmentary mounts cheaply. */}
+      <CopilotTeleprompter />
 
       {error && (
         <div className="cp-embedded-panel__error" role="alert">

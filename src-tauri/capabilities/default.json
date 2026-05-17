@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Default capabilities",
-  "windows": ["main", "copilot"],
+  "windows": ["main", "copilot", "teleprompter"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",

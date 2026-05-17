@@ -25,6 +25,13 @@ interface Config {
   assemblyai_key: string;
 }
 
+/**
+ * Sentinel string the Rust backend interprets as "use the native
+ * macOS Core Audio Tap" (Phase 2 — replaces BlackHole).
+ * MUST stay in sync with `audio::SYSTEM_AUDIO_TAP_SENTINEL`.
+ */
+const SYSTEM_AUDIO_TAP_SENTINEL = "system-audio-tap";
+
 const DEFAULT_CONFIG: Config = {
   anthropic_key: "",
   openai_key: "",
@@ -32,7 +39,10 @@ const DEFAULT_CONFIG: Config = {
   jd: "",
   persona: "finance",
   audio_device: "",
-  loopback_device: "",
+  // Phase 2 default: the Rust backend routes this to Core Audio Tap.
+  // Users on Phase 1 with BlackHole pre-configured will have their
+  // device name persisted in `ic-config` and that wins on hydrate.
+  loopback_device: SYSTEM_AUDIO_TAP_SENTINEL,
   model: "",
   assemblyai_key: "",
 };
@@ -546,9 +556,13 @@ function ConfigPanel({
     invoke<string[]>("list_audio_devices")
       .then((list) => {
         setDevices(list);
+        // Phase 2: the default is the native Core Audio Tap, set
+        // statically in DEFAULT_CONFIG. We no longer auto-pick a
+        // BlackHole device on first load — users who DO have
+        // BlackHole installed can still select it from the dropdown
+        // (the sentinel value sits above the cpal device list).
         if (!draft.loopback_device) {
-          const bh = list.find((d) => /blackhole/i.test(d));
-          if (bh) setDraft((d) => ({ ...d, loopback_device: bh }));
+          setDraft((d) => ({ ...d, loopback_device: SYSTEM_AUDIO_TAP_SENTINEL }));
         }
       })
       .catch(() => {});
@@ -581,8 +595,6 @@ function ConfigPanel({
     } catch (e) { setModelError(String(e)); }
     finally { setModelLoading(false); }
   }, [draft.anthropic_key]);
-
-  const hasBlackHole = devices.some((d) => /blackhole/i.test(d));
 
   return (
     <div className="config">
@@ -652,20 +664,20 @@ function ConfigPanel({
           Loopback — recruiter audio
           <select value={draft.loopback_device}
             onChange={(e) => setDraft({ ...draft, loopback_device: e.target.value })}>
+            {/* Phase 2 default — native macOS Core Audio Tap.
+                Requires macOS 14.4+; no third-party install. */}
+            <option value={SYSTEM_AUDIO_TAP_SENTINEL}>
+              System audio (Core Audio Tap, macOS 14.4+) ← default
+            </option>
             <option value="">Off — mic only</option>
             {devices.map((d) =>
-              <option key={d} value={d}>{d}{/blackhole/i.test(d) ? " ← recommended" : ""}</option>)}
+              <option key={d} value={d}>{d}{/blackhole/i.test(d) ? " (BlackHole)" : ""}</option>)}
           </select>
-          {!hasBlackHole && (
-            <span className="config-hint">
-              Install{" "}
-              <a href="#" onClick={(e) => { e.preventDefault();
-                window.open("https://github.com/ExistentialAudio/BlackHole", "_blank"); }}>
-                BlackHole
-              </a>
-              {" "}to capture recruiter audio.
-            </span>
-          )}
+          <span className="config-hint">
+            Default captures all system audio natively. Select a
+            cpal device only if you have BlackHole / a Multi-Output
+            Device configured manually.
+          </span>
         </label>
       </div>
 
