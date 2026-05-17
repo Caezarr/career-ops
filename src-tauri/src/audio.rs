@@ -9,6 +9,13 @@ use std::time::{Duration, Instant};
 use tokio::sync::oneshot;
 use tracing::info;
 
+/// Sentinel value used in `CaptureConfig.loopback_device` to request
+/// the native Core Audio Tap loopback (macOS 14.4+). When the
+/// dual-capture pipeline sees this, it routes the loopback task to
+/// `audio_tap::record_system_audio_wav` instead of opening a cpal
+/// input device. Phase 2 — replaces the BlackHole prerequisite.
+pub const SYSTEM_AUDIO_TAP_SENTINEL: &str = "system-audio-tap";
+
 /// List all available audio input device names on this host.
 pub fn list_input_devices() -> Vec<String> {
     let host = cpal::default_host();
@@ -70,12 +77,41 @@ pub async fn record_dual_wav(
         record_blocking(duration_secs, &mic_device, mic_flag)
     });
 
-    // Spawn loopback capture (only if a device is selected)
-    let loopback_handle = if !loopback_device.is_empty() {
+    // Spawn loopback capture. Three branches:
+    //   - `SYSTEM_AUDIO_TAP_SENTINEL`  → Phase 2 native Core Audio
+    //     Tap path (macOS 14.4+). No user-side BlackHole install
+    //     required.
+    //   - non-empty cpal device name  → legacy fallback for users
+    //     who explicitly configured BlackHole / a Multi-Output
+    //     Device in Settings. Kept working so a Phase 1 install
+    //     keeps capturing even after the default flips.
+    //   - empty                       → mic-only (loopback off).
+    //
+    // The two branches return different future shapes (tokio::spawn
+    // vs spawn_blocking) so we wrap each into an enum and await
+    // both arms uniformly downstream.
+    enum LoopbackHandle {
+        Async(tokio::task::JoinHandle<Result<Vec<u8>>>),
+        Blocking(tokio::task::JoinHandle<Result<Vec<u8>>>),
+    }
+
+    let loopback_handle: Option<LoopbackHandle> = if loopback_device == SYSTEM_AUDIO_TAP_SENTINEL
+    {
         let lb_flag = stop_flag.clone();
-        Some(tokio::task::spawn_blocking(move || -> Result<Vec<u8>> {
-            record_blocking(duration_secs, &loopback_device, lb_flag)
-        }))
+        // `record_system_audio_wav` is itself an async fn but it
+        // internally `spawn_blocking`s the Core Audio loop, so a
+        // plain `tokio::spawn` here is correct — we await its
+        // JoinHandle just like the blocking branch.
+        Some(LoopbackHandle::Async(tokio::spawn(async move {
+            crate::audio_tap::record_system_audio_wav(duration_secs, lb_flag).await
+        })))
+    } else if !loopback_device.is_empty() {
+        let lb_flag = stop_flag.clone();
+        Some(LoopbackHandle::Blocking(tokio::task::spawn_blocking(
+            move || -> Result<Vec<u8>> {
+                record_blocking(duration_secs, &loopback_device, lb_flag)
+            },
+        )))
     } else {
         None
     };
@@ -90,8 +126,12 @@ pub async fn record_dual_wav(
         wav: mic_wav,
     });
 
-    if let Some(h) = loopback_handle {
-        match h.await {
+    if let Some(handle) = loopback_handle {
+        let join_result = match handle {
+            LoopbackHandle::Async(h) => h.await,
+            LoopbackHandle::Blocking(h) => h.await,
+        };
+        match join_result {
             Ok(Ok(wav)) => out.push(ChannelCapture {
                 channel: Channel::Loopback,
                 wav,

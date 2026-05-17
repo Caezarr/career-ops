@@ -44,6 +44,52 @@ export async function runIngestSource(
   store.setIngestSyncing(true);
   const run = store.startIngestRun(provider);
 
+  // JobTeaser has its own path: the cookies are HttpOnly so we can't
+  // hit JT's API from a Rust HTTP client. Instead, we open an
+  // invisible WebView at /fr/job-offers — the persistent WebKit
+  // cookie store handles auth automatically, the bridge scrapes,
+  // results land via the `jobteaser-jobs-received` event listener
+  // wired in `lib/jobteaser.ts::subscribeJobTeaserAuth`. We return
+  // an optimistic summary here; the store gets updated async.
+  if (provider === "jobteaser") {
+    try {
+      await invoke<void>("jobteaser_sync_open");
+      // Mark the run as launched — actual count materialises when
+      // the events fire. We don't await the scrape (1-3s) here
+      // because runIngestAll loops sequentially and we'd block the
+      // other providers behind a WebView render.
+      useAppStore.getState().finishIngestRun(run.id, {
+        fetchedCount: 0,
+        newCount: 0,
+        errors: [],
+      });
+      return {
+        provider,
+        identifier,
+        fetched: 0,
+        newCount: 0,
+        elapsedMs: 0,
+      };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      useAppStore.getState().finishIngestRun(run.id, {
+        fetchedCount: 0,
+        newCount: 0,
+        errors: [{ provider, identifier, message }],
+      });
+      return {
+        provider,
+        identifier,
+        fetched: 0,
+        newCount: 0,
+        elapsedMs: 0,
+        error: message,
+      };
+    } finally {
+      useAppStore.getState().setIngestSyncing(false);
+    }
+  }
+
   try {
     const result = await invoke<IngestRunResultDto>("ingest_run_source", {
       provider,

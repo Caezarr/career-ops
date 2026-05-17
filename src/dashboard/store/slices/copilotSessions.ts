@@ -79,11 +79,43 @@ export interface CopilotSessionsSlice {
    *  session yet. The backend emits replacement strings (not deltas)
    *  while the user is still speaking, so we hold the in-flight text
    *  here and flush it to `transcript` on a finalisation signal
-   *  (status transition or new question). */
+   *  (status transition or new question).
+   *
+   *  Internally split into two segments by `pendingTranscriptPartialStart`:
+   *    - chars [0, partialStart)             → finalised turns (AAI
+   *      committed them — `turn_is_formatted: true`). Frozen until
+   *      commit/reset.
+   *    - chars [partialStart, length)        → current in-flight
+   *      partial (replaced on every new partial event).
+   *
+   *  The display layer reads `pendingTranscript` as one string; only
+   *  the reducer cares about the split. */
   pendingTranscript: string;
+  /** Index in `pendingTranscript` where the current partial begins.
+   *  Everything before this index is finalised (frozen). */
+  pendingTranscriptPartialStart: number;
   /** Latest streaming answer text, accumulated from `answer-token`
    *  events. Cleared when a new question arrives. */
   pendingAnswer: string;
+  /** Phase 4b: the most recent **partial** user-voice transcript chunk
+   *  (the candidate's mic, transcribed by the second AAI stream).
+   *  Replaced on every partial event. Cleared on session end. Drives
+   *  the teleprompter cursor's banded-Levenshtein matcher together
+   *  with `userTranscriptFinal`. */
+  userTranscriptPartial: string;
+  /** Phase 4b: the cumulative **finalised** user-voice transcript —
+   *  one continuous string built by appending every finalised turn
+   *  the second AAI stream emits. Cleared on session end. The
+   *  matcher reads `userTranscriptFinal + ' ' + userTranscriptPartial`
+   *  to anchor the cursor against everything the candidate has said
+   *  so far. */
+  userTranscriptFinal: string;
+  /** Phase 4b: monotonic counter — bumped on every user-transcript
+   *  event so React effects can run the matcher even when the text
+   *  payload didn't change (e.g. AAI emits the same partial twice).
+   *  Without this the effect dependency array would dedupe the
+   *  cursor advance and the candidate would feel a stutter. */
+  userTranscriptTick: number;
   /** Last error message surfaced by the backend, if any. */
   copilotError: string | null;
 
@@ -98,8 +130,29 @@ export interface CopilotSessionsSlice {
   }) => string;
   /** End the active session (sets endedAt and clears activeSessionId). */
   endCopilotSession: () => void;
-  /** Update the in-flight transcript chunk (replacement, not append). */
-  setPendingTranscript: (text: string) => void;
+  /** Apply a transcript event from the backend.
+   *
+   *  - `final: false` (partial): replaces only the trailing partial
+   *    portion of `pendingTranscript`. The accumulated finalised
+   *    prefix stays untouched.
+   *  - `final: true`  (formatted turn): appends to the finalised
+   *    prefix, clears the partial portion. Advances `partialStart`.
+   *
+   *  Pre-fix this was `setPendingTranscript(text)` which blew away
+   *  the whole buffer on every event — fine for single-turn questions,
+   *  catastrophic for multi-pause ones (the user would see the
+   *  transcript "delete" itself between turns of a long question). */
+  applyTranscriptDelta: (delta: { text: string; final: boolean }) => void;
+  /** Phase 4b: ingest a user-voice transcript event from the second
+   *  AAI stream. Partials replace `userTranscriptPartial`; finals
+   *  append to `userTranscriptFinal` (with a leading space if the
+   *  cumulative buffer is non-empty) and clear `userTranscriptPartial`.
+   *  Always bumps `userTranscriptTick` so the matcher effect re-runs. */
+  applyUserTranscriptDelta: (delta: { text: string; final: boolean }) => void;
+  /** Phase 4b: wipe both the partial and finalised user-voice
+   *  transcripts. Called on session start AND end so the matcher
+   *  starts each interview from a clean slate. */
+  resetUserTranscript: () => void;
   /** Append a streamed answer token to the in-flight answer. */
   appendPendingAnswerToken: (token: string) => void;
   /** Reset the in-flight answer (e.g. when a new question begins). */
@@ -133,7 +186,11 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
   activeSessionId: null,
   copilotStatus: 'idle',
   pendingTranscript: '',
+  pendingTranscriptPartialStart: 0,
   pendingAnswer: '',
+  userTranscriptPartial: '',
+  userTranscriptFinal: '',
+  userTranscriptTick: 0,
   copilotError: null,
 
   startCopilotSession: ({ mode, company, role, jobId, cvId }) => {
@@ -154,7 +211,12 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       copilotSessions: [session, ...s.copilotSessions],
       activeSessionId: id,
       pendingTranscript: '',
+      pendingTranscriptPartialStart: 0,
       pendingAnswer: '',
+      // Phase 4b: fresh session = fresh user-voice ASR buffer.
+      userTranscriptPartial: '',
+      userTranscriptFinal: '',
+      userTranscriptTick: 0,
       copilotError: null,
     }));
     return id;
@@ -169,11 +231,106 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       ),
       activeSessionId: null,
       pendingTranscript: '',
+      pendingTranscriptPartialStart: 0,
       pendingAnswer: '',
+      // Phase 4b: clear ASR buffers so a stale partial doesn't bleed
+      // into the next session's matcher.
+      userTranscriptPartial: '',
+      userTranscriptFinal: '',
+      userTranscriptTick: 0,
     }));
   },
 
-  setPendingTranscript: (text) => set({ pendingTranscript: text }),
+  applyTranscriptDelta: ({ text, final }) => {
+    // Trim trailing whitespace but keep internal spacing — the
+    // accumulated transcript is what the user will read, not a
+    // wire-format stream.
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    set((s) => {
+      const finalized = s.pendingTranscript.slice(0, s.pendingTranscriptPartialStart);
+      // Join finalised + new chunk with a space, but only if the
+      // finalised section is non-empty (avoid a leading space).
+      const joiner = finalized.length > 0 ? ' ' : '';
+      let newDisplay = finalized + joiner + trimmed;
+      // 45-min stability cap (2026-05-17): the rendered interviewer
+      // transcript pane only displays the latest utterance for context;
+      // accumulating every interviewer turn for the entire session
+      // turns into 50+ KB of string after a long interview, with each
+      // re-render diffing the whole thing. Cap at ~800 chars (≈140
+      // words, plenty of recent context for the candidate to glance
+      // at). The full conversation history lives in SQLite via
+      // `copilot_conversation` — this pendingTranscript is purely
+      // live-state.
+      const MAX_INTERVIEWER_CHARS = 800;
+      let partialStartAfter = final ? newDisplay.length : s.pendingTranscriptPartialStart;
+      if (newDisplay.length > MAX_INTERVIEWER_CHARS) {
+        const dropped = newDisplay.length - MAX_INTERVIEWER_CHARS;
+        newDisplay = newDisplay.slice(-MAX_INTERVIEWER_CHARS);
+        // Shift the partial-start cursor by the same amount so the
+        // partial-vs-finalised boundary stays consistent post-trim.
+        partialStartAfter = final
+          ? newDisplay.length
+          : Math.max(0, partialStartAfter - dropped);
+      }
+      if (final) {
+        return {
+          pendingTranscript: newDisplay,
+          pendingTranscriptPartialStart: partialStartAfter,
+        };
+      }
+      return {
+        pendingTranscript: newDisplay,
+        pendingTranscriptPartialStart: partialStartAfter,
+      };
+    });
+  },
+  applyUserTranscriptDelta: ({ text, final }) => {
+    // Phase 4b: ingest the second AAI stream's events. Same partial /
+    // final split as the recruiter side, but written to a dedicated
+    // pair of buffers + bumps a tick counter so React effects can
+    // run the cursor matcher even when the text payload is identical
+    // to the previous frame (AAI re-emits stable partials regularly).
+    const trimmed = text.trim();
+    set((s) => {
+      const tick = s.userTranscriptTick + 1;
+      if (!trimmed) {
+        // Empty payload — only bump the tick so a clearing event
+        // still notifies subscribers (e.g. AAI sometimes sends empty
+        // transcripts on connection state changes).
+        return { userTranscriptTick: tick };
+      }
+      if (final) {
+        const joiner = s.userTranscriptFinal.length > 0 ? ' ' : '';
+        const appended = s.userTranscriptFinal + joiner + trimmed;
+        // 45-min stability cap (2026-05-17): the cursor matcher only
+        // consumes the trailing ~5 words of userTranscriptFinal (see
+        // teleprompterMatch.ts), so retaining the full history is
+        // pure memory bloat. Cap at ~500 chars (≈90 words, 20-30s of
+        // speech worth of context) — more than enough for the matcher
+        // to anchor on, infinitesimal vs. a 45-min session of raw
+        // appends (which would be ~30 KB+ of string in Zustand state
+        // re-allocated on every utterance).
+        const MAX_USER_FINAL_CHARS = 500;
+        const capped =
+          appended.length > MAX_USER_FINAL_CHARS
+            ? appended.slice(-MAX_USER_FINAL_CHARS)
+            : appended;
+        return {
+          userTranscriptFinal: capped,
+          userTranscriptPartial: '',
+          userTranscriptTick: tick,
+        };
+      }
+      return { userTranscriptPartial: trimmed, userTranscriptTick: tick };
+    });
+  },
+  resetUserTranscript: () =>
+    set({
+      userTranscriptPartial: '',
+      userTranscriptFinal: '',
+      userTranscriptTick: 0,
+    }),
   appendPendingAnswerToken: (token) =>
     set((s) => ({ pendingAnswer: s.pendingAnswer + token })),
   clearPendingAnswer: () => set({ pendingAnswer: '' }),
@@ -196,6 +353,7 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
           : sess,
       ),
       pendingTranscript: '',
+      pendingTranscriptPartialStart: 0,
     }));
   },
 

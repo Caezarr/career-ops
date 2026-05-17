@@ -1,0 +1,517 @@
+/*
+ * Career OS — Copilot teleprompter (Moody-style notch prompter)
+ * ──────────────────────────────────────────────────────────────
+ * Pinned to the TOP of the viewport, near the MacBook notch area.
+ * No capsule background — the text renders directly over whatever
+ * is behind it (the notch area is naturally dark on macOS, the
+ * menu bar is dark in dark mode, and a heavy text-shadow keeps
+ * the text legible against any background).
+ *
+ * Why top, not bottom?
+ *   - The notch is at the top. Reading text up there keeps the
+ *     candidate's eyes near the laptop's camera lens — they look
+ *     like they're making eye contact, not staring at the bottom
+ *     of the screen reading a script.
+ *   - macOS menu bar is at the top: the eye is already trained
+ *     to flick up there without thinking.
+ *   - The notch + menu bar area is already a "blacked-out" UI
+ *     zone, so the text feels native to the OS, not a foreign
+ *     widget pasted on top.
+ *
+ * The Copilot overlay window (`tauri.conf.json` label="copilot")
+ * already has `contentProtected: true` (Phase 1) so the
+ * teleprompter is invisible to Zoom/Meet/Teams screen-share even
+ * when it sits in the menu bar area. Best of both worlds: the
+ * candidate sees it, the interviewer doesn't.
+ *
+ * Typography: IBM Plex Mono, ~32-38 px, weight 500, off-white.
+ * macOS ships SF Mono + Menlo as graceful fallbacks at this size.
+ */
+
+/*
+ * Standalone teleprompter window only — make the WebView background
+ * transparent so the OS-level `transparent: true` on the Tauri window
+ * actually shows through to whatever app is behind (Zoom, Teams, the
+ * candidate's desktop). Without this, WKWebView paints the system
+ * default body background and the user sees a 220 px tall opaque bar
+ * at the top of their screen instead of a clean notch overlay.
+ *
+ * Scoped to `body.view-teleprompter` (class added in `src/main.tsx`
+ * based on the route hash) so the dashboard window keeps its own
+ * `--bg` dark surface and doesn't accidentally go see-through.
+ */
+body.view-teleprompter,
+body.view-teleprompter html,
+body.view-teleprompter #root {
+  background: transparent !important;
+  /* The dashboard's `.app` shell uses `backdrop-filter: blur(40px)`
+     which would compound with the teleprompter window's own blur and
+     wash out the text. Force it off in this view. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  /* Drop the rounded border the dashboard shell adds — the prompter
+     spans the full top of the screen and any border would draw a thin
+     line across the menu bar. */
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.cp-teleprompter {
+  /* Pinned to the top-center of the viewport. The notch area on a
+     14"/16" MacBook is ~32 px tall — we shift the text down a
+     touch so it doesn't fight the menu bar. On Macs without a
+     notch (Intel, M1 Air pre-2022) the same offset reads as a
+     deliberate gap below the menu bar, which still looks good. */
+  position: fixed;
+  inset: 8px 0 auto 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 24px;
+  /* Pointer-events off on the wrapper so clicks pass through to
+     whatever video-call UI is behind. We don't even re-enable
+     them on the text — the candidate isn't supposed to interact
+     with the teleprompter, just read it. */
+  pointer-events: none;
+  /* Above everything else in the webview's stacking context.
+     The OS-level alwaysOnTop on the Copilot overlay window
+     handles inter-window ordering. */
+  z-index: 2147483000;
+}
+
+.cp-teleprompter__capsule {
+  /* No capsule background — direct text on whatever is behind.
+     Kept the class name for layout structure but the visual
+     "capsule" of Phase 3 v1 is now intentionally invisible. */
+  max-width: min(1100px, 92vw);
+  width: 100%;
+  padding: 4px 0 0;
+  text-align: center;
+  /* Smooth in/out so the text doesn't pop when Claude starts
+     streaming or the answer rotates. */
+  animation: cp-teleprompter-fade 220ms ease-out;
+}
+
+@keyframes cp-teleprompter-fade {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cp-teleprompter__body {
+  /* Limit how far the text grows down the screen — a 3-min
+     pitch should NOT push past the upper third of the viewport,
+     or the candidate has to scan too far down and breaks eye
+     contact with the camera. Excess content scrolls inside the
+     body; the React component auto-scrolls to the latest token. */
+  max-height: 28vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Mask the top + bottom of the scroll area so the text fades
+     into the background rather than ending in a hard cut. Mood
+     piece — barely visible but matters when the answer overflows. */
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+.cp-teleprompter__body::-webkit-scrollbar {
+  display: none;
+}
+
+.cp-teleprompter__text {
+  margin: 0;
+  /* Monospace stack — Courier Prime ships the closest aesthetic to
+     the Moody reference shot (real typewriter rhythm vs IBM Plex
+     Mono's tighter "screen-mono" feel). SF Mono and IBM Plex sit
+     behind it as graceful fallbacks. */
+  font-family:
+    'Courier Prime',
+    'Courier New',
+    'IBM Plex Mono',
+    'SFMono-Regular',
+    Menlo,
+    Consolas,
+    'Liberation Mono',
+    monospace;
+  font-size: 44px;
+  line-height: 1.45;
+  font-weight: 700;
+  color: #F4F4F4;
+  letter-spacing: 0.02em;
+  white-space: pre-wrap;
+  font-variant-numeric: tabular-nums;
+  /* Layered shadow stack — three jobs:
+     1. Deep black halo (24 px) → text composites cleanly on any
+        backdrop (slides, code editor, video face cam, menu bar)
+     2. Tighter 4 px shadow → makes the letterforms POP, not float
+     3. 1 px white inner glow → the subtle "premium / signal" feel
+        that distinguishes a real teleprompter from a debug overlay
+     The white glow is intentionally tiny (0.15 alpha) — bigger and
+     it reads as a glow effect; this size reads as "high quality
+     rendering." */
+  text-shadow:
+    0 0 24px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 1),
+    0 0 1px rgba(255, 255, 255, 0.15),
+    0 2px 10px rgba(0, 0, 0, 0.7);
+  /* Slightly heavier text stroke for true edge definition at 44 px.
+     Falls back gracefully off-WebKit. */
+  -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.55);
+}
+
+/*
+ * D1 (2026-05-17) — Scaffold view.
+ *
+ * Renders Claude's structured response (TL;DR + 3-5 bullets + closing
+ * line) as scannable cards instead of prose. Designed for the
+ * candidate under live-interview pressure: each bullet sits as its own
+ * line at ~28 px so the eye can pick one in under a second, deliver
+ * it, then move to the next. The label pills ("TL;DR" / "Closing")
+ * are intentionally subdued — they're scaffolding, not content.
+ *
+ * Typography inherits the Courier Prime stack from `.cp-teleprompter__text`
+ * but at a smaller size since the bullets need to fit ~5 lines without
+ * scroll. Same shadow stack so the text composites cleanly on any
+ * backdrop.
+ */
+.cp-teleprompter__scaffold {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #F4F4F4;
+  font-family:
+    'Courier Prime',
+    'Courier New',
+    'IBM Plex Mono',
+    'SFMono-Regular',
+    Menlo,
+    Consolas,
+    'Liberation Mono',
+    monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 24px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 1),
+    0 0 1px rgba(255, 255, 255, 0.15),
+    0 2px 10px rgba(0, 0, 0, 0.7);
+  -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.55);
+}
+
+.cp-teleprompter__scaffold-label {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-right: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 244, 244, 0.65);
+  border: 1px solid rgba(244, 244, 244, 0.18);
+  border-radius: 4px;
+  vertical-align: middle;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.cp-teleprompter__scaffold-tldr,
+.cp-teleprompter__scaffold-closing {
+  font-size: 26px;
+  line-height: 1.35;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.cp-teleprompter__scaffold-line {
+  flex: 1;
+  min-width: 0;
+}
+
+.cp-teleprompter__scaffold-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-teleprompter__scaffold-bullet {
+  font-size: 28px;
+  line-height: 1.35;
+  position: relative;
+  padding-left: 28px;
+}
+
+.cp-teleprompter__scaffold-bullet::before {
+  /* Sharp custom marker — the default disc looks weak against the
+     heavy text shadows. A solid square at ~10 px sits cleanly above
+     the baseline and reads at any distance. */
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 0.55em;
+  width: 10px;
+  height: 10px;
+  background: rgba(244, 244, 244, 0.85);
+  box-shadow:
+    0 0 8px rgba(0, 0, 0, 0.9),
+    0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+/*
+ * Per-word position indicator — Moody-style "all text equally
+ * readable, position marker is minimal".
+ *
+ * Earlier iteration (v1) used aggressive opacity dimming on past
+ * words (0.42) + brightness pulse on the current word. Looked
+ * impressive in isolation but broke real reading flow: every time
+ * the candidate spoke a word, the previous word DIMMED, yanking
+ * their eye back to the cursor instead of letting them scan ahead.
+ * Defeats the entire purpose of a teleprompter.
+ *
+ * New rule: ALL words stay at full readable brightness regardless
+ * of position. The current word gets a single very thin underline
+ * — visible if the candidate's eye looks for it, ignorable if it
+ * doesn't. Past + future words have ZERO visual difference from
+ * each other or from the current word's text rendering. The
+ * candidate reads at their own pace; the cursor advance only
+ * drives the auto-scroll (so the right section stays in view).
+ */
+.cp-teleprompter__word {
+  /* No transition — when this WAS animated the per-speech opacity
+     bounce at ~3 wpm-ticks/sec produced a strobe-and-fatigue effect
+     over a 30-min interview. Static rendering is the right answer. */
+  position: relative;
+}
+
+.cp-teleprompter__word--past,
+.cp-teleprompter__word--future {
+  /* Past and future read identically to current. The candidate can
+     scan freely without the eye being pulled toward a "brightness
+     boundary". */
+  opacity: 1;
+}
+
+.cp-teleprompter__word--current {
+  opacity: 1;
+  /* Single 2 px underline as the position cue. `text-decoration`
+     would inherit the text-shadow → blurry; a `border-bottom`
+     would shift the baseline. A pseudo-element absolutely
+     positioned under the word's text box is the cleanest: it
+     stays out of the layout flow, hides naturally during the
+     candidate's quick eye-scans, and reveals on a focused look. */
+}
+
+.cp-teleprompter__word--current::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 1px;
+  /* Slow fade so the underline doesn't strobe as the cursor moves
+     word by word. ~ASR latency × 2 keeps the transition smooth even
+     when the matcher fires bursts of advances. */
+  transition: opacity 420ms ease-out;
+}
+
+/*
+ * Status badge — surfaces WPM / pause state / words-remaining when
+ * the candidate changes pace via the ⌥ hotkeys. Sits top-right of
+ * the teleprompter region, fades in on change, fades out after
+ * 1.8 s. The fade is deliberately slow on the way out so the
+ * candidate has time to read the new value if they're still
+ * looking up.
+ */
+.cp-teleprompter__status {
+  position: absolute;
+  top: 6px;
+  right: 16px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 380ms ease-out;
+}
+.cp-teleprompter__status--visible {
+  opacity: 1;
+}
+
+.cp-teleprompter__status-pill {
+  font-family:
+    'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(0, 0, 0, 0.55);
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Drop-shadow so the pill still reads against a bright
+     background. The cap on white slides ate the previous attempt. */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.cp-teleprompter__status-pill--subtle {
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/*
+ * Respect the candidate's accessibility preference. When the OS
+ * has "Reduce motion" enabled (System Settings → Accessibility →
+ * Display → Reduce motion), we drop the fade-in animation on the
+ * capsule and stop smooth-scrolling. The cursor itself stays
+ * blinking because turning it off would lose the "still streaming"
+ * signal; the candidate's eyes need to know "more is coming".
+ */
+@media (prefers-reduced-motion: reduce) {
+  .cp-teleprompter__capsule {
+    animation: none;
+  }
+  .cp-teleprompter__word {
+    transition: none;
+  }
+  .cp-teleprompter__status {
+    transition: opacity 80ms;
+  }
+}
+
+.cp-teleprompter__cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1em;
+  margin-left: 3px;
+  background: rgba(239, 239, 239, 0.9);
+  vertical-align: -3px;
+  animation: cp-teleprompter-blink 1s steps(2, end) infinite;
+  border-radius: 1px;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes cp-teleprompter-blink {
+  to {
+    background: transparent;
+  }
+}
+
+/* Narrower webview widths (the floating Copilot overlay window
+   is 460 px wide). Shrink the font but keep the top placement —
+   the notch-area paradigm still works at any width. */
+@media (max-width: 760px) {
+  .cp-teleprompter {
+    inset: 6px 0 auto 0;
+    padding: 0 12px;
+  }
+  .cp-teleprompter__text {
+    font-size: 32px;
+    line-height: 1.4;
+    letter-spacing: 0.015em;
+  }
+  .cp-teleprompter__body {
+    max-height: 40vh;
+  }
+}
+
+/* Light-mode safety net. The menu bar is light in light mode, so
+   the white-text + black-shadow combo gets a touch of dark fill
+   so the letters don't bleed into a bright background. */
+@media (prefers-color-scheme: light) {
+  .cp-teleprompter__text {
+    /* Same off-white text, but the shadow stack is heavier so
+       white-on-white slides stay readable. The teleprompter is
+       primarily a dark-mode experience but we don't want to
+       fully fail in light mode. */
+    text-shadow:
+      0 0 14px rgba(0, 0, 0, 0.92),
+      0 0 5px rgba(0, 0, 0, 1),
+      0 2px 8px rgba(0, 0, 0, 0.75);
+    -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/*
+ * Wave 2 / T6 (2026-05-17) — Quick-action chip row.
+ *
+ * Sits under the teleprompter content. Each chip is a small pill the
+ * candidate can tap to force-fire Claude with a specific intent
+ * (Answer-now / Recap / Counter / Probe). Visible only during a live
+ * session; positioned in the bottom-right where it's reachable but
+ * doesn't fight the teleprompter text for attention.
+ */
+.cp-teleprompter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 0 8px;
+}
+
+.cp-teleprompter__chip {
+  appearance: none;
+  border: 1px solid rgba(244, 244, 244, 0.22);
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(244, 244, 244, 0.92);
+  font-family:
+    'Courier Prime',
+    'Courier New',
+    'SFMono-Regular',
+    Menlo,
+    monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.08s ease;
+  /* Subtle drop shadow so the chip composites on any backdrop. */
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.6),
+    0 0 1px rgba(255, 255, 255, 0.1);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.cp-teleprompter__chip:hover {
+  background: rgba(0, 0, 0, 0.75);
+  border-color: rgba(244, 244, 244, 0.4);
+}
+
+.cp-teleprompter__chip:active {
+  transform: scale(0.96);
+}
+
+.cp-teleprompter__chip:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.65);
+  outline-offset: 2px;
+}

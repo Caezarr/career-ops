@@ -29,7 +29,8 @@
         "skipTaskbar": false,
         "shadow": true,
         "visible": true,
-        "dragDropEnabled": false
+        "dragDropEnabled": false,
+        "contentProtected": true
       },
       {
         "title": "Copilot",
@@ -49,6 +50,29 @@
         "shadow": true,
         "visibleOnAllWorkspaces": true,
         "contentProtected": true,
+        "visible": false
+      },
+      {
+        "title": "Career OS Teleprompter",
+        "label": "teleprompter",
+        "url": "index.html#teleprompter",
+        "width": 1400,
+        "height": 320,
+        "x": 0,
+        "y": 0,
+        "minWidth": 320,
+        "minHeight": 100,
+        "resizable": false,
+        "fullscreen": false,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "hiddenTitle": true,
+        "shadow": false,
+        "visibleOnAllWorkspaces": true,
+        "contentProtected": true,
+        "focus": false,
         "visible": false
       }
     ],
@@ -85,7 +109,10 @@
     "shortDescription": "Career OS — dashboard, war room, CV manager, and stealth live interview copilot",
     "longDescription": "Mac app that owns the entire job-hunt loop: track applications, tailor CV variants, drill prep questions, and get a CV-grounded stealth coach during live interviews.",
     "macOS": {
-      "infoPlist": "Info.plist"
+      "infoPlist": "Info.plist",
+      "entitlements": "entitlements.plist",
+      "signingIdentity": "-",
+      "hardenedRuntime": true
     }
   }
 }

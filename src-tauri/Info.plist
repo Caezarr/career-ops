@@ -12,5 +12,21 @@
     <string>Career OS utilise ton micro pour la dictée vocale (étape "Raconte-toi" et autres saisies vocales optionnelles).</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Career OS convertit ta voix en texte pour pré-remplir ton profil — la reconnaissance vocale s'effectue via Apple Speech.</string>
+    <!-- Phase 2 — Core Audio Tap on macOS 14.4+. The OS treats system
+         audio capture as a screen-recording-class capability (the tap
+         can see what other apps are playing), so it gates it behind
+         the screen-capture TCC permission. Without this key, the
+         first `tap_desc.create_process_tap()` call returns silently
+         empty and the app never appears in System Settings → Privacy
+         & Security → Screen & System Audio Recording. -->
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Career OS capture la voix de l'interviewer pendant tes entretiens en direct (audio système, jamais l'image de ton écran). Le son sort de Career OS via AssemblyAI puis disparaît — aucun enregistrement n'est conservé sans ton accord.</string>
+    <!-- Tahoe (macOS 26) split the legacy "Screen Recording" prompt
+         into a dedicated system-audio key. We declare both so the OS
+         picks the right one regardless of version. macOS 14-15 will
+         ignore the audio key; macOS 26+ will ignore the screen one
+         when only audio is requested. -->
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>Career OS capture la voix de l'interviewer (audio système) pour la transcrire en direct via AssemblyAI. Aucune image d'écran n'est lue ou stockée.</string>
 </dict>
 </plist>

@@ -1,17 +1,19 @@
 /**
- * Loops Transactional client — single function, sends the magic-link
- * email. Loops handles the template rendering server-side; we only
- * pass the data variables.
+ * Loops Transactional client — generic `sendLoopsEmail` + thin
+ * `sendMagicLinkEmail` wrapper (the original use-case).
  *
- * The transactional template MUST have these variables in the
- * Loops dashboard, otherwise the API rejects the call:
- *   - magicLink
- *   - email
+ * Loops handles template rendering server-side; we pass:
+ *   - `templateId` (Loops "Transactional ID")
+ *   - `email` (recipient)
+ *   - `dataVariables` (template merge tags)
+ *
+ * Each template variable used in `dataVariables` MUST exist in the
+ * Loops dashboard template, otherwise the API rejects the call.
  *
  * Failure path: bubble up a typed error so the route can map it to
- * a clean response. We don't include the user's email or the token
- * in the error message — those land in Cloudflare logs and we want
- * the request body to stay scrub-safe.
+ * a clean response. We don't include the user's email or any token
+ * in the error message — those land in Cloudflare logs and we keep
+ * the request body scrub-safe.
  */
 
 const LOOPS_ENDPOINT = "https://app.loops.so/api/v1/transactional";
@@ -26,13 +28,15 @@ export class LoopsError extends Error {
   }
 }
 
-export async function sendMagicLinkEmail(args: {
+/** Generic Loops transactional send. Pass any string → primitive map
+ *  for the template's merge tags; the route owns the contract. */
+export async function sendLoopsEmail(args: {
   apiKey: string;
   templateId: string;
   email: string;
-  magicLink: string;
+  dataVariables: Record<string, string | number | boolean | null>;
 }): Promise<void> {
-  const { apiKey, templateId, email, magicLink } = args;
+  const { apiKey, templateId, email, dataVariables } = args;
 
   const resp = await fetch(LOOPS_ENDPOINT, {
     method: "POST",
@@ -43,10 +47,7 @@ export async function sendMagicLinkEmail(args: {
     body: JSON.stringify({
       transactionalId: templateId,
       email,
-      dataVariables: {
-        magicLink,
-        email,
-      },
+      dataVariables,
     }),
   });
 
@@ -61,4 +62,19 @@ export async function sendMagicLinkEmail(args: {
     }
     throw new LoopsError(resp.status, body);
   }
+}
+
+/** Magic-link email — auth-flow wrapper around `sendLoopsEmail`. */
+export async function sendMagicLinkEmail(args: {
+  apiKey: string;
+  templateId: string;
+  email: string;
+  magicLink: string;
+}): Promise<void> {
+  return sendLoopsEmail({
+    apiKey: args.apiKey,
+    templateId: args.templateId,
+    email: args.email,
+    dataVariables: { magicLink: args.magicLink, email: args.email },
+  });
 }

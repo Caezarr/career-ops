@@ -86,8 +86,17 @@
     console.log('[jobteaser-bridge]', msg, detail || '');
   }
 
+  // Headless mode is set by the Rust `jobteaser_sync_open` command via
+  // an initialization_script prelude. In that mode we skip the visible
+  // panel entirely (the WebView itself is invisible too) and exit
+  // early if JT bounces us to /users/sign_in (cookies expired).
+  const HEADLESS = !!window.__JT_HEADLESS__;
+
   // Inject panel as soon as <html> exists. We MAY load before <body>.
+  // Skipped entirely in headless mode — the WebView is invisible
+  // anyway, but rendering DOM nodes for nothing is wasteful.
   function mountPanel() {
+    if (HEADLESS) return;
     if (panel.parentNode) return;
     if (document.body) {
       document.body.appendChild(panel);
@@ -103,6 +112,24 @@
     }
   }
   mountPanel();
+
+  // Headless guard — if we're still on the login page 5s after
+  // boot, the session cookie has expired. We can't log in headlessly
+  // (would need credentials), so we signal the Rust side to surface
+  // a "please re-auth" toast on the dashboard, then close the
+  // invisible window so the next sync attempt starts fresh.
+  if (HEADLESS) {
+    setTimeout(() => {
+      if (isOnLoginPage()) {
+        console.log('[jobteaser-bridge] headless: session expired, requesting re-auth');
+        try {
+          window.__TAURI_INTERNALS__.invoke('jobteaser_sync_auth_required');
+        } catch (e) {
+          console.warn('[jobteaser-bridge] sync_auth_required invoke failed:', e);
+        }
+      }
+    }, 5000);
+  }
 
   // ── Login state detection ────────────────────────────────────────
   function isOnLoginPage() {
@@ -1267,7 +1294,23 @@
     btn.style.opacity = '0.6';
 
     scrapeJobs(slug, { skipNavigation: true })
-      .then((count) => {
+      .then(async (count) => {
+        // Headless path: no visible panel, no buttons to wire — just
+        // close the invisible window so we don't leak WebKit processes.
+        // The dashboard already received the scraped batch via
+        // `jobteaser-jobs-received` events fired from `jobteaser_jobs_received`.
+        if (HEADLESS) {
+          console.log(`[jobteaser-bridge] headless: scraped ${count} jobs, closing sync window`);
+          try {
+            await window.__TAURI_INTERNALS__.invoke(
+              'jobteaser_close_auth_window',
+            );
+          } catch (e) {
+            console.warn('[jobteaser-bridge] headless close failed:', e);
+          }
+          return;
+        }
+
         panel.style.background = '#16a34a';
         statusEl.textContent =
           count > 0

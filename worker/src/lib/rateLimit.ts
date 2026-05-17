@@ -101,6 +101,17 @@ export const RATE_LIMITS = {
   analyzeCvAts: { kind: "analyze-cv-ats", limit: 30 } satisfies RateLimitConfig,
   nextSteps: { kind: "next-steps", limit: 30 } satisfies RateLimitConfig,
   optimizeCv: { kind: "optimize-cv", limit: 10 } satisfies RateLimitConfig,
+  // AssemblyAI temp tokens — each token is single-use + expires in
+  // ~60s. The real cost ceiling is AssemblyAI's per-minute audio
+  // billing. 120 tokens/day = ~20 hours of interview practice
+  // (10 min per session avg). Plenty for any single user.
+  transcriptionToken: { kind: "transcription-token", limit: 120 } satisfies RateLimitConfig,
+  // Sprint 1.2 (2026-05-17): per-utterance Whisper-style STT route.
+  // The VAD module in the desktop client emits ~1 utterance every
+  // 3-8 seconds during active conversation. A 30 min session averages
+  // 100-150 utterances; 2-3 sessions/day = 300-450 — the 400 cap is
+  // tight but not punitive. Tune up if real usage shows the floor.
+  copilotStt: { kind: "copilot-stt", limit: 400 } satisfies RateLimitConfig,
 } as const;
 
 export type Env_ = Env; // re-export so callers don't need to dance around types

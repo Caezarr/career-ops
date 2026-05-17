@@ -31,6 +31,7 @@
  */
 import { Hono } from "hono";
 import { findUserById } from "../lib/db";
+import { sendLoopsEmail, LoopsError } from "../lib/email";
 import { requireAuth, type AuthVars } from "../middleware/requireAuth";
 import type { Env, Plan } from "../types";
 import { REFUND_WINDOW_MS } from "../types";
@@ -179,6 +180,49 @@ billingRoutes.post("/webhook", async (c) => {
     )
     .run();
 
+  // Welcome email — fire after the D1 write so the user only
+  // gets the email if the plan flip actually persisted. Loops failure
+  // is non-fatal: we log it but still return 200 to Stripe so the
+  // webhook doesn't get retried (the user is already paid, Stripe
+  // re-firing won't fix a broken email).
+  //
+  // Two distinct Loops templates rather than one template with a
+  // Handlebars `{{#if}}` block — Loops' MJML upload path doesn't
+  // support conditionals, so we let the plan pick which template
+  // to fire. The Pro template references {DATA_VARIABLE:refundDeadline};
+  // the Lifetime template only needs {DATA_VARIABLE:userEmail}.
+  const welcomeTemplateId =
+    plan === "lifetime_pro"
+      ? c.env.LOOPS_TEMPLATE_WELCOME_PRO
+      : c.env.LOOPS_TEMPLATE_WELCOME_LIFETIME;
+
+  if (c.env.LOOPS_API_KEY && welcomeTemplateId) {
+    try {
+      const user = await findUserById(c.env.DB, userId);
+      if (user) {
+        const dataVariables: Record<string, string | number | boolean> = {
+          userEmail: user.email,
+        };
+        if (plan === "lifetime_pro" && refundDeadline) {
+          dataVariables.refundDeadline = new Date(refundDeadline).toLocaleDateString(
+            "fr-FR",
+            { year: "numeric", month: "long", day: "numeric" },
+          );
+        }
+        await sendLoopsEmail({
+          apiKey: c.env.LOOPS_API_KEY,
+          templateId: welcomeTemplateId,
+          email: user.email,
+          dataVariables,
+        });
+      }
+    } catch (e) {
+      const detail =
+        e instanceof LoopsError ? `${e.status}: ${e.message}` : String(e);
+      console.error(`welcome email failed for user=${userId} plan=${plan}: ${detail}`);
+    }
+  }
+
   return c.json({ received: true });
 });
 
@@ -228,11 +272,43 @@ billingRoutes.post("/refund", requireAuth, async (c) => {
     return c.json({ error: "window_expired" }, 410);
   }
 
+  const requestedAt = Date.now();
   await c.env.DB.prepare(
     `UPDATE users SET refund_requested_at = ? WHERE id = ?`,
   )
-    .bind(Date.now(), user.id)
+    .bind(requestedAt, user.id)
     .run();
+
+  // Notify the user that their request was received. Loops failure
+  // is non-fatal — the D1 flag is already set, support will see it
+  // even if the email never lands.
+  if (c.env.LOOPS_API_KEY && c.env.LOOPS_TEMPLATE_REFUND_REQUESTED) {
+    try {
+      const daysSincePurchase = user.purchased_at
+        ? Math.floor((requestedAt - user.purchased_at) / (24 * 60 * 60 * 1000))
+        : 0;
+      await sendLoopsEmail({
+        apiKey: c.env.LOOPS_API_KEY,
+        templateId: c.env.LOOPS_TEMPLATE_REFUND_REQUESTED,
+        email: user.email,
+        dataVariables: {
+          userEmail: user.email,
+          daysSincePurchase,
+          deadlineAt: user.refund_deadline_at
+            ? new Date(user.refund_deadline_at).toLocaleDateString("fr-FR", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : "",
+        },
+      });
+    } catch (e) {
+      const detail =
+        e instanceof LoopsError ? `${e.status}: ${e.message}` : String(e);
+      console.error(`refund-requested email failed for user=${user.id}: ${detail}`);
+    }
+  }
 
   return c.json({ requested: true, deadlineAt: user.refund_deadline_at });
 });

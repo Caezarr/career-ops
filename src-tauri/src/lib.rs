@@ -1,5 +1,16 @@
 mod ai;
 mod audio;
+// Phase 2 — Core Audio Tap loopback (macOS 14.4+). Replaces the
+// BlackHole prerequisite for system-audio capture; `audio.rs`
+// routes to this module when `loopback_device == "system-audio-tap"`.
+mod audio_tap;
+// macOS Tahoe 26 fallback path. The Core Audio Tap regression
+// (Apple Developer Forums thread 825780) delivers all-zero buffers
+// on Tahoe even with the user-side permissions granted. SCK pulls
+// audio from a different subsystem and keeps working. `session.rs`
+// tries SCK first when `loopback_device == SYSTEM_AUDIO_TAP_SENTINEL`
+// and falls back to `audio_tap` if SCK can't start.
+mod audio_capture_sck;
 mod billing;
 mod cloud;
 mod commands;
@@ -12,6 +23,11 @@ mod secrets;
 mod session;
 mod state;
 mod stt;
+// Sprint 1.1 (2026-05-17): Voice-Activity-Detection-segmented capture.
+// Ports Pluely's run_vad_capture onto our SCK / Core Audio Tap buffer.
+// Consumed by session.rs to drive the interviewer-side VAD → HTTP STT
+// pipeline that replaced the streaming AAI WebSocket.
+mod vad;
 
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -43,10 +59,13 @@ use commands::db::*;
 
 /// Reject calls that didn't originate from one of our app windows.
 /// Used by every command that touches user data, API keys, or
-/// privileged OS operations.
+/// privileged OS operations. Now also accepts the `teleprompter`
+/// window (Phase 5 — dedicated notch overlay) so it can call the
+/// stealth-mode toggle on session start/stop without bouncing IPC
+/// through the dashboard webview.
 pub(crate) fn assert_main_or_copilot(window: &WebviewWindow) -> Result<(), String> {
     let label = window.label();
-    if label == "main" || label == "copilot" {
+    if label == "main" || label == "copilot" || label == "teleprompter" {
         Ok(())
     } else {
         Err(format!(
@@ -60,13 +79,15 @@ pub(crate) fn assert_main_or_copilot(window: &WebviewWindow) -> Result<(), Strin
 /// `jobteaser_close_auth_window`, `jobteaser_jobs_received`) so a
 /// rogue main-window script can't impersonate the bridge.
 fn assert_jobteaser_auth(window: &WebviewWindow) -> Result<(), String> {
-    if window.label() == "jobteaser-auth" {
-        Ok(())
-    } else {
-        Err(format!(
-            "Command requires jobteaser-auth window, got '{}'",
-            window.label()
-        ))
+    // Both the visible auth window AND the headless sync window can
+    // call the JT capture / scrape commands. Same bridge script runs
+    // in each; only the URL + visibility differ.
+    match window.label() {
+        "jobteaser-auth" | "jobteaser-sync" => Ok(()),
+        other => Err(format!(
+            "Command requires jobteaser-auth or jobteaser-sync window, got '{}'",
+            other
+        )),
     }
 }
 
@@ -117,13 +138,37 @@ pub struct CaptureConfig {
     /// AssemblyAI API key for real-time streaming STT.
     #[serde(default)]
     pub assemblyai_key: String,
+    /// AssemblyAI temp token for the CANDIDATE's voice (mic). Optional —
+    /// when absent the user-voice transcript is silently disabled and
+    /// the teleprompter falls back to the Phase 4a timer. Phase 4b
+    /// introduces a SECOND AAI streaming WebSocket dedicated to the
+    /// mic, used to drive the teleprompter cursor via banded
+    /// Levenshtein matching on the spoken transcript.
+    #[serde(default)]
+    pub user_voice_assemblyai_token: String,
     /// Session mode: "qa" (default) or "pitch" (structured self-presentation).
     #[serde(default = "default_app_mode")]
     pub app_mode: String,
+    /// D4 (2026-05-16): scaffold vs full prose response style.
+    /// - "scaffold" (default) → TL;DR + bullets + closing line (Pluely
+    ///   pattern). What the candidate actually wants mid-call: short,
+    ///   scannable thoughts they can deliver one breath at a time.
+    /// - "full" → flowing paragraphs (legacy prose mode). Use when a
+    ///   narrative answer reads more naturally than a scaffold (e.g.
+    ///   storytelling questions).
+    ///
+    /// Persisted in localStorage on the frontend and forwarded
+    /// verbatim — `llm.rs::assemble_qa_system_prompt` reads it.
+    #[serde(default = "default_response_style")]
+    pub response_style: String,
 }
 
 fn default_app_mode() -> String {
     "qa".to_string()
+}
+
+fn default_response_style() -> String {
+    "scaffold".to_string()
 }
 
 fn default_duration() -> u32 {
@@ -243,6 +288,13 @@ async fn start_session(
     config: CaptureConfig,) -> Result<(), String> {
     assert_main_or_copilot(&window)?;
     let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+    // T5: unbounded mpsc for force-answer requests. The `force_answer`
+    // Tauri command (Cmd+Shift+A + quick-action chips) sends on the
+    // stored sender; `run_session` selects! over the receiver alongside
+    // the 4s debouncer. Unbounded is fine here because the producer
+    // side is human-rate (max ~1 message/s in the worst case) and the
+    // consumer drains immediately.
+    let (force_tx, force_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
     {
         let mut s = state.lock().await;
         // If a session is already running, stop it first.
@@ -250,11 +302,23 @@ async fn start_session(
             let _ = existing.send(());
         }
         s.stop_signal = Some(stop_tx);
+        s.force_answer_tx = Some(force_tx);
     }
 
-    session::run_session(app, config, stop_rx)
+    let result = session::run_session(app, config, stop_rx, force_rx)
         .await
-        .map_err(|e| format!("{e:#}"))
+        .map_err(|e| format!("{e:#}"));
+
+    // Best-effort: clear the force-answer sender when the session
+    // returns (clean shutdown or error). Stop path also clears it
+    // explicitly below — both call sites must clear so a future
+    // command call after session end can't write into a dead channel.
+    {
+        let mut s = state.lock().await;
+        s.force_answer_tx = None;
+    }
+
+    result
 }
 
 #[tauri::command]
@@ -262,6 +326,48 @@ async fn stop_session(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), Stri
     let mut s = state.lock().await;
     if let Some(stop) = s.stop_signal.take() {
         let _ = stop.send(());
+    }
+    // T5: drop the force-answer sender so any in-flight chip click
+    // (very narrow race between user click + Stop button) becomes a
+    // silent no-op instead of resurrecting a torn-down session.
+    s.force_answer_tx = None;
+    Ok(())
+}
+
+/// T5 (2026-05-16): trigger Claude immediately, bypassing the 4s debouncer
+/// + the T1 minimum-words gate + the T2 half-duplex gate.
+///
+/// The intent string is OPTIONAL ("answer-now", "recap", "push-back",
+/// "follow-up", or empty). When non-empty it's prefixed onto the
+/// accumulated transcript as `[user-intent: <intent>] <transcript>`
+/// so the LLM knows what response shape the candidate wants. Empty =
+/// plain "force-fire" with whatever transcript is currently buffered.
+///
+/// Wired from:
+///   - the global Cmd+Shift+A shortcut (intent = "answer-now")
+///   - the teleprompter quick-action chips ("Answer now" / "Recap" /
+///     "Push back" / "Follow-up")
+///
+/// No-op when no session is running.
+#[tauri::command]
+async fn force_answer(
+    window: WebviewWindow,
+    state: State<'_, Arc<Mutex<AppState>>>,
+    intent: Option<String>,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let s = state.lock().await;
+    if let Some(tx) = &s.force_answer_tx {
+        // Unbounded → send is fire-and-forget; ignore the (rare) error
+        // where the receiver has already been dropped between session
+        // teardown and this call.
+        let _ = tx.send(intent.unwrap_or_default());
+    } else {
+        // No live session: silently ignore. The frontend gates chip
+        // visibility on `sessionActive`, but the global shortcut is
+        // always registered — without this branch a Cmd+Shift+A press
+        // while idle would log a noisy error.
+        tracing::info!("force_answer: ignored — no live session");
     }
     Ok(())
 }
@@ -275,6 +381,168 @@ async fn show_copilot_window(window: WebviewWindow,
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
     }
+    Ok(())
+}
+
+/// Show / hide the dedicated teleprompter overlay window (Phase 5).
+///
+/// The teleprompter has its own Tauri window so the candidate can
+/// have Zoom/Teams/Meet front-and-center and the prompter floats on
+/// top of it — instead of being pinned inside the dashboard webview
+/// where the user has to keep Career OS visible.
+///
+/// On show: position the window flush to the top of the primary
+/// monitor (screen edge to screen edge horizontally; the existing
+/// CSS handles the vertical offset that hides the text behind the
+/// notch on MBP 14/16"). On hide: send the window to (0,0) so the
+/// next show is fast — repositioning is async.
+///
+/// `set_ignore_cursor_events(true)` makes the window click-through:
+/// clicks pass straight to whatever is behind it (Zoom controls,
+/// the user's editor, etc.). Without it the candidate accidentally
+/// focuses the prompter when reaching for a Zoom button.
+#[tauri::command]
+async fn set_teleprompter_visible(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    visible: bool,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let Some(tp) = app.get_webview_window("teleprompter") else {
+        // Window not declared / failed to boot. Best-effort no-op so
+        // the JS caller doesn't have to platform-gate.
+        tracing::warn!("teleprompter window unavailable");
+        return Ok(());
+    };
+    if visible {
+        // Resize + reposition to span the top of the primary monitor.
+        // `current_monitor()` returns the monitor the window is
+        // currently on; for the teleprompter we want the user's
+        // PRIMARY display where the camera lives — `primary_monitor`
+        // is the right call. Width × 220 px is enough for 4-5 lines
+        // of the 34 px IBM Plex Mono used in the CSS.
+        if let Ok(Some(monitor)) = app.primary_monitor() {
+            let size = monitor.size();
+            let scale = monitor.scale_factor();
+            let logical_w = (size.width as f64) / scale;
+            // 320 px: enough for 3-4 lines of the 44 px Courier text
+            // with line-height 1.45 (≈64 px/line) + the top padding.
+            // Bumped from 220 when the Phase 6 visual upgrade landed.
+            let _ = tp.set_size(tauri::LogicalSize::new(logical_w, 320.0));
+            // Anchor to the top-left of the primary monitor. macOS
+            // counts the notch height into the menu bar inset that
+            // the CSS already accounts for.
+            let pos = monitor.position();
+            let logical_x = (pos.x as f64) / scale;
+            let logical_y = (pos.y as f64) / scale;
+            let _ = tp.set_position(tauri::LogicalPosition::new(logical_x, logical_y));
+        }
+        // Click-through. Argument is `ignore` (true = pass clicks
+        // through). `?` would abort the whole call if this errors
+        // on a platform that doesn't support it; we just warn.
+        if let Err(e) = tp.set_ignore_cursor_events(true) {
+            tracing::warn!("teleprompter set_ignore_cursor_events failed: {e}");
+        }
+        tp.show().map_err(|e| e.to_string())?;
+        // Pop above all other windows. `set_always_on_top(true)`
+        // is also set in tauri.conf.json, but re-asserting it on
+        // every show handles cases where macOS demoted the window
+        // (Mission Control, expose, etc.).
+        let _ = tp.set_always_on_top(true);
+    } else {
+        tp.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Snapshot of the data the teleprompter window needs to render.
+/// Mirrors a subset of the dashboard's Zustand store. Pushed via
+/// `app.emit_to("teleprompter", "teleprompter-state", …)` whenever
+/// the relevant fields change — the teleprompter webview owns its
+/// own local state hydrated from this stream.
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TeleprompterState {
+    /// Full answer text the candidate should read. Either the
+    /// in-flight stream or the last committed answer.
+    pub text: String,
+    /// `true` while Claude is still emitting tokens — the
+    /// teleprompter holds the cursor a couple of words behind in
+    /// this mode (see STREAM_BUFFER_WORDS in CopilotTeleprompter).
+    pub is_streaming: bool,
+    /// `true` when a session is open. The teleprompter hides
+    /// itself entirely when this flips false.
+    pub session_active: bool,
+    /// Phase 4b: latest partial user-voice transcript chunk (the
+    /// candidate's mic, transcribed by the second AAI stream).
+    /// Drives the standalone teleprompter window's banded-Levenshtein
+    /// cursor matcher. Empty string when ASR is disabled or no
+    /// partial has arrived yet.
+    #[serde(default)]
+    pub user_partial: String,
+}
+
+/// Push the latest teleprompter state to the standalone window. The
+/// dashboard webview is the source of truth for `pendingAnswer` +
+/// `lastAnswer` + `status`; it calls this command whenever those
+/// change. Cheap fire-and-forget — the teleprompter window listens
+/// on `teleprompter-state` events and re-renders.
+#[tauri::command]
+async fn push_teleprompter_state(
+    window: WebviewWindow,
+    app: tauri::AppHandle,
+    state: TeleprompterState,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    app.emit_to("teleprompter", "teleprompter-state", state)
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Toggle the app's macOS activation policy between `Regular` (normal
+/// app with Dock icon, in CMD+Tab, in Mission Control) and `Accessory`
+/// (background process — no Dock, no CMD+Tab, no Mission Control).
+///
+/// We flip to `Accessory` at the start of an interview session so the
+/// app disappears from every obvious surface where the candidate's
+/// interviewer might spot it. On stop we flip back to `Regular` so the
+/// user can find Career OS the normal way again.
+///
+/// This is the Career-OS-specific dynamic equivalent of `LSUIElement=true`
+/// in Info.plist (which would make the app *always* an Accessory — bad
+/// UX for the dashboard-management flow outside of interviews).
+///
+/// macOS-only: on other platforms this is a no-op so callers don't have
+/// to platform-gate.
+/// Stealth toggle — **currently a no-op** on macOS.
+///
+/// We tried for hours to make a clean Regular ↔ Accessory dynamic
+/// toggle work via `NSApplication.setActivationPolicy:` + `activate:`
+/// + `unhide:` combinations. On macOS 14/15 the kernel + Dock get
+/// into an inconsistent state where:
+///   - Accessory → Dock icon sometimes stays visible
+///   - Regular → Dock icon never comes back, or windows hide
+///   - The hide/unhide hammer hides the user's app windows entirely
+///
+/// Each combination broke a different surface. The real stealth
+/// surface that matters (invisibility to Zoom/Meet/Teams screen-share)
+/// is fully covered by `contentProtected: true` on the windows — set
+/// in `tauri.conf.json` and reapplied at boot in the setup hook
+/// above. That works reliably across macOS versions.
+///
+/// We keep this command as a no-op so the frontend invokes are
+/// harmless (the call site is `useCopilotSession.ts` on session
+/// start/stop). When Apple ships a stable dynamic-policy API, or
+/// when we move to permanent `LSUIElement=true` (Cluely-style), this
+/// is where the implementation lands.
+#[tauri::command]
+async fn set_stealth_mode(
+    window: WebviewWindow,
+    #[allow(unused_variables)] app: tauri::AppHandle,
+    enabled: bool,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    tracing::debug!(stealth = enabled, "set_stealth_mode no-op (see lib.rs comment)");
     Ok(())
 }
 
@@ -776,6 +1044,52 @@ async fn jobteaser_auth_open(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// Background sync — opens an invisible WebView straight at the job
+/// listings page. The JT session cookie (HttpOnly) persists across
+/// launches inside the WebKit data store, so the headless window
+/// loads pre-authenticated and the bridge can scrape without any UI.
+///
+/// If the cookie expired and JT bounces us to `/users/sign_in`, the
+/// bridge detects that and emits `jobteaser-auth-required`. The
+/// frontend then opens the regular visible auth window.
+///
+/// Window label: `jobteaser-sync` (distinct from the visible auth
+/// flow so `assert_jobteaser_auth` can accept both).
+#[tauri::command]
+async fn jobteaser_sync_open(app: tauri::AppHandle) -> Result<(), String> {
+    use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    // Concurrent syncs would double-fire `jobteaser_jobs_received`.
+    // If a sync window already exists, no-op — the previous run is
+    // still in flight.
+    if app.get_webview_window("jobteaser-sync").is_some() {
+        return Ok(());
+    }
+
+    let bridge_script = include_str!("./ingest/jobteaser/auth_bridge.js");
+
+    // We inject a global flag the bridge reads on boot to:
+    //   - skip rendering the visible status panel
+    //   - exit cleanly if JT redirects back to /users/sign_in
+    //     (= cookies expired, can't recover headlessly)
+    let prelude = "window.__JT_HEADLESS__ = true;\n";
+
+    let url: tauri::Url = "https://www.jobteaser.com/fr/job-offers"
+        .parse()
+        .map_err(|e: <tauri::Url as std::str::FromStr>::Err| e.to_string())?;
+
+    WebviewWindowBuilder::new(&app, "jobteaser-sync", WebviewUrl::External(url))
+        .visible(false)
+        .skip_taskbar(true)
+        .resizable(false)
+        .inner_size(1024.0, 768.0)
+        .initialization_script(format!("{}{}", prelude, bridge_script))
+        .build()
+        .map_err(|e| format!("open headless sync window: {}", e))?;
+
+    Ok(())
+}
+
 /// Called by the JS bridge once cookies + profile are captured.
 /// Persists to Keychain, returns the profile to the frontend so it
 /// can insert the IngestSource row + close the auth window.
@@ -816,18 +1130,40 @@ fn jobteaser_has_session(career_center_slug: String) -> bool {
     ingest::jobteaser::auth::has_stored_session(&career_center_slug)
 }
 
-/// Close the JT auth window — invoked from the bridge's "Close window"
-/// button after capture. WebKit blocks `window.close()` on
-/// programmatically-opened windows in this context, so we route it
-/// through a Tauri command.
+/// Close the JT auth OR sync window — invoked from the bridge's
+/// "Close window" button after capture, OR by the headless sync
+/// bridge when it has done its work / detected an expired session.
+/// WebKit blocks `window.close()` on programmatically-opened windows
+/// in this context, so we route it through a Tauri command.
 #[tauri::command]
 fn jobteaser_close_auth_window(
     app: tauri::AppHandle,
     window: WebviewWindow,
 ) -> Result<(), String> {
     assert_jobteaser_auth(&window)?;
-    if let Some(win) = app.get_webview_window("jobteaser-auth") {
+    // Use the caller's own label so closing the visible auth window
+    // doesn't accidentally close a concurrent headless sync (and vice
+    // versa).
+    let label = window.label().to_string();
+    if let Some(win) = app.get_webview_window(&label) {
         win.close().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// Bridge signal — the headless sync detected the WebView is on the
+/// login page (cookies expired). Emit `jobteaser-auth-required` so
+/// the dashboard can prompt the user to re-auth visibly. Then close
+/// the sync window so the next sync attempt doesn't reuse a stale one.
+#[tauri::command]
+fn jobteaser_sync_auth_required(
+    app: tauri::AppHandle,
+    window: WebviewWindow,
+) -> Result<(), String> {
+    assert_jobteaser_auth(&window)?;
+    let _ = app.emit("jobteaser-auth-required", ());
+    if let Some(win) = app.get_webview_window("jobteaser-sync") {
+        let _ = win.close();
     }
     Ok(())
 }
@@ -1118,13 +1454,31 @@ pub fn run() {
             app.manage(pool);
 
             // Best-effort stealth on macOS: window-level capture exclusion.
-            // Only the Copilot overlay needs to hide from screen capture; the
-            // main Dashboard window is a normal product window.
-            // On macOS 15+ this is ignored by ScreenCaptureKit but we still set it.
+            //
+            // We protect BOTH the Copilot overlay AND the main Dashboard:
+            // - Copilot overlay = the floating teleprompter/answer surface
+            //   during a live interview. Must be invisible to screen-share.
+            // - Main Dashboard = where the candidate stages CVs / jobs.
+            //   Normally not visible during the interview, but we still
+            //   set the flag as a safety net in case the user accidentally
+            //   surfaces it (e.g. CMD+Tab) while screen-sharing.
+            //
+            // The config file (`tauri.conf.json`) also sets
+            // `contentProtected: true` on both windows — this is the
+            // runtime mirror so we don't depend on the config being
+            // honored on every Tauri version.
+            //
+            // On macOS 15+, ScreenCaptureKit ignores this flag in some
+            // Zoom/Meet builds. There is no clean public bypass. The
+            // setup-hook + config combo matches what every public clone
+            // (Cluely, Interview-Coder forks, Pluely) does — that's the
+            // ceiling of what's reachable from userspace today.
             #[cfg(target_os = "macos")]
             {
-                if let Some(window) = app.get_webview_window("copilot") {
-                    let _ = window.set_content_protected(true);
+                for label in ["main", "copilot"] {
+                    if let Some(window) = app.get_webview_window(label) {
+                        let _ = window.set_content_protected(true);
+                    }
                 }
             }
 
@@ -1174,8 +1528,12 @@ pub fn run() {
             list_anthropic_models,
             start_session,
             stop_session,
+            force_answer,
             generate_pitch,
             show_copilot_window,
+            set_stealth_mode,
+            set_teleprompter_visible,
+            push_teleprompter_state,
             // DB: user
             db_get_user,
             db_update_user,
@@ -1209,6 +1567,15 @@ pub fn run() {
             db_append_response,
             db_end_interview,
             db_list_interviews,
+            // DB: copilot conversations (Sprint Week 1, task 1.3)
+            db_copilot_create_conversation,
+            db_copilot_append_message,
+            db_copilot_load_conversation,
+            db_copilot_list_conversations,
+            db_copilot_search_conversations,
+            db_copilot_archive_conversation,
+            db_copilot_delete_conversation,
+            db_copilot_update_title,
             // DB: prep
             db_create_prep_session,
             db_list_prep_sessions,
@@ -1237,6 +1604,8 @@ pub fn run() {
             ingest_get_builtin_sources,
             // Job Teaser SSO auth flow
             jobteaser_auth_open,
+            jobteaser_sync_open,
+            jobteaser_sync_auth_required,
             jobteaser_auth_complete,
             jobteaser_has_session,
             jobteaser_close_auth_window,
