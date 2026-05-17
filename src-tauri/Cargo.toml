@@ -1,6 +1,6 @@
 [package]
 name = "career-ops"
-version = "0.0.5"
+version = "0.0.6"
 description = "Career operating system for top-firm job hunting — dashboard, war room, CV manager, prep, and stealth live copilot"
 authors = ["Gabriel"]
 edition = "2021"
