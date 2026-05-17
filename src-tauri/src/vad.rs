@@ -187,8 +187,7 @@ pub async fn run_vad_capture(
             };
             // Same anti-bloat drain pattern as the previous WS reader:
             // take everything, clear the upstream buffer, no cursor.
-            let taken = std::mem::take(&mut *buf);
-            taken
+            std::mem::take(&mut *buf)
         };
 
         if new_samples.is_empty() {

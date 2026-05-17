@@ -973,7 +973,7 @@ async fn run_user_aai_stream(
                 if pcm_tx.send(Bytes::from(frame)).await.is_err() { break; }
 
                 levels_seen += 1;
-                if levels_seen % 10 == 0 {
+                if levels_seen.is_multiple_of(10) {
                     // Per-second diagnostic — useful during pipeline
                     // tuning, too spammy for a production log. Demote
                     // to debug so RUST_LOG=info stays clean and
@@ -998,7 +998,7 @@ async fn run_user_aai_stream(
             bytes_sent += pcm.len() as u64;
             if ws_sink.send(Message::Binary(pcm.into())).await.is_err() { break; }
             frames_sent += 1;
-            if frames_sent % 10 == 0 {
+            if frames_sent.is_multiple_of(10) {
                 // Per-second diagnostic. Demoted to debug to keep info
                 // clean — final tx total stays at info for end-of-session
                 // accounting.

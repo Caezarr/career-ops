@@ -1083,7 +1083,7 @@ async fn jobteaser_sync_open(app: tauri::AppHandle) -> Result<(), String> {
         .skip_taskbar(true)
         .resizable(false)
         .inner_size(1024.0, 768.0)
-        .initialization_script(&format!("{}{}", prelude, bridge_script))
+        .initialization_script(format!("{}{}", prelude, bridge_script))
         .build()
         .map_err(|e| format!("open headless sync window: {}", e))?;
 

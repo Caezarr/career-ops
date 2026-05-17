@@ -50,6 +50,12 @@
 //! already in our Info.plist (driven by the Tauri config). The first
 //! call to `Stream::start` on a fresh install will prompt the user.
 
+// `define_obj_type!` (from cidre) expands to `mem::transmute(&self…)` to
+// reach the synthesized Obj-C inner-payload accessor — clippy flags
+// that as `useless_transmute`, but the macro isn't ours to change.
+// Suppress at the file level.
+#![allow(clippy::useless_transmute)]
+
 use anyhow::{anyhow, Context, Result};
 use cidre::{
     cat, cm, define_obj_type, dispatch, ns, objc, sc,
@@ -295,9 +301,11 @@ impl OutputImpl for SckAudioOutput {
         // explicit `return ();` so the Result temporary from
         // `lock()` cannot become the function's tail value — that
         // would extend its scope across the local Drop order and
-        // re-introduce the E0597 false-positive about `ctx`.
+        // re-introduce the E0597 false-positive about `ctx`. The
+        // trailing `;` (no explicit `return`) keeps the function's
+        // tail as `()` — clippy's needless_return lint is satisfied
+        // and the semantic is unchanged.
         let _ = ctx.buffer.lock().map(|mut b| b.extend_from_slice(&mono));
-        return;
     }
 }
 
