@@ -33,8 +33,8 @@ use cidre::{
     cat::{AudioBufList, AudioStreamBasicDesc},
     cf,
     core_audio::{
-        self as ca, aggregate_device_keys as agg_keys, sub_device_keys, AggregateDevice,
-        Device, TapDesc, TapGuard,
+        self as ca, aggregate_device_keys as agg_keys, hardware::sub_tap_keys,
+        sub_device_keys, AggregateDevice, Device, TapDesc, TapGuard,
     },
     ns, os,
 };
@@ -76,6 +76,11 @@ struct IoProcCtx {
     /// guard, prevents a runaway ring overflow from silently
     /// dropping a full interview.
     consecutive_drops: u32,
+    /// One-shot diagnostic: how many of the FIRST IO callbacks should
+    /// dump per-buffer layout via eprintln. Drops to 0 after dumping
+    /// — the IO proc must not allocate on a real-time thread for the
+    /// rest of the session.
+    debug_dumps_remaining: u8,
     /// Set by the IO proc when it gives up on the stream OR by the
     /// drop guard when the consumer side wants the proc to stop
     /// pushing.
@@ -138,9 +143,20 @@ impl SystemAudioCapture {
             &[sub_device_keys::uid()],
             &[output_uid.as_type_ref()],
         );
+        // 2026-05-16 Tahoe fix: include `kAudioSubTapDriftCompensationKey`
+        // on the sub-tap entry. Apple's AudioCap reference sample sets
+        // this; Pluely (and our previous code, copied from Pluely)
+        // omitted it. On macOS Tahoe 26 the omission causes the
+        // CoreAudio resampler to underrun silently when the tap's
+        // clock drifts vs the main sub-device — the IO proc keeps
+        // firing but delivers all-zero buffers. See Apple Developer
+        // Forums thread 825780 and AudioCap ProcessTap.swift.
         let sub_tap = cf::DictionaryOf::with_keys_values(
-            &[sub_device_keys::uid()],
-            &[tap_uid.as_type_ref()],
+            &[sub_tap_keys::uid(), sub_tap_keys::drift_compensation()],
+            &[
+                tap_uid.as_type_ref(),
+                cf::Boolean::value_true().as_type_ref(),
+            ],
         );
 
         // 5. Aggregate-device descriptor. `is_private = true` keeps
@@ -196,6 +212,7 @@ impl SystemAudioCapture {
             producer,
             sample_rate: sample_rate.clone(),
             consecutive_drops: 0,
+            debug_dumps_remaining: 3,
             should_terminate: should_terminate.clone(),
         });
 
@@ -304,14 +321,84 @@ extern "C" fn io_proc(
         ctx.sample_rate.store(rate as u32, Ordering::Release);
     }
 
-    // Walk the first buffer raw. The Pluely reference path uses
-    // `av::AudioPcmBuf::with_buf_list_no_copy` for ergonomic access
-    // but that pulls the AVFoundation feature into the build; the
-    // raw slice form below works without it.
+    // Walk ALL input buffers and pick the FIRST non-silent one. The
+    // aggregate device that hosts the tap can expose >1 input stream:
+    // the speaker's input scope (usually empty / silent) at index 0,
+    // the tap's output at index 1. Our previous code read buffers[0]
+    // unconditionally — which on macOS Tahoe is the silent stream.
+    // Hunting for the loud stream sidesteps the layout question
+    // without needing to introspect channel descriptions.
+    //
+    // The Rust type is `AudioBufList<1>` but the underlying C contract
+    // is a flexible array; we walk it via raw pointer arithmetic from
+    // `&buffers[0]` for `number_buffers` entries. Pluely uses the
+    // AVAudio view to do the same thing more ergonomically — we keep
+    // this raw form to avoid pulling AVFoundation into the build for
+    // a 10-line walk.
     if input_data.number_buffers == 0 {
         return os::Status::NO_ERR;
     }
-    let buf = &input_data.buffers[0];
+    let buf_count = input_data.number_buffers as usize;
+    let base = &input_data.buffers[0] as *const cidre::cat::AudioBuf;
+
+    // One-shot layout dump — see ctx field comment. Logging from the
+    // IO thread via eprintln is the same pattern Pluely uses for its
+    // overflow warning; safe for a 3-call max.
+    if ctx.debug_dumps_remaining > 0 {
+        let mut summary = String::with_capacity(256);
+        summary.push_str("audio-tap io_proc dump: number_buffers=");
+        summary.push_str(&buf_count.to_string());
+        for i in 0..buf_count {
+            let b = unsafe { &*base.add(i) };
+            summary.push_str(&format!(
+                " | buf[{i}] bytes={} chans={} data_null={}",
+                b.data_bytes_size,
+                b.number_channels,
+                b.data.is_null()
+            ));
+            if !b.data.is_null() && b.data_bytes_size >= 16 {
+                let bytes = unsafe {
+                    std::slice::from_raw_parts(b.data as *const u8, 16)
+                };
+                summary.push_str(" first16=");
+                for byte in bytes {
+                    summary.push_str(&format!("{:02x}", byte));
+                }
+            }
+        }
+        eprintln!("{summary}");
+        ctx.debug_dumps_remaining -= 1;
+    }
+
+    // Pick the FIRST input buffer whose samples are not all zero.
+    // Falls back to buffer[0] if all are silent (matches previous
+    // behaviour, lets the consumer-side peak logger surface it).
+    let mut chosen: Option<&cidre::cat::AudioBuf> = None;
+    for i in 0..buf_count {
+        let b = unsafe { &*base.add(i) };
+        if b.data.is_null() || b.data_bytes_size == 0 {
+            continue;
+        }
+        let float_count_i = b.data_bytes_size as usize / std::mem::size_of::<f32>();
+        let samples_i =
+            unsafe { std::slice::from_raw_parts(b.data as *const f32, float_count_i) };
+        // Quick non-zero probe: scan up to 32 samples (~0.7 ms at 48
+        // kHz) — enough to find real audio without sweeping the whole
+        // buffer on the real-time thread.
+        let probe_end = float_count_i.min(32);
+        let any_nonzero = samples_i[..probe_end].iter().any(|s| s.abs() > 1e-7);
+        if any_nonzero {
+            chosen = Some(b);
+            break;
+        }
+        if chosen.is_none() {
+            chosen = Some(b);
+        }
+    }
+
+    let Some(buf) = chosen else {
+        return os::Status::NO_ERR;
+    };
     let byte_count = buf.data_bytes_size as usize;
     if byte_count == 0 || buf.data.is_null() {
         return os::Status::NO_ERR;

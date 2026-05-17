@@ -252,17 +252,37 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       // Join finalised + new chunk with a space, but only if the
       // finalised section is non-empty (avoid a leading space).
       const joiner = finalized.length > 0 ? ' ' : '';
-      const newDisplay = finalized + joiner + trimmed;
+      let newDisplay = finalized + joiner + trimmed;
+      // 45-min stability cap (2026-05-17): the rendered interviewer
+      // transcript pane only displays the latest utterance for context;
+      // accumulating every interviewer turn for the entire session
+      // turns into 50+ KB of string after a long interview, with each
+      // re-render diffing the whole thing. Cap at ~800 chars (≈140
+      // words, plenty of recent context for the candidate to glance
+      // at). The full conversation history lives in SQLite via
+      // `copilot_conversation` — this pendingTranscript is purely
+      // live-state.
+      const MAX_INTERVIEWER_CHARS = 800;
+      let partialStartAfter = final ? newDisplay.length : s.pendingTranscriptPartialStart;
+      if (newDisplay.length > MAX_INTERVIEWER_CHARS) {
+        const dropped = newDisplay.length - MAX_INTERVIEWER_CHARS;
+        newDisplay = newDisplay.slice(-MAX_INTERVIEWER_CHARS);
+        // Shift the partial-start cursor by the same amount so the
+        // partial-vs-finalised boundary stays consistent post-trim.
+        partialStartAfter = final
+          ? newDisplay.length
+          : Math.max(0, partialStartAfter - dropped);
+      }
       if (final) {
-        // Promote the whole new display into the finalised prefix.
         return {
           pendingTranscript: newDisplay,
-          pendingTranscriptPartialStart: newDisplay.length,
+          pendingTranscriptPartialStart: partialStartAfter,
         };
       }
-      // Partial: leave the finalised prefix where it was; the
-      // trailing portion is just a draft.
-      return { pendingTranscript: newDisplay };
+      return {
+        pendingTranscript: newDisplay,
+        pendingTranscriptPartialStart: partialStartAfter,
+      };
     });
   },
   applyUserTranscriptDelta: ({ text, final }) => {
@@ -282,8 +302,22 @@ export const createCopilotSessionsSlice: StateCreator<CopilotSessionsSlice> = (
       }
       if (final) {
         const joiner = s.userTranscriptFinal.length > 0 ? ' ' : '';
+        const appended = s.userTranscriptFinal + joiner + trimmed;
+        // 45-min stability cap (2026-05-17): the cursor matcher only
+        // consumes the trailing ~5 words of userTranscriptFinal (see
+        // teleprompterMatch.ts), so retaining the full history is
+        // pure memory bloat. Cap at ~500 chars (≈90 words, 20-30s of
+        // speech worth of context) — more than enough for the matcher
+        // to anchor on, infinitesimal vs. a 45-min session of raw
+        // appends (which would be ~30 KB+ of string in Zustand state
+        // re-allocated on every utterance).
+        const MAX_USER_FINAL_CHARS = 500;
+        const capped =
+          appended.length > MAX_USER_FINAL_CHARS
+            ? appended.slice(-MAX_USER_FINAL_CHARS)
+            : appended;
         return {
-          userTranscriptFinal: s.userTranscriptFinal + joiner + trimmed,
+          userTranscriptFinal: capped,
           userTranscriptPartial: '',
           userTranscriptTick: tick,
         };

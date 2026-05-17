@@ -176,6 +176,109 @@ body.view-teleprompter #root {
 }
 
 /*
+ * D1 (2026-05-17) — Scaffold view.
+ *
+ * Renders Claude's structured response (TL;DR + 3-5 bullets + closing
+ * line) as scannable cards instead of prose. Designed for the
+ * candidate under live-interview pressure: each bullet sits as its own
+ * line at ~28 px so the eye can pick one in under a second, deliver
+ * it, then move to the next. The label pills ("TL;DR" / "Closing")
+ * are intentionally subdued — they're scaffolding, not content.
+ *
+ * Typography inherits the Courier Prime stack from `.cp-teleprompter__text`
+ * but at a smaller size since the bullets need to fit ~5 lines without
+ * scroll. Same shadow stack so the text composites cleanly on any
+ * backdrop.
+ */
+.cp-teleprompter__scaffold {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: #F4F4F4;
+  font-family:
+    'Courier Prime',
+    'Courier New',
+    'IBM Plex Mono',
+    'SFMono-Regular',
+    Menlo,
+    Consolas,
+    'Liberation Mono',
+    monospace;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 0 24px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 1),
+    0 0 1px rgba(255, 255, 255, 0.15),
+    0 2px 10px rgba(0, 0, 0, 0.7);
+  -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.55);
+}
+
+.cp-teleprompter__scaffold-label {
+  display: inline-block;
+  padding: 2px 8px;
+  margin-right: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 244, 244, 0.65);
+  border: 1px solid rgba(244, 244, 244, 0.18);
+  border-radius: 4px;
+  vertical-align: middle;
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+.cp-teleprompter__scaffold-tldr,
+.cp-teleprompter__scaffold-closing {
+  font-size: 26px;
+  line-height: 1.35;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.cp-teleprompter__scaffold-line {
+  flex: 1;
+  min-width: 0;
+}
+
+.cp-teleprompter__scaffold-bullets {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cp-teleprompter__scaffold-bullet {
+  font-size: 28px;
+  line-height: 1.35;
+  position: relative;
+  padding-left: 28px;
+}
+
+.cp-teleprompter__scaffold-bullet::before {
+  /* Sharp custom marker — the default disc looks weak against the
+     heavy text shadows. A solid square at ~10 px sits cleanly above
+     the baseline and reads at any distance. */
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 0.55em;
+  width: 10px;
+  height: 10px;
+  background: rgba(244, 244, 244, 0.85);
+  box-shadow:
+    0 0 8px rgba(0, 0, 0, 0.9),
+    0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+/*
  * Per-word position indicator — Moody-style "all text equally
  * readable, position marker is minimal".
  *
@@ -351,4 +454,64 @@ body.view-teleprompter #root {
       0 2px 8px rgba(0, 0, 0, 0.75);
     -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.55);
   }
+}
+
+/*
+ * Wave 2 / T6 (2026-05-17) — Quick-action chip row.
+ *
+ * Sits under the teleprompter content. Each chip is a small pill the
+ * candidate can tap to force-fire Claude with a specific intent
+ * (Answer-now / Recap / Counter / Probe). Visible only during a live
+ * session; positioned in the bottom-right where it's reachable but
+ * doesn't fight the teleprompter text for attention.
+ */
+.cp-teleprompter__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 0 8px;
+}
+
+.cp-teleprompter__chip {
+  appearance: none;
+  border: 1px solid rgba(244, 244, 244, 0.22);
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(244, 244, 244, 0.92);
+  font-family:
+    'Courier Prime',
+    'Courier New',
+    'SFMono-Regular',
+    Menlo,
+    monospace;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 5px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    transform 0.08s ease;
+  /* Subtle drop shadow so the chip composites on any backdrop. */
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.6),
+    0 0 1px rgba(255, 255, 255, 0.1);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.cp-teleprompter__chip:hover {
+  background: rgba(0, 0, 0, 0.75);
+  border-color: rgba(244, 244, 244, 0.4);
+}
+
+.cp-teleprompter__chip:active {
+  transform: scale(0.96);
+}
+
+.cp-teleprompter__chip:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.65);
+  outline-offset: 2px;
 }

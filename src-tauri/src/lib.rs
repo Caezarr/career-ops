@@ -4,6 +4,13 @@ mod audio;
 // BlackHole prerequisite for system-audio capture; `audio.rs`
 // routes to this module when `loopback_device == "system-audio-tap"`.
 mod audio_tap;
+// macOS Tahoe 26 fallback path. The Core Audio Tap regression
+// (Apple Developer Forums thread 825780) delivers all-zero buffers
+// on Tahoe even with the user-side permissions granted. SCK pulls
+// audio from a different subsystem and keeps working. `session.rs`
+// tries SCK first when `loopback_device == SYSTEM_AUDIO_TAP_SENTINEL`
+// and falls back to `audio_tap` if SCK can't start.
+mod audio_capture_sck;
 mod billing;
 mod cloud;
 mod commands;
@@ -16,6 +23,11 @@ mod secrets;
 mod session;
 mod state;
 mod stt;
+// Sprint 1.1 (2026-05-17): Voice-Activity-Detection-segmented capture.
+// Ports Pluely's run_vad_capture onto our SCK / Core Audio Tap buffer.
+// Consumed by session.rs to drive the interviewer-side VAD → HTTP STT
+// pipeline that replaced the streaming AAI WebSocket.
+mod vad;
 
 use serde::Deserialize;
 use sqlx::SqlitePool;
@@ -137,10 +149,26 @@ pub struct CaptureConfig {
     /// Session mode: "qa" (default) or "pitch" (structured self-presentation).
     #[serde(default = "default_app_mode")]
     pub app_mode: String,
+    /// D4 (2026-05-16): scaffold vs full prose response style.
+    /// - "scaffold" (default) → TL;DR + bullets + closing line (Pluely
+    ///   pattern). What the candidate actually wants mid-call: short,
+    ///   scannable thoughts they can deliver one breath at a time.
+    /// - "full" → flowing paragraphs (legacy prose mode). Use when a
+    ///   narrative answer reads more naturally than a scaffold (e.g.
+    ///   storytelling questions).
+    ///
+    /// Persisted in localStorage on the frontend and forwarded
+    /// verbatim — `llm.rs::assemble_qa_system_prompt` reads it.
+    #[serde(default = "default_response_style")]
+    pub response_style: String,
 }
 
 fn default_app_mode() -> String {
     "qa".to_string()
+}
+
+fn default_response_style() -> String {
+    "scaffold".to_string()
 }
 
 fn default_duration() -> u32 {
@@ -260,6 +288,13 @@ async fn start_session(
     config: CaptureConfig,) -> Result<(), String> {
     assert_main_or_copilot(&window)?;
     let (stop_tx, stop_rx) = tokio::sync::oneshot::channel();
+    // T5: unbounded mpsc for force-answer requests. The `force_answer`
+    // Tauri command (Cmd+Shift+A + quick-action chips) sends on the
+    // stored sender; `run_session` selects! over the receiver alongside
+    // the 4s debouncer. Unbounded is fine here because the producer
+    // side is human-rate (max ~1 message/s in the worst case) and the
+    // consumer drains immediately.
+    let (force_tx, force_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
     {
         let mut s = state.lock().await;
         // If a session is already running, stop it first.
@@ -267,11 +302,23 @@ async fn start_session(
             let _ = existing.send(());
         }
         s.stop_signal = Some(stop_tx);
+        s.force_answer_tx = Some(force_tx);
     }
 
-    session::run_session(app, config, stop_rx)
+    let result = session::run_session(app, config, stop_rx, force_rx)
         .await
-        .map_err(|e| format!("{e:#}"))
+        .map_err(|e| format!("{e:#}"));
+
+    // Best-effort: clear the force-answer sender when the session
+    // returns (clean shutdown or error). Stop path also clears it
+    // explicitly below — both call sites must clear so a future
+    // command call after session end can't write into a dead channel.
+    {
+        let mut s = state.lock().await;
+        s.force_answer_tx = None;
+    }
+
+    result
 }
 
 #[tauri::command]
@@ -279,6 +326,48 @@ async fn stop_session(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), Stri
     let mut s = state.lock().await;
     if let Some(stop) = s.stop_signal.take() {
         let _ = stop.send(());
+    }
+    // T5: drop the force-answer sender so any in-flight chip click
+    // (very narrow race between user click + Stop button) becomes a
+    // silent no-op instead of resurrecting a torn-down session.
+    s.force_answer_tx = None;
+    Ok(())
+}
+
+/// T5 (2026-05-16): trigger Claude immediately, bypassing the 4s debouncer
+/// + the T1 minimum-words gate + the T2 half-duplex gate.
+///
+/// The intent string is OPTIONAL ("answer-now", "recap", "push-back",
+/// "follow-up", or empty). When non-empty it's prefixed onto the
+/// accumulated transcript as `[user-intent: <intent>] <transcript>`
+/// so the LLM knows what response shape the candidate wants. Empty =
+/// plain "force-fire" with whatever transcript is currently buffered.
+///
+/// Wired from:
+///   - the global Cmd+Shift+A shortcut (intent = "answer-now")
+///   - the teleprompter quick-action chips ("Answer now" / "Recap" /
+///     "Push back" / "Follow-up")
+///
+/// No-op when no session is running.
+#[tauri::command]
+async fn force_answer(
+    window: WebviewWindow,
+    state: State<'_, Arc<Mutex<AppState>>>,
+    intent: Option<String>,
+) -> Result<(), String> {
+    assert_main_or_copilot(&window)?;
+    let s = state.lock().await;
+    if let Some(tx) = &s.force_answer_tx {
+        // Unbounded → send is fire-and-forget; ignore the (rare) error
+        // where the receiver has already been dropped between session
+        // teardown and this call.
+        let _ = tx.send(intent.unwrap_or_default());
+    } else {
+        // No live session: silently ignore. The frontend gates chip
+        // visibility on `sessionActive`, but the global shortcut is
+        // always registered — without this branch a Cmd+Shift+A press
+        // while idle would log a noisy error.
+        tracing::info!("force_answer: ignored — no live session");
     }
     Ok(())
 }
@@ -1439,6 +1528,7 @@ pub fn run() {
             list_anthropic_models,
             start_session,
             stop_session,
+            force_answer,
             generate_pitch,
             show_copilot_window,
             set_stealth_mode,
@@ -1477,6 +1567,15 @@ pub fn run() {
             db_append_response,
             db_end_interview,
             db_list_interviews,
+            // DB: copilot conversations (Sprint Week 1, task 1.3)
+            db_copilot_create_conversation,
+            db_copilot_append_message,
+            db_copilot_load_conversation,
+            db_copilot_list_conversations,
+            db_copilot_search_conversations,
+            db_copilot_archive_conversation,
+            db_copilot_delete_conversation,
+            db_copilot_update_title,
             // DB: prep
             db_create_prep_session,
             db_list_prep_sessions,

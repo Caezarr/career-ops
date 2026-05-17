@@ -30,6 +30,19 @@ import type {
  * `thinking → ready|listening|error`.
  */
 
+// 2026-05-17: module-level singleton flag prevents double-subscription
+// of the Tauri event listeners under React 18 StrictMode (dev-only
+// double-mount of every useEffect). The previous design relied on the
+// `cancelled` closure variable + the listen() Promise resolution to
+// unregister, but listen() is async and so is the underlying Tauri
+// register-listener call. Window between cleanup and Promise resolution
+// leaves BOTH listeners registered on the Rust side, doubling every
+// answer-token / transcript / status event. Observed bug: every Claude
+// answer rendered with each chunk duplicated ("**TL;DR:** Je**TL;DR:**
+// Je me concentre…"). The singleton fixes it at the source: only the
+// first mount actually subscribes.
+let bridgeActive = false;
+
 // ─── Event bridge — listens to Tauri events, mutates the slice ─────
 export function useCopilotEventBridge() {
   const setStatus = useAppStore((s) => s.setCopilotStatus);
@@ -44,7 +57,71 @@ export function useCopilotEventBridge() {
   const prevStatusRef = useRef<CopilotStatus>('idle');
   const lastCommittedTranscriptIdRef = useRef<string | null>(null);
 
+  // Wave 2 (2026-05-17): SQLite-backed conversation persistence.
+  // Holds the active `copilot_conversation.id` for the duration of the
+  // session. Created on first interviewer-utterance / user-final and
+  // reused for every subsequent persist call until the session ends.
+  // Fire-and-forget pattern: every `invoke()` is .catch()'d so a DB
+  // hiccup never tanks the live UI. The full conversation history
+  // lives on disk and reloads on next launch via hydrateConversations.
+  const conversationIdRef = useRef<string | null>(null);
+  const ensureConversation = async (): Promise<string | null> => {
+    if (conversationIdRef.current) return conversationIdRef.current;
+    try {
+      const id = await invoke<{ id: string }>(
+        'db_copilot_create_conversation',
+        {
+          input: {
+            title:
+              'Session ' +
+              new Date().toLocaleString('fr-FR', {
+                dateStyle: 'short',
+                timeStyle: 'short',
+              }),
+            company: null,
+            role: null,
+          },
+        },
+      ).then((c) => c.id);
+      conversationIdRef.current = id;
+      return id;
+    } catch (err) {
+      console.warn('[persist] create conversation failed:', err);
+      return null;
+    }
+  };
+  const persistMessage = (
+    role: 'interviewer' | 'candidate' | 'copilot' | 'system',
+    content: string,
+    metadata?: Record<string, unknown>,
+  ) => {
+    if (!content.trim()) return;
+    ensureConversation().then((id) => {
+      if (!id) return;
+      invoke('db_copilot_append_message', {
+        input: {
+          conversationId: id,
+          role,
+          content,
+          attachments: null,
+          metadata: metadata ?? null,
+        },
+      }).catch((err) => {
+        console.warn('[persist] append message failed:', err);
+      });
+    });
+  };
+
   useEffect(() => {
+    // Singleton guard — see `bridgeActive` declaration above. If the
+    // bridge is already mounted (e.g. StrictMode's second pass) we
+    // skip the subscriptions entirely. The cleanup below releases the
+    // flag so a real unmount + re-mount (HMR, navigation) still works.
+    if (bridgeActive) {
+      return () => {};
+    }
+    bridgeActive = true;
+
     const cleanups: UnlistenFn[] = [];
     let cancelled = false;
 
@@ -87,10 +164,16 @@ export function useCopilotEventBridge() {
         // attach it to the session linked to the just-committed
         // transcript bubble.
         if (prev === 'thinking' && (next === 'ready' || next === 'listening')) {
+          const finalAnswer =
+            useAppStore.getState().pendingAnswer.trim();
           commitPendingAnswer({
             questionTranscriptId:
               lastCommittedTranscriptIdRef.current ?? undefined,
           });
+          // Wave 2: persist the Claude answer to SQLite.
+          if (finalAnswer) {
+            persistMessage('copilot', finalAnswer);
+          }
         }
 
         // Errors should also flush partial output.
@@ -101,6 +184,13 @@ export function useCopilotEventBridge() {
           });
         }
 
+        // Wave 2: when the session transitions BACK to idle, reset
+        // the conversation id so the next session starts a new
+        // copilot_conversation row.
+        if (prev !== 'idle' && next === 'idle') {
+          conversationIdRef.current = null;
+        }
+
         prevStatusRef.current = next;
         setStatus(next);
       }),
@@ -108,16 +198,36 @@ export function useCopilotEventBridge() {
 
     track(
       listen<{ text: string; final: boolean }>('transcript', (e) => {
-        // Backend (session.rs) now emits a structured payload with
-        // `final: bool` so the store can distinguish partials (replace
-        // the trailing draft) from finalised turns (append to the
-        // accumulated transcript). Without this split a long question
-        // with multiple speaker pauses would visually wipe itself
-        // every time AAI committed a turn.
+        // Legacy event — kept for the BYOK one-shot `start_capture`
+        // flow. The Sprint 1 live-session path no longer fires this;
+        // it emits `interviewer-utterance` instead (one event per VAD
+        // silence boundary, post-STT).
         applyTranscriptDelta(e.payload);
-        // A new question wipes the previous in-flight answer.
         clearPendingAnswer();
       }),
+    );
+
+    // Sprint 1.3 (2026-05-17): the interviewer transcript pipeline is
+    // now VAD → HTTP STT (see `src-tauri/src/vad.rs` + `src-tauri/src/stt.rs`),
+    // which emits ONE `interviewer-utterance` event per utterance
+    // (silence boundary) instead of the legacy per-partial `transcript`
+    // stream. The shape grew a `ts` and a `duration_ms` field for UI
+    // badges; text routing is otherwise identical — apply as a
+    // `final: true` delta (every utterance is self-contained, no
+    // partials to merge).
+    track(
+      listen<{ text: string; ts: number; duration_ms: number }>(
+        'interviewer-utterance',
+        (e) => {
+          applyTranscriptDelta({ text: e.payload.text, final: true });
+          clearPendingAnswer();
+          // Wave 2: persist the interviewer utterance to SQLite.
+          persistMessage('interviewer', e.payload.text, {
+            duration_ms: e.payload.duration_ms,
+            ts: e.payload.ts,
+          });
+        },
+      ),
     );
 
     // Phase 4b: candidate's voice (mic), transcribed by the second
@@ -129,12 +239,30 @@ export function useCopilotEventBridge() {
     track(
       listen<{ text: string; final: boolean }>('user-transcript', (e) => {
         applyUserTranscriptDelta(e.payload);
+        // Wave 2: persist only FINAL candidate utterances to SQLite.
+        // Partials would flood the DB with ~5 writes/sec — keep them
+        // in-memory only for the cursor matcher.
+        if (e.payload.final) {
+          persistMessage('candidate', e.payload.text);
+        }
       }),
     );
 
     track(
       listen<string>('answer-token', (e) => {
         appendPendingAnswerToken(e.payload);
+      }),
+    );
+
+    // D2 (2026-05-17): each new Claude generation emits
+    // `answer-stream-start` from the Rust debouncer / force-fire
+    // branch (T3 in session.rs). Wipe the previous answer text before
+    // the first token of the new stream arrives so the teleprompter
+    // doesn't briefly show "old answer + new tokens appended". Matches
+    // Pluely's cancel-and-restart pattern from `useSystemAudio.ts`.
+    track(
+      listen<void>('answer-stream-start', () => {
+        clearPendingAnswer();
       }),
     );
 
@@ -147,6 +275,7 @@ export function useCopilotEventBridge() {
     return () => {
       cancelled = true;
       cleanups.forEach((c) => c());
+      bridgeActive = false;
     };
   }, [
     setStatus,

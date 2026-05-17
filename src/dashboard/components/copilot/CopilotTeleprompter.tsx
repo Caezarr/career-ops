@@ -3,11 +3,72 @@ import {
   register as registerGlobalShortcut,
   unregister as unregisterGlobalShortcut,
 } from '@tauri-apps/plugin-global-shortcut';
+import { invoke } from '@tauri-apps/api/core';
 import { useAppStore } from '../../store';
 import {
   matchSpokenToScript,
   tokeniseSpoken,
 } from '../../lib/teleprompterMatch';
+
+/**
+ * Parse the scaffold-format Claude answer into structured pieces.
+ *
+ * The Rust LLM prompt (D3) demands Claude return EXACTLY this layout:
+ *
+ *     **TL;DR:** <one sentence>
+ *
+ *     - <bullet 1>
+ *     - <bullet 2>
+ *     - <bullet 3> ...
+ *
+ *     **Closing line:** <one sentence>
+ *
+ * We parse permissively so the renderer can stream — at token #5 of
+ * the response, only `**TL;DR:**` exists; at token #50, the first two
+ * bullets are partial; at #200 the full structure is settled. Every
+ * field defaults to null/empty so the renderer never crashes on a
+ * half-built response.
+ *
+ * Heuristics:
+ *   - TL;DR line ends at the first newline after the label OR at the
+ *     start of the first bullet (`\n-`), whichever comes first.
+ *   - Bullets are lines starting with `-` or `*` (after optional
+ *     indent). Trailing `-` characters in mid-prose are NOT bullets;
+ *     we require start-of-line.
+ *   - Closing line ends at end-of-string (final field).
+ *   - Bold markers (`**`) are stripped from the values — we apply our
+ *     own typography in the renderer.
+ */
+type Scaffold = {
+  tldr: string | null;
+  bullets: string[];
+  closing: string | null;
+  /** True if the response started with the scaffold header. Used to
+   *  decide whether to use the structured renderer vs legacy prose. */
+  isScaffold: boolean;
+};
+
+function parseScaffold(text: string): Scaffold {
+  if (!text) {
+    return { tldr: null, bullets: [], closing: null, isScaffold: false };
+  }
+  const tldrMatch = text.match(/\*\*TL;DR:\*\*\s*([^\n]*)/i);
+  const closingMatch = text.match(/\*\*Closing line:\*\*\s*([\s\S]*?)$/i);
+  const bulletMatches = Array.from(
+    text.matchAll(/^[\s]*[-*][\s]+(.+?)(?=\n[\s]*[-*]|\n\s*\n|\n\*\*|$)/gms),
+  );
+  const isScaffold = /\*\*TL;DR:\*\*/i.test(text);
+  return {
+    tldr: tldrMatch?.[1]?.trim().replace(/\*\*/g, '') || null,
+    bullets: bulletMatches
+      .map((m) => m[1].trim().replace(/\*\*/g, '').replace(/\n+/g, ' '))
+      .filter((b) => b.length > 0),
+    closing:
+      closingMatch?.[1]?.trim().replace(/\*\*/g, '').replace(/\n+/g, ' ') ||
+      null,
+    isScaffold,
+  };
+}
 
 /**
  * CopilotTeleprompter — Moody-style notch teleprompter (Phase 3) +
@@ -159,19 +220,85 @@ export default function CopilotTeleprompter() {
   const isStreaming = status === 'thinking' && pendingAnswer.length > 0;
 
   const tokens = useMemo(() => tokenize(text), [text]);
+  // Kept for the legacy timer-driven pace advance (`useEffect` below)
+  // which still walks the prose tokens for per-word punctuation holds.
+  // In scaffold mode the matcher drives the cursor; this fallback only
+  // kicks in if the matcher hasn't moved the cursor for > 2 s.
   const wordTokens = useMemo(
     () => tokens.filter((t) => t.kind === 'word'),
     [tokens],
   );
-  const totalWords = wordTokens.length;
+
+  // D1 (2026-05-17): structured scaffold view. When Claude returns the
+  // scaffold format (TL;DR + bullets + Closing line — enforced by the
+  // D3 system-prompt rule in llm.rs), we render that structured shape
+  // instead of word-by-word prose. Empty answer + non-scaffold legacy
+  // answers fall back to the word-by-word renderer below. Memoised so
+  // the parse only re-runs when `text` actually changes.
+  const scaffold = useMemo(() => parseScaffold(text), [text]);
+
+  // 2026-05-17: SOURCE OF TRUTH for the cursor.
+  //
+  // In scaffold mode the rendered words are the TL;DR content + each
+  // bullet + the closing line — NOT the raw markdown (no `**`, no
+  // bullet hyphens, no `TL;DR:` label). The cursor needs to index
+  // those rendered words exactly, otherwise the highlight + auto-
+  // scroll target the wrong span (or nothing at all). Compute a flat
+  // array of `{ text, wordIdx, section, sectionWordIdx }` so we can
+  // both feed the matcher and render with consistent data-word-index
+  // attributes.
+  //
+  // In prose mode this stays equivalent to the legacy tokens.filter
+  // (kind === 'word') so the matcher input and word count are
+  // unchanged.
+  type ContentWord = {
+    word: string;
+    wordIdx: number;
+    section: 'tldr' | 'bullet' | 'closing' | 'prose';
+    bulletIdx?: number;
+  };
+  const contentWords: ContentWord[] = useMemo(() => {
+    if (!scaffold.isScaffold) {
+      return tokens
+        .filter((t) => t.kind === 'word')
+        .map((t, i) => ({ word: t.value, wordIdx: i, section: 'prose' }));
+    }
+    const out: ContentWord[] = [];
+    const push = (
+      txt: string,
+      section: ContentWord['section'],
+      bulletIdx?: number,
+    ) => {
+      txt
+        .split(/\s+/)
+        .map((w) => w.trim())
+        .filter((w) => w.length > 0)
+        .forEach((w) => {
+          out.push({
+            word: w,
+            wordIdx: out.length,
+            section,
+            bulletIdx,
+          });
+        });
+    };
+    if (scaffold.tldr) push(scaffold.tldr, 'tldr');
+    scaffold.bullets.forEach((b, i) => push(b, 'bullet', i));
+    if (scaffold.closing) push(scaffold.closing, 'closing');
+    return out;
+  }, [scaffold, tokens]);
+
+  const totalWords = contentWords.length;
 
   // Phase 4b: pre-normalised script tokens — the matcher operates on
-  // lowercased, punctuation-stripped strings on both sides. We
-  // memoise here so the per-tick matcher call doesn't re-tokenise the
-  // whole script on every spoken word.
+  // lowercased, punctuation-stripped strings on both sides. Now built
+  // from `contentWords` so prose AND scaffold use the same indexing
+  // basis as the rendered DOM — guarantees the matcher's cursor
+  // result lines up 1:1 with the data-word-index attributes the
+  // auto-scroll effect targets.
   const scriptTokens = useMemo(
-    () => tokeniseSpoken(text),
-    [text],
+    () => tokeniseSpoken(contentWords.map((c) => c.word).join(' ')),
+    [contentWords],
   );
 
   const [cursor, setCursor] = useState(0);
@@ -405,6 +532,22 @@ export default function CopilotTeleprompter() {
       ['Alt+Up', () => bumpWpm(WPM_STEP)],
       ['Alt+Down', () => bumpWpm(-WPM_STEP)],
       ['Alt+KeyR', () => setCursor(0)],
+      // T5 (2026-05-17): manual "Answer now" shortcut. Forces Claude
+      // to generate against whatever's currently buffered (or just a
+      // bare intent if the buffer is empty). Bypasses the T1 word-count
+      // gate and the T2 already-generating gate; T3 still aborts the
+      // previous in-flight stream. The Rust `force_answer` command
+      // sends through the oneshot channel that `run_session` watches
+      // via `tokio::select!`.
+      [
+        'CmdOrCtrl+Shift+KeyA',
+        () => {
+          invoke('force_answer', { intent: '' }).catch((err) => {
+            // eslint-disable-next-line no-console
+            console.warn('[teleprompter] force_answer failed:', err);
+          });
+        },
+      ],
     ];
     const accelerators = bindings.map(([acc]) => acc);
     // Best-effort register. If the plugin throws (permission denied,
@@ -471,27 +614,112 @@ export default function CopilotTeleprompter() {
     <div className="cp-teleprompter" role="region" aria-label="Copilot teleprompter">
       <div className="cp-teleprompter__capsule">
         <div ref={bodyRef} className="cp-teleprompter__body">
-          <p className="cp-teleprompter__text">
-            {tokens.map((t, i) => {
-              if (t.kind === 'space') {
-                return <span key={i}>{t.value}</span>;
-              }
-              const idx = wordSeq;
-              wordSeq += 1;
-              let cls = 'cp-teleprompter__word';
-              if (idx < cursor) cls += ' cp-teleprompter__word--past';
-              else if (idx === cursor) cls += ' cp-teleprompter__word--current';
-              else cls += ' cp-teleprompter__word--future';
-              return (
-                <span key={i} className={cls} data-word-index={idx}>
-                  {t.value}
-                </span>
+          {scaffold.isScaffold ? (
+            // D1 scaffold view — TL;DR + bullets + closing line.
+            // 2026-05-17: rendered word-by-word with `data-word-index`
+            // attributes that line up 1:1 with the matcher cursor.
+            // The lazy auto-scroll effect (below) targets
+            // `data-word-index="${cursor}"` to keep the current word
+            // in the comfortable reading zone. Each word gets a
+            // past/current/future class so the candidate sees exactly
+            // where they are in the script.
+            (() => {
+              // Slice the flat contentWords array per section so we
+              // can render each part inside its own DOM container
+              // (TL;DR pill row, <ul>, Closing pill row) while keeping
+              // the global wordIdx stable.
+              const tldrWords = contentWords.filter((c) => c.section === 'tldr');
+              const closingWords = contentWords.filter(
+                (c) => c.section === 'closing',
               );
-            })}
-            {isStreaming && (
-              <span className="cp-teleprompter__cursor" aria-hidden="true" />
-            )}
-          </p>
+              const bulletGroups = scaffold.bullets.map((_, bi) =>
+                contentWords.filter(
+                  (c) => c.section === 'bullet' && c.bulletIdx === bi,
+                ),
+              );
+              const renderWord = (cw: ContentWord) => {
+                let cls = 'cp-teleprompter__word';
+                if (cw.wordIdx < cursor) cls += ' cp-teleprompter__word--past';
+                else if (cw.wordIdx === cursor)
+                  cls += ' cp-teleprompter__word--current';
+                else cls += ' cp-teleprompter__word--future';
+                return (
+                  <span
+                    key={cw.wordIdx}
+                    className={cls}
+                    data-word-index={cw.wordIdx}
+                  >
+                    {cw.word}
+                    {' '}
+                  </span>
+                );
+              };
+              return (
+                <div className="cp-teleprompter__scaffold">
+                  {tldrWords.length > 0 && (
+                    <div className="cp-teleprompter__scaffold-tldr">
+                      <span className="cp-teleprompter__scaffold-label">
+                        TL;DR
+                      </span>
+                      <span className="cp-teleprompter__scaffold-line">
+                        {tldrWords.map(renderWord)}
+                      </span>
+                    </div>
+                  )}
+                  {bulletGroups.length > 0 && (
+                    <ul className="cp-teleprompter__scaffold-bullets">
+                      {bulletGroups.map((words, bi) => (
+                        <li
+                          key={bi}
+                          className="cp-teleprompter__scaffold-bullet"
+                        >
+                          {words.map(renderWord)}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {closingWords.length > 0 && (
+                    <div className="cp-teleprompter__scaffold-closing">
+                      <span className="cp-teleprompter__scaffold-label">
+                        Closing
+                      </span>
+                      <span className="cp-teleprompter__scaffold-line">
+                        {closingWords.map(renderWord)}
+                      </span>
+                    </div>
+                  )}
+                  {isStreaming && (
+                    <span
+                      className="cp-teleprompter__cursor"
+                      aria-hidden="true"
+                    />
+                  )}
+                </div>
+              );
+            })()
+          ) : (
+            <p className="cp-teleprompter__text">
+              {tokens.map((t, i) => {
+                if (t.kind === 'space') {
+                  return <span key={i}>{t.value}</span>;
+                }
+                const idx = wordSeq;
+                wordSeq += 1;
+                let cls = 'cp-teleprompter__word';
+                if (idx < cursor) cls += ' cp-teleprompter__word--past';
+                else if (idx === cursor) cls += ' cp-teleprompter__word--current';
+                else cls += ' cp-teleprompter__word--future';
+                return (
+                  <span key={i} className={cls} data-word-index={idx}>
+                    {t.value}
+                  </span>
+                );
+              })}
+              {isStreaming && (
+                <span className="cp-teleprompter__cursor" aria-hidden="true" />
+              )}
+            </p>
+          )}
         </div>
       </div>
 
@@ -518,6 +746,79 @@ export default function CopilotTeleprompter() {
           {remaining} words left
         </span>
       </div>
+
+      {/* Wave 2 / T6 (2026-05-17): quick action chips. Each calls
+          `force_answer` with a prefilled `intent` string that the Rust
+          side prepends to the buffered interviewer transcript (see
+          `src-tauri/src/lib.rs::force_answer`). Bypasses the T1
+          word-count gate + T2 already-generating gate but respects T3
+          abort — so spamming chips cancels the previous answer cleanly
+          instead of stacking. Only shown when a live session is active. */}
+      {sessionActive && (
+        <div className="cp-teleprompter__chips" aria-label="Quick actions">
+          <button
+            type="button"
+            className="cp-teleprompter__chip"
+            title="⌘⇧A · Force Claude to answer now with the current buffered transcript"
+            onClick={() => {
+              invoke('force_answer', { intent: '' }).catch((err) => {
+                // eslint-disable-next-line no-console
+                console.warn('[chips] force_answer (now) failed:', err);
+              });
+            }}
+          >
+            Answer now
+          </button>
+          <button
+            type="button"
+            className="cp-teleprompter__chip"
+            title="Compress the previous answer to 2 bullets + a synthesis line"
+            onClick={() => {
+              invoke('force_answer', {
+                intent:
+                  'Recap the previous answer in 2 short bullets + one synthesis line. Same scaffold format.',
+              }).catch((err) => {
+                // eslint-disable-next-line no-console
+                console.warn('[chips] force_answer (recap) failed:', err);
+              });
+            }}
+          >
+            Recap
+          </button>
+          <button
+            type="button"
+            className="cp-teleprompter__chip"
+            title="Push back on the interviewer's last claim with a respectful counter-argument"
+            onClick={() => {
+              invoke('force_answer', {
+                intent:
+                  "The interviewer just challenged the previous point. Push back respectfully but firmly: pick the strongest counter and defend with one concrete example from the CV. Keep the scaffold format.",
+              }).catch((err) => {
+                // eslint-disable-next-line no-console
+                console.warn('[chips] force_answer (counter) failed:', err);
+              });
+            }}
+          >
+            Counter
+          </button>
+          <button
+            type="button"
+            className="cp-teleprompter__chip"
+            title="Drill down on the single specific point the interviewer flagged"
+            onClick={() => {
+              invoke('force_answer', {
+                intent:
+                  'The interviewer wants more detail on the LAST specific point. Drill down on that ONE point with 3 concrete sub-bullets — numbers, names, mechanism. Skip the TL;DR (already given). Just bullets + closing.',
+              }).catch((err) => {
+                // eslint-disable-next-line no-console
+                console.warn('[chips] force_answer (probe) failed:', err);
+              });
+            }}
+          >
+            Probe
+          </button>
+        </div>
+      )}
     </div>
   );
 }
