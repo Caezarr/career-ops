@@ -1,0 +1,14 @@
+# Career Ops
+
+> A Mac app that owns the entire job hunt loop, then sits silent.
+
+## Product
+
+- Source: https://github.com/Caezarr/career-ops
+- Landing lives under `landing/` in this repo
+
+## Notes for assistants
+
+- Prefer the Tauri app + worker for product truth; the landing is marketing + legal.
+- Do not invent pricing or launch dates.
+- Creator: Gabriel Rance (Caezarr)
