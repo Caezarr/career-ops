@@ -18,6 +18,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Audit findings published in `.planning/audit/2026-05-05/` (security,
   performance, backend, infra)
 - LICENSE file (all rights reserved — explicit)
+- VERIFY.md checklist: operator-runnable verification steps for
+  Vite/Remotion/Tauri/worker surfaces before merge (#67)
 
 ### Security
 - Stop persisting `document.cookie` from the JT auth bridge
