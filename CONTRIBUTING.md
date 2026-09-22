@@ -15,6 +15,7 @@ Use the Node version in `.nvmrc`. App shell is Vite + Tauri; Remotion lives unde
 - Do not commit secrets, real CVs, or personal job-hunt data.
 - Update `CHANGELOG.md` under `## Unreleased` for user-visible changes.
 - Smoke-test the affected package before opening the PR.
+- **Before merging:** Run through the [VERIFY.md](VERIFY.md) checklist to ensure all surfaces build and run correctly.
 
 ## Security
 
