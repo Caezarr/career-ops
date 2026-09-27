@@ -256,6 +256,8 @@ This is a personal project, but the planning is in the open. If you're building 
 - The [`CLAUDE.md`](CLAUDE.md) file is the canonical project orientation — read it first.
 - Issues and questions welcome. PRs are not accepted at this stage (single-user scope).
 
+For installation help, bug reporting, and support: see [SUPPORT.md](SUPPORT.md).
+
 ---
 
 ## 📜 License
