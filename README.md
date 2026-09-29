@@ -248,6 +248,17 @@ Career OS sees your CVs, your applications, and (for the Live Copilot) your inte
 
 ---
 
+## 📚 Operations & Documentation
+
+For operators and developers running career-ops locally:
+
+- **[`docs/OPERATOR.md`](docs/OPERATOR.md)** — Operator checklist: prerequisites, environment setup, start commands, and post-start smoke checks
+- **[`CLAUDE.md`](CLAUDE.md)** — Project orientation for AI assistants and humans (read this first)
+- **[`.planning/research/`](.planning/research/)** — Stack research, feature analysis, architecture decisions, and known pitfalls
+- **[SUPPORT.md](SUPPORT.md)** — Installation help, bug reporting, and community support
+
+---
+
 ## 🤝 Contributing
 
 This is a personal project, but the planning is in the open. If you're building something similar:
