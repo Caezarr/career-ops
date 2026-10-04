@@ -252,7 +252,9 @@ Career OS sees your CVs, your applications, and (for the Live Copilot) your inte
 
 For operators and developers running career-ops locally:
 
+- **[`docs/SMOKE.md`](docs/SMOKE.md)** — Quick smoke test checklist for morning validation (~2-3 min)
 - **[`docs/OPERATOR.md`](docs/OPERATOR.md)** — Operator checklist: prerequisites, environment setup, start commands, and post-start smoke checks
+- **[`VERIFY.md`](VERIFY.md)** — Comprehensive verification checklist for all surfaces (Vite, Tauri, Worker, Remotion)
 - **[`CLAUDE.md`](CLAUDE.md)** — Project orientation for AI assistants and humans (read this first)
 - **[`.planning/research/`](.planning/research/)** — Stack research, feature analysis, architecture decisions, and known pitfalls
 - **[SUPPORT.md](SUPPORT.md)** — Installation help, bug reporting, and community support

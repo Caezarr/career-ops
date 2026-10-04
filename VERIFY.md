@@ -2,6 +2,8 @@
 
 This checklist helps verify that Vite, Remotion, Tauri, and Worker surfaces build, run, and test correctly before merging changes.
 
+**Quick start:** For a fast morning validation (~2-3 min), see **[`docs/SMOKE.md`](docs/SMOKE.md)**.
+
 ## Prerequisites
 
 - macOS 13+
