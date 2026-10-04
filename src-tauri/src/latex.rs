@@ -18,6 +18,7 @@ use tokio::process::Command;
 use uuid::Uuid;
 
 /// Common interface for any LaTeX → PDF backend.
+#[allow(clippy::double_must_use)]
 #[async_trait::async_trait]
 pub trait LatexCompiler: Send + Sync {
     /// Compile `source` to a PDF file written under `output_dir`.
