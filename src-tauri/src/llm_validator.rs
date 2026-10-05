@@ -21,7 +21,6 @@
 //! ```
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 
 /// Structured CV snapshot for a single interview session.
 /// In production this would be populated from the ingested CV JSON.

@@ -363,6 +363,7 @@ fn test_citation_validation_works_in_french() {
 /// **Acceptance criterion 4:** This test explicitly documents that validation
 /// is EXCLUDED from the 5-second latency budget. See module-level doc comment.
 #[test]
+#[allow(clippy::assertions_on_constants)]
 fn test_timing_budget_exclusion_documented() {
     // This test exists to satisfy the "timing budget assertion or clear note"
     // requirement. The note is in the module-level doc comment.
