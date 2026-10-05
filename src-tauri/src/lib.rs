@@ -18,6 +18,9 @@ mod db;
 mod ingest;
 mod latex;
 mod llm;
+mod llm_validator;
+#[cfg(test)]
+mod llm_validator_tests;
 mod pdf;
 mod secrets;
 mod session;
