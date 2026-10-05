@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 /// Structured CV snapshot for a single interview session.
 /// In production this would be populated from the ingested CV JSON.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct CvSnapshot {
     /// Valid experience IDs (e.g., ["experience.0", "experience.1"]).
     pub experiences: Vec<String>,
@@ -32,6 +33,7 @@ pub struct CvSnapshot {
 
 impl CvSnapshot {
     /// Check if an experience ID is valid.
+    #[allow(dead_code)]
     pub fn has_experience(&self, id: &str) -> bool {
         self.experiences.contains(&id.to_string())
     }
@@ -39,6 +41,7 @@ impl CvSnapshot {
 
 /// Validate a batch of answer bullets against a CV snapshot.
 /// Returns only bullets with all citations resolved.
+#[allow(dead_code)]
 pub fn validate_bullets(bullets: &[String], snapshot: &CvSnapshot) -> Vec<String> {
     bullets
         .iter()
@@ -48,6 +51,7 @@ pub fn validate_bullets(bullets: &[String], snapshot: &CvSnapshot) -> Vec<String
 }
 
 /// Validate a single bullet. Returns true if all citations resolve.
+#[allow(dead_code)]
 fn validate_single_bullet(bullet: &str, snapshot: &CvSnapshot) -> bool {
     let refs = extract_refs(bullet);
     if refs.is_empty() {
@@ -58,6 +62,7 @@ fn validate_single_bullet(bullet: &str, snapshot: &CvSnapshot) -> bool {
 }
 
 /// Extract all `[ref: CV.experience.<id>]` patterns from a bullet.
+#[allow(dead_code)]
 fn extract_refs(text: &str) -> Vec<String> {
     let mut refs = Vec::new();
     // Simple pattern: [ref: CV.experience.<id>]
@@ -78,6 +83,7 @@ fn extract_refs(text: &str) -> Vec<String> {
 
 /// Job description snapshot for isolation testing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct JdSnapshot {
     pub job_id: String,
     pub company: String,
@@ -88,6 +94,7 @@ pub struct JdSnapshot {
 /// Full context snapshot for a single interview session.
 /// Immutable after creation; each job gets its own instance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct SessionSnapshot {
     pub session_id: String,
     pub cv: CvSnapshot,
@@ -96,6 +103,7 @@ pub struct SessionSnapshot {
 
 impl SessionSnapshot {
     /// Create a new session snapshot.
+    #[allow(dead_code)]
     pub fn new(session_id: String, cv: CvSnapshot, jd: Option<JdSnapshot>) -> Self {
         Self {
             session_id,
