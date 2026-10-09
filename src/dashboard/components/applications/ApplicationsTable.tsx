@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import ApplicationRow from './ApplicationRow';
 import PaginationBar from './PaginationBar';
+import EmptyStateChecklist from './EmptyStateChecklist';
 import { useAppStore } from '../../store';
 import { filterAndSortApplications } from './filterUtils';
 import { NotesDrawer } from '../shared';
@@ -56,9 +57,13 @@ export default function ApplicationsTable() {
 
         <div className="applications__rows">
           {visible.length === 0 ? (
-            <div className="ds-empty" style={{ padding: 32 }}>
-              <span>No applications match the current view.</span>
-            </div>
+            applications.length === 0 ? (
+              <EmptyStateChecklist />
+            ) : (
+              <div className="ds-empty" style={{ padding: 32 }}>
+                <span>No applications match the current view.</span>
+              </div>
+            )
           ) : (
             visible.map((app) => {
               const job = jobs.find((j) => j.id === app.jobId);
