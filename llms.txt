@@ -1,0 +1,101 @@
+# Career OS
+
+> Mac desktop job-hunt operating system — track applications, tailor CVs, drill questions, and get a stealth coach grounded in your own CV during live interviews.
+
+## Stack
+
+- **Desktop shell**: Tauri 2.10 + React 19 + Vite 6 + TypeScript 5.6
+- **Core**: Rust (stable) with Cargo
+- **Backend**: Cloudflare Worker (TypeScript)
+- **State management**: Zustand (sliced store)
+- **UI**: Hand-rolled CSS tokens, Lucide icons, cmdk, dnd-kit
+- **macOS bridge**: Swift sidecar (ScreenCaptureKit for audio capture)
+- **STT**: Deepgram Nova-3 primary, AssemblyAI failover, whisper.cpp local
+- **LLM**: Claude Sonnet 4.5+ primary, GPT-5/4o failover, Ollama local
+- **Persistence**: SQLite (sqlx) + JSONL transcripts
+- **Vector store**: LanceDB embedded
+- **Secrets**: macOS Keychain (keyring crate)
+- **CV parsing**: Docling (IBM, Python sidecar)
+
+## Project Structure
+
+```
+src/                    Frontend React app (Dashboard, Jobs, Applications, CV Manager, Prep, Live Copilot)
+  dashboard/            Main career OS surfaces
+  copilot/              Live overlay app (stealth interview coach)
+  teleprompter/         Teleprompter surface
+src-tauri/              Rust core (audio capture, STT, LLM, persistence, cloud client)
+  migrations/           SQLite schema migrations
+landing/                Marketing landing page (separate Vite app)
+worker/                 Cloudflare Worker backend (API, auth, Anthropic proxy)
+docs/                   Operator and developer documentation
+.planning/              Project planning artifacts (GSD workflow)
+remotion/               Video generation (Remotion)
+brand/                  Logo and brand assets
+```
+
+## Getting Started
+
+### Prerequisites
+
+- macOS 13+ (macOS 15+ recommended)
+- Rust (stable) + Cargo
+- Node 20+ and pnpm
+- Xcode Command Line Tools
+
+### Run from source
+
+```bash
+git clone https://github.com/Caezarr/career-ops.git
+cd career-ops
+pnpm install
+
+# Terminal 1: Worker
+cd worker
+cp .dev.vars.example .dev.vars   # then fill API keys
+pnpm install
+pnpm db:migrate:local
+pnpm dev    # http://localhost:8787
+
+# Terminal 2: App
+cd ..
+echo 'VITE_API_BASE_URL=http://localhost:8787' > .env.local
+pnpm tauri dev
+```
+
+### Common commands
+
+```bash
+pnpm tauri dev      # dev with hot reload
+pnpm tauri build    # produces unsigned .dmg
+pnpm typecheck      # tsc -b --noEmit
+pnpm build          # frontend-only build
+cargo test          # Rust tests
+```
+
+## Documentation
+
+- **README.md**: Full project overview, features, stack, and setup instructions
+- **SECURITY.md**: Security policy and vulnerability reporting
+- **SUPPORT.md**: Installation help, bug reporting, and community support
+- **CONTRIBUTING.md**: Contributing guidelines and PR workflow
+- **CLAUDE.md**: Project orientation for AI assistants (read this first)
+- **VERIFY.md**: Comprehensive verification checklist for all surfaces
+- **docs/OPERATOR.md**: Operator checklist for environment setup
+- **docs/SMOKE.md**: Quick smoke test checklist (~2-3 min)
+- **.planning/**: GSD planning artifacts (PROJECT, REQUIREMENTS, ROADMAP, research)
+
+## Key Design Principles
+
+- **Privacy-first**: No raw audio persisted, all data local, single-egress cloud client
+- **Zero CV hallucinations**: Citation-required prompts with post-generation validation
+- **Tier-1 reliability**: Dual-vendor failover (STT + LLM) + local degraded mode
+- **Stealth for macOS 15+**: Screen-share detection + masking (NSWindow.sharingType broken on Sequoia)
+- **Latency budget**: ≤5s from question-end to first bullet, target 2.5-3.5s
+
+## Links
+
+- Repository: https://github.com/Caezarr/career-ops
+- Releases: https://github.com/Caezarr/career-ops/releases
+- Issues: https://github.com/Caezarr/career-ops/issues
+- Security: https://github.com/Caezarr/career-ops/security/advisories/new
