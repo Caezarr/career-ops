@@ -146,7 +146,7 @@ The latest unsigned DMG lives on the [Releases page](https://github.com/Caezarr/
 
 - macOS 13+ (15+ recommended for screen-share masking)
 - Rust (stable) + Cargo
-- Node 20+ and `pnpm`
+- Node 22 LTS (see `.nvmrc`; Node 20 is end-of-life) and `pnpm`
 - Xcode Command Line Tools
 - (Optional) Deepgram + AssemblyAI + OpenAI keys for Live Copilot — **Anthropic is no longer needed locally**, the Worker hosts the credit
 
