@@ -37,10 +37,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup Node + pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
+      # `version` intentionally omitted — package.json's
+      # `packageManager: pnpm@9.15.4` is the source of truth (same as
+      # ci.yml). Setting both raises ERR_PNPM_BAD_PM_VERSION on v4+.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
 
       - uses: actions/setup-node@v7
         with:
