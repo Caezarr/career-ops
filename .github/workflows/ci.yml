@@ -12,10 +12,14 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   frontend:
     name: Frontend (TypeScript / Vite)
     runs-on: macos-14
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -43,6 +47,7 @@ jobs:
   rust:
     name: Rust (clippy / check / test)
     runs-on: macos-14
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: src-tauri

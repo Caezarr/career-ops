@@ -14,10 +14,16 @@ concurrency:
   group: security-${{ github.ref }}
   cancel-in-progress: true
 
+# gitleaks reads PR commits through the API, so it needs pull-requests: read.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   cargo-audit:
     name: cargo audit
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       # Cargo.lock lives under src-tauri/, not at repo root. Install
@@ -43,6 +49,7 @@ jobs:
   pnpm-audit:
     name: pnpm audit
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       # `version` intentionally omitted — package.json's `packageManager`
@@ -60,6 +67,7 @@ jobs:
   secret-scan:
     name: gitleaks
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -71,6 +79,7 @@ jobs:
   priv01-egress-guard:
     name: PRIV-01 single-egress guard
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
       - name: Forbid ad-hoc reqwest::Client::builder() outside cloud.rs
