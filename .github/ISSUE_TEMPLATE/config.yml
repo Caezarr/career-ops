@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Caezarr/career-ops/blob/main/SECURITY.md
+    about: Please report security issues privately by email, not in a public issue (see SECURITY.md).
+  - name: Install and setup help
+    url: https://github.com/Caezarr/career-ops/blob/main/SUPPORT.md
+    about: DMG install, first launch and setup questions — read SUPPORT.md before opening an issue.
